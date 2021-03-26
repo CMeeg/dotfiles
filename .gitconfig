@@ -1,0 +1,85 @@
+[core]
+	editor = code --new-window --wait
+	autocrlf = false
+	whitespace = cr-at-eol
+    pager = cat
+	longpaths = true
+[init]
+	defaultBranch = main
+[branch]
+	autosetuprebase = always
+[fetch]
+	prune = true
+[push]
+	followTags = true
+[diff]
+	tool = vscode
+[difftool "vscode"]
+	cmd = code --new-window --wait --diff $LOCAL $REMOTE
+	trustexitcode = true
+[merge]
+	tool = vscode
+	conflictstyle = diff3
+[mergetool "vscode"]
+	cmd = code --new-window --wait $MERGED
+[alias]
+	# Short status, show untracked files
+	s = status -u -s
+	# Expands the abbreviation in case you forget it!
+	move = mv
+	# Expands the abbreviation in case you forget it!
+	remove = rm
+	# Discards local changes - must specify path
+	discard = checkout --
+	# Add
+	a = add
+	# Add all changes to staging area
+	aa = add -A .
+	# Add in interactive patch mode
+	ap = add -p
+	# Remove file from the staging area - must specify path
+	unstage = reset -q HEAD --
+	# Commit - you will be prompted for a message
+	c = commit
+	# Commit - must specify message
+	cm = commit -m
+	# Amend the last commit - you will be prompted for a message
+	amend = commit --amend
+	# Amend the last commit - you will not be prompted for a message
+	fold = commit --amend --no-edit
+	# Effectively "undoes" the last commit, but leaving the changes to local files
+	uncommit = reset --mixed HEAD~
+	# Restores the unresolved state of a file, including all information about parent and merge base, which allows restarting the resolution
+	unmerge = checkout -m
+	# This will delete files from the index, but leave it on disk locally (though the change will need to be committed) - must specify path
+	untrack = rm -r --cached
+	# Start interactive rebase
+	rewrite = rebase -i
+	# Create a new branch
+	b = checkout -b
+	# Rename branch
+	rename-branch = branch -m
+	# Delete branch
+	delete-branch = branch -D
+	# List branches
+	branches = branch
+	# List branches by date last committed to
+	recent-branches = branch -a --sort=committerdate
+	# List unmerged branches
+	unmerged-branches = branch --no-merged
+	# Push to branch on "origin" remote with same name as current, and set remote tracking branch reference
+	publish = push -u origin HEAD
+	# List tags
+	tags = tag
+	# List stashes
+	stashes = stash list
+	# Save to stash
+	save = stash save
+	# Pop from stash
+	pop = stash pop
+	# List remotes
+	remotes = remote -v
+	# Show graph
+	graph = log --graph --date=relative --pretty=tformat:'%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%an %ad)%Creset' -20
+	# Show summary of commit history
+	history = log -10 --format=format:'%Cgreen%h %Creset%s (%aN, %ar)'
