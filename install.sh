@@ -19,23 +19,27 @@ setup_gitconfig () {
     if [ -f "${HOME}/.gitconfig" ]; then
         success "Found .gitconfig"
     else
-        info "Setting up .gitconfig"
+        if ! [[ -v REMOTE_CONTAINERS ]]; then
+            info "Setting up .gitconfig"
 
-        cp "${DOTFILES_ROOT}/.gitconfig" "${HOME}/.gitconfig"
+            cp "${DOTFILES_ROOT}/.gitconfig" "${HOME}/.gitconfig"
 
-        user " - What is your github author name?"
-        read -e git_authorname
-        user " - What is your github author email?"
-        read -e git_authoremail
+            user " - What is your github author name?"
+            read -e git_authorname
+            user " - What is your github author email?"
+            read -e git_authoremail
 
-        git config --global user.name "$git_authorname"
-        git config --global user.email "$git_authoremail"
+            git config --global user.name "$git_authorname"
+            git config --global user.email "$git_authoremail"
 
-        if [[ -v WSL_DISTRO_NAME ]]; then
-            git config --global credential.helper "/mnt/c/Program\\ Files/Git/mingw64/libexec/git-core/git-credential-wincred.exe"
+            if [[ -v WSL_DISTRO_NAME ]]; then
+                git config --global credential.helper "/mnt/c/Program\\ Files/Git/mingw64/libexec/git-core/git-credential-wincred.exe"
+            fi
+
+            success "Setup .gitconfig"
+        else
+            success "Skip .gitconfig - remote container"
         fi
-
-        success "Setup .gitconfig"
     fi
 }
 
