@@ -19,7 +19,10 @@ setup_gitconfig () {
     if [ -f "${HOME}/.gitconfig" ]; then
         success "Found .gitconfig"
     else
-        if ! [[ -v REMOTE_CONTAINERS ]]; then
+        if [[ -v REMOTE_CONTAINERS ]]; then
+            # Remote containers takes care of gitconfig for us
+            success "Skipped .gitconfig - remote container"
+        else
             info "Setting up .gitconfig"
 
             cp "${DOTFILES_ROOT}/.gitconfig" "${HOME}/.gitconfig"
@@ -37,10 +40,12 @@ setup_gitconfig () {
             fi
 
             success "Setup .gitconfig"
-        else
-            success "Skip .gitconfig - remote container"
         fi
     fi
+}
+
+copy_zshrc () {
+    cp "${DOTFILES_ROOT}/.zshrc" "${HOME}/.zshrc"
 }
 
 setup_zsh () {
@@ -62,13 +67,20 @@ setup_zsh () {
         info "Installing ohmyzsh"
 
         sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-        #sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-        cp "${DOTFILES_ROOT}/.zshrc" "${HOME}/.zshrc"
-
-        zsh
+        copy_zshrc
 
         success "Installed ohmyzsh"
+    fi
+
+    if [[ -v REMOTE_CONTAINERS ]]; then
+        # Remote containers can have .zshrc pre-installed - we want to overwrite it
+
+        info "Setting up .zshrc"
+
+        copy_zshrc
+
+        success "Setup .zshrc"
     fi
 }
 
