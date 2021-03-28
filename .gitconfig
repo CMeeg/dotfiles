@@ -2,7 +2,7 @@
 	editor = code --new-window --wait
 	autocrlf = false
 	whitespace = cr-at-eol
-    pager = cat
+	pager = cat
 	longpaths = true
 [init]
 	defaultBranch = main

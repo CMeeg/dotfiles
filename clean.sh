@@ -4,9 +4,9 @@
 # This script is basically the inverse of install.sh
 ###
 
-DOTFILES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 set -e
+
+DOTFILES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 . "${DOTFILES_ROOT}/scripts/prompt-utils.sh"
 
@@ -32,6 +32,12 @@ clean_zsh () {
     else
         success "No ohmyzsh"
     fi
+
+    info "Setting shell to bash"
+
+    chsh -s $(which bash)
+
+    success "Set shell to bash"
 }
 
 confirm "Cleaning" "Aborting"

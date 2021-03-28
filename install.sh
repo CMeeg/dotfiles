@@ -9,9 +9,9 @@
 # https://github.com/driesvints/dotfiles
 ###
 
-DOTFILES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 set -e
+
+DOTFILES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 . "${DOTFILES_ROOT}/scripts/prompt-utils.sh"
 
@@ -44,8 +44,12 @@ setup_gitconfig () {
     fi
 }
 
-copy_zshrc () {
+setup_zshrc () {
+    info "Setting up .zshrc"
+
     cp "${DOTFILES_ROOT}/.zshrc" "${HOME}/.zshrc"
+
+    success "Setup .zshrc"
 }
 
 setup_zsh () {
@@ -56,9 +60,22 @@ setup_zsh () {
 
         apt install zsh
 
-        chsh -s $(which zsh)
-
         success "Installed zsh"
+    fi
+
+    if [ "${SHELL}" = $(which zsh) ]; then
+        info "Shell is zsh"
+    else
+        if [[ -v REMOTE_CONTAINERS ]]; then
+            # Remote containers allow you to set the shell in devcontainer.json, which is better than doing it here because this will probably require admin rights and cause the script to pause execution
+            success "Skipped setting shell to zsh - remote container"
+        else
+            info "Setting shell to zsh"
+
+            chsh -s $(which zsh)
+
+            success "Set shell to zsh"
+        fi
     fi
 
     if [ -d "${HOME}/.oh-my-zsh" ]; then
@@ -68,19 +85,24 @@ setup_zsh () {
 
         sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
-        copy_zshrc
+        # ohmyzsh adds its own .zshrc so we want to overwrite it
+
+        setup_zshrc
+
+        zsh
 
         success "Installed ohmyzsh"
     fi
 
-    if [[ -v REMOTE_CONTAINERS ]]; then
-        # Remote containers can have .zshrc pre-installed - we want to overwrite it
-
-        info "Setting up .zshrc"
-
-        copy_zshrc
-
-        success "Setup .zshrc"
+    if [ -f "${HOME}/.zshrc" ]; then
+        if [[ -v REMOTE_CONTAINERS ]]; then
+            # Some remote containers have ohmyzsh and .zshrc pre-installed so we want to overwrite it
+            setup_zshrc
+        else
+            success "Found .zshrc"
+        fi
+    else
+        setup_zshrc
     fi
 }
 
