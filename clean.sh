@@ -33,6 +33,22 @@ clean_zsh () {
         success "No ohmyzsh"
     fi
 
+    if [ -d "${HOME}/.poshthemes" ]; then
+        success "Found ohmyposh"
+        info "Cleaning ohmyposh"
+
+        #TODO: Couldn't get this to work - permissions issues with chmod
+        #chmod -x /usr/local/bin/oh-my-posh
+        #rm /usr/local/bin/oh-my-posh
+
+        chmod u-rw "${HOME}/.poshthemes/"*.json
+        rm -r "${HOME}/.poshthemes"
+
+        success "Cleaned ohmyposh"
+    else
+        success "No ohmyposh"
+    fi
+
     info "Setting shell to bash"
 
     chsh -s $(which bash)

@@ -15,6 +15,18 @@ DOTFILES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 . "${DOTFILES_ROOT}/scripts/prompt-utils.sh"
 
+install () {
+    if command -v $1 > /dev/null 2>&1; then
+        info "$1 is installed"
+    else
+        info "Installing $1"
+
+        apt-get install $1 -y
+
+        success "$1 installed"
+    fi
+}
+
 setup_gitconfig () {
     if [ -f "${HOME}/.gitconfig" ]; then
         success "Found .gitconfig"
@@ -53,15 +65,7 @@ setup_zshrc () {
 }
 
 setup_zsh () {
-    if test $(which zsh); then
-        success "Found zsh"
-    else
-        info "Installing zsh"
-
-        apt install zsh
-
-        success "Installed zsh"
-    fi
+    install zsh
 
     if [ "${SHELL}" = $(which zsh) ]; then
         info "Shell is zsh"
@@ -76,6 +80,31 @@ setup_zsh () {
 
             success "Set shell to zsh"
         fi
+    fi
+
+    if [ -d "${HOME}/.poshthemes" ]; then
+        success "Found ohmyposh"
+    else
+        info "Installing ohmyposh"
+
+        if command -v oh-my-posh > /dev/null 2>&1; then
+            info "Found ohmyposh"
+        else
+            wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/posh-linux-amd64 -O /usr/local/bin/oh-my-posh
+            chmod +x /usr/local/bin/oh-my-posh
+
+            success "Installed ohmyposh"
+        fi
+
+        install unzip
+
+        mkdir "${HOME}/.poshthemes"
+        wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip -O "${HOME}/.poshthemes/themes.zip"
+        unzip "${HOME}/.poshthemes/themes.zip" -d "${HOME}/.poshthemes"
+        chmod u+rw "${HOME}/.poshthemes/"*.json
+        rm "${HOME}/.poshthemes/themes.zip"
+
+        success "Installed ohmyposh themes"
     fi
 
     if [ -d "${HOME}/.oh-my-zsh" ]; then
