@@ -90,8 +90,8 @@ setup_zsh () {
         if command -v oh-my-posh > /dev/null 2>&1; then
             info "Found ohmyposh"
         else
-            wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/posh-linux-amd64 -O /usr/local/bin/oh-my-posh
-            chmod +x /usr/local/bin/oh-my-posh
+            sudo wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/posh-linux-amd64 -O /usr/local/bin/oh-my-posh
+            sudo chmod +x /usr/local/bin/oh-my-posh
 
             success "Installed ohmyposh"
         fi
@@ -118,8 +118,6 @@ setup_zsh () {
 
         setup_zshrc
 
-        zsh
-
         success "Installed ohmyzsh"
     fi
 
@@ -135,9 +133,19 @@ setup_zsh () {
     fi
 }
 
+info "Starting dotfiles install"
+
 setup_gitconfig
 
 # Do this last as it configures the shell
 setup_zsh
 
-success "All done!"
+if [[ -v REMOTE_CONTAINERS ]]; then
+    info "Skipped zsh command - remote container"
+
+    success "All done!"
+else
+    success "All done!"
+
+    zsh
+fi

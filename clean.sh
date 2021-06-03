@@ -28,6 +28,8 @@ clean_zsh () {
 
         sh "${HOME}/.oh-my-zsh/tools/uninstall.sh"
 
+        chsh -s $(which bash)
+
         success "Cleaned .zshrc"
     else
         success "No ohmyzsh"
@@ -37,29 +39,26 @@ clean_zsh () {
         success "Found ohmyposh"
         info "Cleaning ohmyposh"
 
-        #TODO: Couldn't get this to work - permissions issues with chmod
-        #chmod -x /usr/local/bin/oh-my-posh
-        #rm /usr/local/bin/oh-my-posh
+        sudo chmod -x /usr/local/bin/oh-my-posh
+        sudo rm /usr/local/bin/oh-my-posh
 
         chmod u-rw "${HOME}/.poshthemes/"*.json
-        rm -r "${HOME}/.poshthemes"
+        rm -rf "${HOME}/.poshthemes"
 
         success "Cleaned ohmyposh"
     else
         success "No ohmyposh"
     fi
-
-    info "Setting shell to bash"
-
-    chsh -s $(which bash)
-
-    success "Set shell to bash"
 }
 
 confirm "Cleaning" "Aborting"
+
+info "Starting dotfiles clean"
 
 clean_gitconfig
 
 clean_zsh
 
 success "All done!"
+
+exec bash
