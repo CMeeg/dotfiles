@@ -21,7 +21,7 @@
 	tool = vscode
 	conflictstyle = diff3
 [mergetool "vscode"]
-	cmd = code --new-window --wait $MERGED
+	cmd = code --new-window --wait --merge $REMOTE $LOCAL $BASE $MERGED
 [alias]
 	# Short status, show untracked files
 	s = status -u -s
