@@ -119,5 +119,20 @@ export EDITOR="code --wait"
 if [ -f "$HOME/.secrets" ]; then
     . "$HOME/.secrets"
 fi
+
+# fnm
+FNM_PATH="$HOME/.local/share/fnm"
+if [ -d "$FNM_PATH" ]; then
+  export PATH="$FNM_PATH:$PATH"
+  eval "$(fnm env --shell bash)"
+fi
+
+# opencode
+export PATH="$HOME/.opencode/bin:$PATH"
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
 # starship (this should be placed at the end of this file)
 eval "$(starship init bash)"
