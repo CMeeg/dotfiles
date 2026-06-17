@@ -1,135 +1,142 @@
 {
-	"bicep.enableSurveys": false,
-	"biome.suggestInstallingGlobally": false,
-	"chat.agentFilesLocations": {
-		".agents/agents": true,
-		"~/.agents/agents": true
-	},
-	"chat.agentSkillsLocations": {
-		".agents/skills": true,
-		"~/.agents/skills": true
-	},
-	"chat.editor.wordWrap": "on",
-	"chat.hookFilesLocations": {
-		".agents/hooks": true,
-		"~/.agents/hooks": true
-	},
-	"chat.instructionsFilesLocations": {
-		".agents/instructions": true,
-		"~/.agents/instructions": true
-	},
-	"chat.mcp.gallery.enabled": true,
-	"chat.promptFilesLocations": {
-		".agents/prompts": true,
-		"~/.agents/prompts": true
-	},
-	"chat.tools.urls.autoApprove": {
-		"https://code.visualstudio.com": true,
-		"https://github.com/microsoft/vscode/wiki/*": true,
-		"https://www.storyblok.com": true
-	},
-	"chat.useAgentsMdFile": true,
-	"chat.useCustomizationsInParentRepositories": true,
-	"chat.useNestedAgentsMdFiles": true,
-	"chat.viewSessions.orientation": "stacked",
-	"csharp.experimental.debug.hotReload": true,
-	"cSpell.diagnosticLevel": "Hint",
-	"cSpell.enabledFileTypes": {
-		"markdown": true
-	},
-	"cSpell.language": "en-GB",
-	"diffEditor.ignoreTrimWhitespace": true,
-	"editor.bracketPairColorization.enabled": true,
-	"editor.bracketPairColorization.independentColorPoolPerBracketType": true,
-	"editor.copyWithSyntaxHighlighting": false,
-	"editor.folding": false,
-	"editor.fontFamily": "'JetBrainsMono Nerd Font', Consolas, 'Courier New', monospace",
-	"editor.fontLigatures": true,
-	"editor.fontSize": 16,
-	"editor.formatOnSave": false,
-	"editor.guides.bracketPairs": "active",
-	"editor.hover.delay": 1500,
-	"editor.inlineSuggest.enabled": true,
-	"editor.minimap.enabled": false,
-	"editor.renderWhitespace": "all",
-	"editor.wordWrap": "on",
-	"git.autofetch": true,
-	"git.mergeEditor": true,
-	"git.openRepositoryInParentFolders": "never",
-	"github.copilot.enable": {
-		"*": false,
-		"markdown": false,
-		"plaintext": false,
-		"scminput": false
-	},
-	"js/ts.updateImportsOnFileMove.enabled": "never",
-	"json.schemaDownload.trustedDomains": {
-		"https://aka.ms": true,
-		"https://biomejs.dev": true,
-		"https://developer.microsoft.com/json-schemas/": true,
-		"https://json.schemastore.org": true,
-		"https://json-schema.org": true,
-		"https://models.dev": true,
-		"https://opencode.ai": true,
-		"https://raw.githubusercontent.com/devcontainers/spec/": true,
+  "bicep.enableSurveys": false,
+  "biome.suggestInstallingGlobally": false,
+  "chat.agent.enabled": false,
+  "chat.agentFilesLocations": {
+    ".agents/agents": true,
+    "~/.agents/agents": true
+  },
+  "chat.agentSkillsLocations": {
+    ".agents/skills": true,
+    "~/.agents/skills": true
+  },
+  "chat.commandCenter.enabled": false,
+  "chat.detectParticipant.enabled": false,
+  "chat.disableAIFeatures": true,
+  "chat.editor.wordWrap": "on",
+  "chat.hookFilesLocations": {
+    ".agents/hooks": true,
+    "~/.agents/hooks": true
+  },
+  "chat.instructionsFilesLocations": {
+    ".agents/instructions": true,
+    "~/.agents/instructions": true
+  },
+  "chat.mcp.gallery.enabled": true,
+  "chat.promptFilesLocations": {
+    ".agents/prompts": true,
+    "~/.agents/prompts": true
+  },
+  "chat.tools.urls.autoApprove": {
+    "https://code.visualstudio.com": true,
+    "https://github.com/microsoft/vscode/wiki/*": true,
+    "https://www.storyblok.com": true
+  },
+  "chat.useAgentsMdFile": true,
+  "chat.useCustomizationsInParentRepositories": true,
+  "chat.useNestedAgentsMdFiles": true,
+  "chat.viewSessions.orientation": "stacked",
+  "csharp.experimental.debug.hotReload": true,
+  "cSpell.diagnosticLevel": "Hint",
+  "cSpell.enabledFileTypes": {
+    "markdown": true
+  },
+  "cSpell.language": "en-GB",
+  "diffEditor.ignoreTrimWhitespace": true,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+  "editor.copyWithSyntaxHighlighting": false,
+  "editor.folding": false,
+  "editor.fontFamily": "'JetBrainsMono Nerd Font', Consolas, 'Courier New', monospace",
+  "editor.fontLigatures": true,
+  "editor.fontSize": 16,
+  "editor.formatOnSave": false,
+  "editor.guides.bracketPairs": "active",
+  "editor.hover.delay": 1500,
+  "editor.inlineSuggest.enabled": true,
+  "editor.minimap.enabled": false,
+  "editor.renderWhitespace": "all",
+  "editor.wordWrap": "on",
+  "git.autofetch": true,
+  "git.mergeEditor": true,
+  "git.openRepositoryInParentFolders": "never",
+  "github.copilot.enable": {
+    "*": false,
+    "markdown": false,
+    "plaintext": false,
+    "scminput": false
+  },
+  "js/ts.updateImportsOnFileMove.enabled": "never",
+  "json.schemaDownload.trustedDomains": {
+    "https://aka.ms": true,
+    "https://biomejs.dev": true,
+    "https://developer.microsoft.com/json-schemas/": true,
+    "https://json.schemastore.org": true,
+    "https://json-schema.org": true,
+    "https://models.dev": true,
+    "https://opencode.ai": true,
+    "https://raw.githubusercontent.com/devcontainers/spec/": true,
     "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/": true,
-		"https://raw.githubusercontent.com/microsoft/vscode/": true,
-		"https://schemastore.azurewebsites.net": true,
-		"https://www.schemastore.org": true
-	},
-	"markdown.extension.toc.updateOnSave": false,
-	"mssql.connectionGroups": [
-		{
-			"name": "ROOT",
-			"id": "ROOT"
-		}
-	],
-	"powershell.analyzeOpenDocumentsOnly": true,
-	"powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
-	"powershell.integratedConsole.showOnStartup": false,
-	"powershell.integratedConsole.suppressStartupBanner": true,
-	"powershell.promptToUpdatePowerShell": false,
-	"powershell.startAutomatically": false,
-	"redhat.telemetry.enabled": false,
-	"svelte.ask-to-enable-ts-plugin": false,
-	"svelte.enable-ts-plugin": false,
-	"svg.preview.mode": "svg",
-	"terminal.integrated.copyOnSelection": true,
-	"terminal.integrated.defaultProfile.linux": "bash",
-	"terminal.integrated.defaultProfile.windows": "PowerShell",
-	"terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font', 'JetBrains Mono', Consolas, 'Courier New', monospace",
-	"terminal.integrated.fontSize": 16,
-	"terminal.integrated.initialHint": false,
-	"terminal.integrated.tabs.hideCondition": "never",
-	"todo-tree.general.tags": [
-		"BUG",
-		"HACK",
-		"FIXME",
-		"TODO",
-		"XXX",
-		"[ ]",
-		"[x]"
-	],
-	"todo-tree.highlights.enabled": true,
-	"todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
-	"vsicons.dontShowNewVersionMessage": true,
-	"window.newWindowProfile": "Default",
-	"workbench.colorTheme": "Dracula Theme",
-	"workbench.iconTheme": "vscode-icons",
-	"workbench.tree.enableStickyScroll": true,
-	"[css]": {
-		"editor.defaultFormatter": "vscode.css-language-features"
-	},
-	"[html]": {
-		"editor.defaultFormatter": "vscode.html-language-features"
-	},
-	"[json]": {
-		"editor.defaultFormatter": "vscode.json-language-features"
-	},
-	"[markdown]": {
-		"editor.defaultFormatter": "yzhang.markdown-all-in-one"
-	},
-	"[typescript]": {
-		"editor.defaultFormatter": "vscode.typescript-language-features"
-	}
+    "https://raw.githubusercontent.com/microsoft/vscode/": true,
+    "https://schemastore.azurewebsites.net": true,
+    "https://www.schemastore.org": true
+  },
+  "markdown.extension.toc.updateOnSave": false,
+  "mssql.connectionGroups": [
+    {
+      "name": "ROOT",
+      "id": "ROOT"
+    }
+  ],
+  "powershell.analyzeOpenDocumentsOnly": true,
+  "powershell.codeFormatting.avoidSemicolonsAsLineTerminators": true,
+  "powershell.integratedConsole.showOnStartup": false,
+  "powershell.integratedConsole.suppressStartupBanner": true,
+  "powershell.promptToUpdatePowerShell": false,
+  "powershell.startAutomatically": false,
+  "redhat.telemetry.enabled": false,
+  "svelte.ask-to-enable-ts-plugin": false,
+  "svelte.enable-ts-plugin": false,
+  "svg.preview.mode": "svg",
+  "terminal.integrated.copyOnSelection": true,
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.fontFamily": "'JetBrainsMono Nerd Font', 'JetBrains Mono', Consolas, 'Courier New', monospace",
+  "terminal.integrated.fontSize": 16,
+  "terminal.integrated.initialHint": false,
+  "terminal.integrated.tabs.hideCondition": "never",
+  "todo-tree.general.tags": [
+    "BUG",
+    "HACK",
+    "FIXME",
+    "TODO",
+    "XXX",
+    "[ ]",
+    "[x]"
+  ],
+  "todo-tree.highlights.enabled": true,
+  "todo-tree.regex.regex": "(//|#|<!--|;|/\\*|^|^\\s*(-|\\d+.))\\s*($TAGS)",
+  "vsicons.dontShowNewVersionMessage": true,
+  "window.newWindowProfile": "Default",
+  "workbench.colorTheme": "Dracula Theme",
+  "workbench.editorAssociations": {
+    "*.chatmode.md": "default"
+  },
+  "workbench.iconTheme": "vscode-icons",
+  "workbench.tree.enableStickyScroll": true,
+  "[css]": {
+    "editor.defaultFormatter": "vscode.css-language-features"
+  },
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  }
 }
