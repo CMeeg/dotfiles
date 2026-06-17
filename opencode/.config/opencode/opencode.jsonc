@@ -3,7 +3,11 @@
   "mcp": {
     "chrome-devtools": {
       "type": "local",
-      "command": ["pnpx", "-y", "chrome-devtools-mcp@latest"]
+      "command": [
+        "pnpx",
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
     },
     "microsoft-learn": {
       "type": "remote",
