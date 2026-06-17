@@ -42,7 +42,7 @@ reload
   * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt -v bash git starship`
+  * `stow --adopt --no-folding -v bash git starship`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
@@ -72,6 +72,12 @@ reload
   * `corepack enable pnpm` - enable pnpm
   * `pnpm -v` - verify pnpm available
 
+## Bun
+
+* Install [bun](https://bun.com/docs/installation)
+  * `curl -fsSL https://bun.com/install | bash`
+  * `reload` - reload bash (using alias)
+
 ### Chrome
 
 * Install Chrome
@@ -88,11 +94,16 @@ reload
   * `reload` - reload bash (using alias)
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt -v agents opencode`
+  * `stow --adopt --no-folding -v agents opencode`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
     * Commit and push, if needed
+* Add [Superpowers](https://github.com/obra/superpowers)
+  * Clone superpowers into a standalone location
+    * `git clone https://github.com/obra/superpowers.git ~/.local/share/opencode/packages/superpowers`
+  * In `~/.config\opencode/opencode.jsonc`, add the plugin using the local path instead of the git URL:
+    * `"plugin": ["~/.local/share/opencode/packages/superpowers"]`
 * Run `opencode`
 * Run `/connect` and connect a provider
 

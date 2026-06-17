@@ -88,7 +88,7 @@ stow_base_dotfiles() {
         print_skip "Base dotfiles (bash, git, starship) are already stowed"
         return
     fi
-    run "cd $DOTFILES_REPO && stow --adopt -v bash git starship"
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v bash git starship"
     if [ "$DRY_RUN" = true ]; then
         print_dry "source $HOME/.bashrc"
     else
@@ -136,6 +136,21 @@ install_node() {
     print_ok "fnm, Node $NODE_VERSION, and pnpm installed"
 }
 
+install_bun() {
+    print_status "Installing Bun..."
+    if is_cmd bun; then
+        print_skip "Bun is already installed"
+        return
+    fi
+    run "curl -fsSL https://bun.sh/install | bash"
+    if [ "$DRY_RUN" = true ]; then
+        print_dry "source $HOME/.bashrc"
+    else
+        source "$HOME/.bashrc"
+    fi
+    print_ok "Bun installed"
+}
+
 install_chrome() {
     print_status "Installing Google Chrome..."
     if is_apt_installed google-chrome-stable; then
@@ -156,6 +171,69 @@ install_opencode() {
     print_ok "opencode installed"
 }
 
+install_superpowers() {
+    print_status "Installing Superpowers for opencode..."
+
+    local superpowers_dir="$HOME/.local/share/opencode/packages/superpowers"
+    local config_file="$HOME/.config/opencode/opencode.jsonc"
+
+    # Clone if not already present
+    if [ -d "$superpowers_dir" ]; then
+        print_skip "Superpowers is already cloned"
+    else
+        run "git clone https://github.com/obra/superpowers.git $superpowers_dir"
+        print_ok "Superpowers cloned"
+    fi
+
+    # Add superpowers to opencode.jsonc plugin array if needed
+    if [ ! -f "$config_file" ]; then
+        print_skip "opencode.jsonc not found — stow will create it with superpowers configured"
+        return
+    fi
+
+    if [ -L "$config_file" ]; then
+        # Symlinked — already managed by stow
+        if grep -q "superpowers" "$config_file" 2>/dev/null; then
+            print_skip "Superpowers already configured in opencode.jsonc"
+        else
+            print_warn "opencode.jsonc symlink is missing superpowers — update the repo file"
+        fi
+        return
+    fi
+
+    # Regular file (not stowed) — patch before stow --adopt replaces it
+    if grep -q "superpowers" "$config_file" 2>/dev/null; then
+        print_skip "Superpowers already configured in opencode.jsonc"
+        return
+    fi
+
+    if [ "$DRY_RUN" = true ]; then
+        print_dry "Add superpowers to plugin array in $config_file"
+        return
+    fi
+
+    if ! is_cmd node; then
+        print_warn "Node.js not found — cannot patch opencode.jsonc automatically"
+        print_warn "Manually add superpowers to $config_file"
+        return
+    fi
+
+    node -e '
+        const fs = require("fs");
+        const p = process.argv[1];
+        let c = fs.readFileSync(p, "utf8");
+        let j = JSON.parse(c);
+        if (!Array.isArray(j.plugin)) j.plugin = [];
+        const pkg = "~/.local/share/opencode/packages/superpowers";
+        if (!j.plugin.includes(pkg)) {
+            j.plugin.push(pkg);
+            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
+        }
+    ' "$config_file"
+
+    print_ok "Superpowers added to opencode.jsonc"
+}
+
 stow_opencode_dotfiles() {
     print_status "Stowing opencode dotfiles (agents, opencode)..."
     if is_symlinked "$HOME/.agents/skills/find-docs/SKILL.md" "$DOTFILES_REPO/agents/.agents/skills/find-docs/SKILL.md" &&
@@ -163,7 +241,7 @@ stow_opencode_dotfiles() {
         print_skip "opencode dotfiles (agents, opencode) are already stowed"
         return
     fi
-    run "cd $DOTFILES_REPO && stow --adopt -v agents opencode"
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v agents opencode"
     print_ok "opencode dotfiles stowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
 }
@@ -203,8 +281,10 @@ main() {
     create_projects_dir
     install_gitkraken
     install_node
+    install_bun
     install_chrome
     install_opencode
+    install_superpowers
     stow_opencode_dotfiles
 
     echo ""

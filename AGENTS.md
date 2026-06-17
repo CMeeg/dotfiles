@@ -51,8 +51,8 @@ These files are not stowed but serve as reference for manual configuration:
 
 | Command | Description |
 |---------|-------------|
-| `stow --adopt -v bash git starship` | Link shell, git, and starship dotfiles |
-| `stow --adopt -v agents opencode` | Link opencode config and agent skills |
+| `stow --adopt --no-folding -v bash git starship` | Link shell, git, and starship dotfiles |
+| `stow --adopt --no-folding -v agents opencode` | Link opencode config and agent skills |
 | `./install.sh` | Automated Debian setup (idempotent) |
 | `./install.sh --dry-run` | Preview what the installer would do |
 | `source ~/.bashrc` | Reload bash configuration |
