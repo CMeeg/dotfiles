@@ -26,7 +26,11 @@ run() {
         print_dry "$1"
         return 0
     fi
-    bash -c "$1"
+    if ! bash -c "$1"; then
+        local ec=$?
+        print_warn "Command failed (exit code $ec): $1"
+        exit "$ec"
+    fi
 }
 
 # ---------- Helpers ----------
@@ -92,7 +96,7 @@ stow_base_dotfiles() {
     if [ "$DRY_RUN" = true ]; then
         print_dry "source $HOME/.bashrc"
     else
-        source "$HOME/.bashrc"
+        source "$HOME/.bashrc" 2>/dev/null || true
     fi
     print_ok "Base dotfiles stowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
@@ -126,10 +130,15 @@ install_node() {
         return
     fi
     run "curl -o- https://fnm.vercel.app/install | bash"
+    # fnm install script writes to .bashrc, but sourcing .bashrc in a
+    # non-interactive script is a no-op — add fnm to PATH directly
     if [ "$DRY_RUN" = true ]; then
-        print_dry "source $HOME/.bashrc"
+        print_dry "Add fnm to PATH"
     else
-        source "$HOME/.bashrc"
+        export FNM_PATH="$HOME/.local/share/fnm"
+        if [ -d "$FNM_PATH" ]; then
+            export PATH="$FNM_PATH:$PATH"
+        fi
     fi
     run "fnm install $NODE_VERSION"
     run "corepack enable pnpm"
@@ -146,7 +155,7 @@ install_bun() {
     if [ "$DRY_RUN" = true ]; then
         print_dry "source $HOME/.bashrc"
     else
-        source "$HOME/.bashrc"
+        source "$HOME/.bashrc" 2>/dev/null || true
     fi
     print_ok "Bun installed"
 }
