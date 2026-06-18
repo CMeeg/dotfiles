@@ -107,6 +107,18 @@ reload
 * Run `opencode`
 * Run `/connect` and connect a provider
 
+### OpenDesign
+
+* Install [opendesign](https://github.com/nexu-io/open-design/blob/main/QUICKSTART.md)
+  * `mkdir -p ~/.opendesign`
+  * `git clone https://github.com/nexu-io/open-design.git ~/.opendesign`
+  * `cd ~/.opendesign`
+  * `corepack enable`
+  * `pnpm install`
+  * `reload` - reload bash (using alias)
+* Add to [coding agent](https://github.com/nexu-io/open-design/tree/main#platform-compatibility)
+  * Add mcp
+
 ## linux tips
 
 * If you need to kill a program

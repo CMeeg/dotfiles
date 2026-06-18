@@ -127,12 +127,36 @@ if [ -d "$FNM_PATH" ]; then
   eval "$(fnm env --shell bash)"
 fi
 
-# opencode
-export PATH="$HOME/.opencode/bin:$PATH"
-
 # bun
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
+
+# opencode
+export PATH="$HOME/.opencode/bin:$PATH"
+
+# opendesign
+od() {
+  local _od_bin="$HOME/.opendesign/node_modules/.bin/od"
+  if [ ! -x "$_od_bin" ]; then
+    echo "Open Design not found at $_od_bin" >&2
+    echo "Install it first or check ~/.opendesign" >&2
+    return 1
+  fi
+  case "${1:-}" in
+    stop)     "$_od_bin" daemon stop ;;
+    restart)  "$_od_bin" daemon stop 2>/dev/null; sleep 1; "$_od_bin" ;;
+    status)   "$_od_bin" status --json ;;
+    headless) "$_od_bin" --no-open ;;
+    start|"") "$_od_bin" ;;
+    *)        "$_od_bin" "$@" ;;
+  esac
+}
+
+_od_bin="$HOME/.opendesign/node_modules/.bin/od"
+if [ -x "$_od_bin" ] && ! "$_od_bin" status --json >/dev/null 2>&1; then
+  "$_od_bin" --no-open >/dev/null 2>&1 &
+fi
+unset _od_bin
 
 # starship (this should be placed at the end of this file)
 eval "$(starship init bash)"

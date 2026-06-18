@@ -15,6 +15,17 @@
     "microsoft-learn": {
       "type": "remote",
       "url": "https://learn.microsoft.com/api/mcp"
+    },
+    "open-design": {
+      "type": "local",
+      "command": [
+        "{env:HOME}/.opendesign/node_modules/.bin/od",
+        "mcp"
+      ],
+      "environment": {
+        "OD_DATA_DIR": "{env:HOME}/.opendesign/.od",
+        "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/default/daemon.sock"
+      }
     }
   }
 }

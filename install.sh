@@ -234,6 +234,29 @@ install_superpowers() {
     print_ok "Superpowers added to opencode.jsonc"
 }
 
+install_opendesign() {
+    print_status "Installing OpenDesign..."
+
+    local opendesign_dir="$HOME/.opendesign"
+    local od_binary="$opendesign_dir/node_modules/.bin/od"
+
+    if [ -x "$od_binary" ]; then
+        print_skip "OpenDesign is already installed"
+        return
+    fi
+
+    run "mkdir -p $opendesign_dir"
+    if [ -d "$opendesign_dir/.git" ]; then
+        print_skip "OpenDesign repo already cloned"
+    else
+        run "git clone https://github.com/nexu-io/open-design.git $opendesign_dir"
+        print_ok "OpenDesign repo cloned"
+    fi
+
+    run "cd $opendesign_dir && corepack enable && pnpm install"
+    print_ok "OpenDesign installed"
+}
+
 stow_opencode_dotfiles() {
     print_status "Stowing opencode dotfiles (agents, opencode)..."
     if is_symlinked "$HOME/.agents/skills/find-docs/SKILL.md" "$DOTFILES_REPO/agents/.agents/skills/find-docs/SKILL.md" &&
@@ -285,6 +308,7 @@ main() {
     install_chrome
     install_opencode
     install_superpowers
+    install_opendesign
     stow_opencode_dotfiles
 
     echo ""
