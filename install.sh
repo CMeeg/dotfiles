@@ -262,7 +262,7 @@ install_opendesign() {
         print_ok "OpenDesign repo cloned"
     fi
 
-    run "cd $opendesign_dir && corepack enable && pnpm install"
+    run "cd $opendesign_dir && corepack enable && pnpm install && pnpm --filter @open-design/web build"
     print_ok "OpenDesign installed"
 }
 

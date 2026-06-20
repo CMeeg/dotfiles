@@ -154,7 +154,7 @@ od() {
 
 _od_bin="$HOME/.opendesign/node_modules/.bin/od"
 if [ -x "$_od_bin" ] && ! "$_od_bin" status --json >/dev/null 2>&1; then
-  "$_od_bin" --no-open >/dev/null 2>&1 &
+  "$_od_bin" --port 7456 --no-open >/dev/null 2>&1 &
 fi
 unset _od_bin
 

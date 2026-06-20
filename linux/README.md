@@ -22,6 +22,24 @@ reload
 > The script must be run from within the cloned `~/.dotfiles` directory.
 > It is idempotent: completed steps are skipped on re-run.
 
+## Automated update
+
+The [`update.sh`](../update.sh) script automates applying updates:
+
+```bash
+# Preview what will be done
+./update.sh --dry-run
+
+# Run the updater (will attempt to update all programs installed by the install script)
+./update.sh
+
+# Reload your shell (using an alias)
+reload
+```
+
+> The script must be run from within the cloned `~/.dotfiles` directory.
+> This script will attempt to update programs regardless of whether updates are needed or not.
+
 ## Manual setup
 
 ### System packages
@@ -115,9 +133,44 @@ reload
   * `cd ~/.opendesign`
   * `corepack enable`
   * `pnpm install`
-  * `reload` - reload bash (using alias)
+  * `pnpm --filter @open-design/web build`
+  * `reload` - reload bash (using alias) will restart opendesign
 * Add to [coding agent](https://github.com/nexu-io/open-design/tree/main#platform-compatibility)
-  * Add mcp
+  * Add mcp - see OpenCode config
+* Start OpenDesign Web UI
+  * Open `http://localhost:7456/` in a browser
+  * The first time you open this you will need to do some initial setup
+
+## Manual updates
+
+* Update distro
+  * `sudo apt update && sudo apt upgrade -y` - update distro
+* Update Starship
+  * `curl -sS https://starship.rs/install.sh | sh`
+* Update Bun
+  * `bun upgrade`
+* Update Superpowers
+  * `cd ~/.local/share/opencode/packages/superpowers`
+  * `git pull`
+* Update OpenDesign
+  * `od stop`
+  * `cd ~/.opendesign`
+  * `git stash`
+  * `git pull`
+  * `pnpm install`
+  * `pnpm --filter @open-design/web build`
+* Restow
+  * `cd ~/.dotfiles`
+  * `git stash`
+  * `git pull`
+  * `stow --adopt --no-folding -v agents bash git opencode starship`
+  * `git stash pop`
+  * Accept or reject changes to dotfiles (if any)
+    * View the diff of the dotfiles repo
+    * Accept/merge/reject changes
+    * Commit and push, if needed
+* Reload bash profile
+  * `reload` - using alias
 
 ## linux tips
 
