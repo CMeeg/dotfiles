@@ -71,7 +71,7 @@ update_starship() {
         print_skip "Starship is not installed — skipping"
         return
     fi
-    run "curl -sS https://starship.rs/install.sh | sh"
+    run "curl -sS https://starship.rs/install.sh | sh -s -- -y"
     print_ok "Starship updated"
 }
 
@@ -102,7 +102,7 @@ update_opendesign() {
     if pgrep -f "open-design" > /dev/null 2>&1; then
         run "pkill -f open-design"
     fi
-    run "cd $OPENDESIGN_DIR && git stash && git pull && pnpm install && pnpm --filter @open-design/web build"
+    run "cd $OPENDESIGN_DIR && git stash && git pull && yes | pnpm install && pnpm --filter @open-design/web build"
     print_ok "OpenDesign updated"
 }
 

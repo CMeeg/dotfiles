@@ -6,7 +6,17 @@ These setup instructions are for Debian.
 
 ## Automated setup
 
-The [`install.sh`](../install.sh) script automates the full setup:
+The automated install script is in this dotfiles repo so must be cloned first:
+
+* Update distro
+  * `sudo apt update && sudo apt upgrade -y`
+* Install packages
+  * `sudo apt install git -y`
+* Clone the repo
+  * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
+  * `cd ~/.dotfiles`
+
+Then run the [`install.sh`](../install.sh) script to automate the full setup:
 
 ```bash
 # Preview what will be done
@@ -45,7 +55,7 @@ reload
 ### System packages
 
 * Update distro
-  * `sudo apt update && sudo apt upgrade -y` - update distro
+  * `sudo apt update && sudo apt upgrade -y`
 * Install packages
   * `sudo apt install build-essential curl fonts-jetbrains-mono git stow unzip wget -y`
 
