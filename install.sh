@@ -57,7 +57,7 @@ update_system() {
 
 install_packages() {
     print_status "Installing base packages..."
-    local packages=(build-essential curl fonts-jetbrains-mono git stow unzip wget)
+    local packages=(build-essential curl fonts-jetbrains-mono stow unzip wget)
     local missing=()
 
     for pkg in "${packages[@]}"; do
@@ -80,7 +80,7 @@ install_starship() {
         print_skip "Starship is already installed"
         return
     fi
-    run "curl -sS https://starship.rs/install.sh | sh"
+    run "curl -sS https://starship.rs/install.sh | sh -s -- -y"
     print_ok "Starship installed"
 }
 
@@ -124,7 +124,7 @@ install_gitkraken() {
 }
 
 install_node() {
-    print_status "Installing fnm, Node $NODE_VERSION, and pnpm..."
+    print_status "Installing fnm and Node $NODE_VERSION..."
     if is_cmd fnm; then
         print_skip "fnm is already installed"
         return
@@ -141,8 +141,7 @@ install_node() {
         fi
     fi
     run "fnm install $NODE_VERSION"
-    run "corepack enable pnpm"
-    print_ok "fnm, Node $NODE_VERSION, and pnpm installed"
+    print_ok "fnm and Node $NODE_VERSION installed"
 }
 
 install_bun() {
@@ -262,7 +261,7 @@ install_opendesign() {
         print_ok "OpenDesign repo cloned"
     fi
 
-    run "cd $opendesign_dir && corepack enable && pnpm install && pnpm --filter @open-design/web build"
+    run "cd $opendesign_dir && corepack enable && yes | pnpm install && pnpm --filter @open-design/web build"
     print_ok "OpenDesign installed"
 }
 
