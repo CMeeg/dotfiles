@@ -1,0 +1,1 @@
+{ "name": "model-effort-status", "version": "0.2.0", "description": "Shows the current model and reasoning effort at the bottom right of the prompt footer", "types": "./types/index.d.ts" }

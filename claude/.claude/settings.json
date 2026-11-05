@@ -1,0 +1,67 @@
+{
+  "respectGitignore": false,
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/mods"
+  },
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|compact|fork)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "dracula@claude-themes": true,
+    "sub-meter@statuslines": true,
+    "context-bar@statuslines": true,
+    "chrome-devtools-mcp@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "storyblok": {
+      "source": {
+        "source": "github",
+        "repo": "storyblok/agent-plugin"
+      }
+    },
+    "claude-themes": {
+      "source": {
+        "source": "github",
+        "repo": "matcra587/claude-themes"
+      }
+    },
+    "statuslines": {
+      "source": {
+        "source": "url",
+        "url": "https://statuslin.es/marketplace.json"
+      }
+    },
+    "cloudflare": {
+      "source": {
+        "source": "github",
+        "repo": "cloudflare/skills"
+      }
+    }
+  },
+  "awaySummaryEnabled": false,
+  "askUserQuestionTimeout": "never",
+  "pluginConfigs": {
+    "sub-meter@statuslines": {
+      "options": {
+        "rotateSeconds": 30,
+        "hideCycleHint": true
+      }
+    }
+  },
+  "theme": "custom:dracula:dracula"
+}

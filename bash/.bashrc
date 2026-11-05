@@ -124,7 +124,7 @@ fi
 FNM_PATH="$HOME/.local/share/fnm"
 if [ -d "$FNM_PATH" ]; then
   export PATH="$FNM_PATH:$PATH"
-  eval "$(fnm env --shell bash)"
+  eval "$(fnm env --use-on-cd --shell bash)"
 fi
 
 # bun
@@ -133,6 +133,16 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
+
+# aspire
+if [ -d "$HOME/.aspire/bin" ]; then
+  export PATH="$HOME/.aspire/bin:$PATH"
+fi
+
+# local binaries (herdr, etc.)
+if [ -d "$HOME/.local/bin" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+fi
 
 # opendesign
 od() {
@@ -154,7 +164,12 @@ od() {
 
 _od_bin="$HOME/.opendesign/node_modules/.bin/od"
 if [ -x "$_od_bin" ] && ! "$_od_bin" status --json >/dev/null 2>&1; then
-  "$_od_bin" --port 7456 --no-open >/dev/null 2>&1 &
+  # Only start if nothing is already listening on the port, so we don't race
+  # another shell's daemon and exit 1. `disown` keeps bash from printing a
+  # "[1]+ Exit 1 ..." job notification at the next prompt.
+  if ! (exec 3<>/dev/tcp/127.0.0.1/7456) 2>/dev/null; then
+    "$_od_bin" --port 7456 --no-open >/dev/null 2>&1 & disown
+  fi
 fi
 unset _od_bin
 

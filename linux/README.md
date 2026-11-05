@@ -57,12 +57,18 @@ reload
 * Update distro
   * `sudo apt update && sudo apt upgrade -y`
 * Install packages
-  * `sudo apt install build-essential curl fonts-jetbrains-mono git stow unzip wget -y`
+  * `sudo apt install build-essential curl fonts-jetbrains-mono git libnss3-tools python-is-python3 python3 stow unzip wget -y`
 
 ### Starship
 
 * Install [Starship](https://starship.rs/)
   * `curl -sS https://starship.rs/install.sh | sh`
+
+### superfile
+
+* Install [superfile](https://superfile.dev/getting-started/installation/)
+  * `bash -c "$(curl -sLo- https://superfile.dev/install.sh)"`
+  * Run `spf` to start
 
 ### Dotfiles (base)
 
@@ -70,7 +76,7 @@ reload
   * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v bash git starship`
+  * `stow --adopt --no-folding -v bash git starship superfile`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
@@ -87,7 +93,7 @@ reload
   * `wget https://release.gitkraken.com/linux/gitkraken-amd64.deb`
   * `sudo apt install ./gitkraken-amd64.deb -y`
 * Run `gitkraken`
-* Follow the [setup steps](./gitkraken/README.md)
+* Follow the [setup steps](../gitkraken/README.md)
 
 ### Node
 
@@ -114,6 +120,32 @@ reload
   * `sudo apt install ./google-chrome-stable_current_amd64.deb -y`
 
 > N.B. Chrome can be launched from wsl if needed by running `google-chrome`
+
+### Caddy
+
+* [Install Caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)
+  * `sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl`
+  * `curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg`
+  * `curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list`
+  * `sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list`
+  * `sudo apt update && sudo apt install -y caddy`
+* Disable the bundled systemd service — it serves a default page on port 80, which blocks projects that run `caddy run` themselves
+  * `sudo systemctl disable --now caddy`
+* Allow unprivileged processes to bind ports 80 and above, so `caddy run` can listen on 80/443 as your own user
+  * `echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee /etc/sysctl.d/50-unprivileged-ports.conf`
+  * `sudo sysctl --system`
+* Updates come through `sudo apt upgrade`
+
+> N.B. The sysctl is used instead of `sudo setcap cap_net_bind_service=+ep $(which caddy)` because `setcap` is stored on the binary and lost whenever an upgrade replaces it. The sysctl applies machine-wide, which is fine for a dev machine.
+
+### Aspire CLI
+
+* Install the [Aspire CLI](https://aspire.dev/get-started/install-cli/)
+  * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - installs to `~/.aspire/bin`
+  * `--skip-path` stops the installer appending to `~/.bashrc` (which is stowed) — `bash/.bashrc` already adds `~/.aspire/bin` to `PATH`
+  * `reload` - reload bash (using alias)
+  * `aspire --version` - verify the CLI is installed
+* Running Aspire apps also needs the [.NET SDK](https://aspire.dev/get-started/prerequisites/) and a container runtime
 
 ### OpenCode
 
@@ -151,12 +183,20 @@ reload
   * Open `http://localhost:7456/` in a browser
   * The first time you open this you will need to do some initial setup
 
+### Claude Code
+
+* See [claude/README.md](../claude/README.md) for install and update instructions (Linux/WSL and Windows)
+
 ## Manual updates
 
 * Update distro
   * `sudo apt update && sudo apt upgrade -y` - update distro
 * Update Starship
   * `curl -sS https://starship.rs/install.sh | sh`
+* Update superfile
+  * `bash -c "$(curl -sLo- https://superfile.dev/install.sh)"` - re-running the installer fetches the latest release
+* Update Aspire CLI
+  * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - re-running the installer fetches the latest release
 * Update Bun
   * `bun upgrade`
 * Update OpenCode
@@ -174,11 +214,13 @@ reload
   * `git pull --ff-only`
   * `pnpm install`
   * `pnpm --filter @open-design/web build`
+* Update Claude Code
+  * `claude update`
 * Restow
   * `cd ~/.dotfiles`
   * `git stash`
   * `git pull`
-  * `stow --adopt --no-folding -v agents bash git opencode starship`
+  * `stow --adopt --no-folding -v agents bash git opencode starship superfile`
   * `git stash pop`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo

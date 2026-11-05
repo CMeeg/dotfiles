@@ -1,3 +1,15 @@
 bash/.secrets
 
 TODO.md
+
+# Claude Code state — guard against ~/.claude ever being folded into the repo
+claude/.claude/*
+!claude/.claude/settings.json
+!claude/.claude/mods/
+!claude/.claude/CLAUDE.md
+!claude/.claude/keybindings.json
+!claude/.claude/agents/
+!claude/.claude/commands/
+!claude/.claude/skills/
+# skills synced down from claude.ai are managed by Claude Code, not hand-written
+claude/.claude/skills/synced/

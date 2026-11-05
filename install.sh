@@ -73,7 +73,7 @@ update_system() {
 
 install_packages() {
     print_status "Installing base packages..."
-    local packages=(build-essential curl fonts-jetbrains-mono stow unzip wget)
+    local packages=(build-essential curl fonts-jetbrains-mono libnss3-tools python-is-python3 python3 stow unzip wget)
     local missing=()
 
     for pkg in "${packages[@]}"; do
@@ -100,15 +100,26 @@ install_starship() {
     print_ok "Starship installed"
 }
 
-stow_base_dotfiles() {
-    print_status "Stowing base dotfiles (bash, git, starship)..."
-    if is_symlinked "$HOME/.bashrc" "$DOTFILES_REPO/bash/.bashrc" &&
-       is_symlinked "$HOME/.gitconfig" "$DOTFILES_REPO/git/.gitconfig" &&
-       is_symlinked "$HOME/.config/starship.toml" "$DOTFILES_REPO/starship/.config/starship.toml"; then
-        print_skip "Base dotfiles (bash, git, starship) are already stowed"
+install_superfile() {
+    print_status "Installing superfile..."
+    if is_cmd spf; then
+        print_skip "superfile is already installed"
         return
     fi
-    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v bash git starship"
+    run 'bash -c "$(curl -sLo- https://superfile.dev/install.sh)"'
+    print_ok "superfile installed (run 'spf' to start)"
+}
+
+stow_base_dotfiles() {
+    print_status "Stowing base dotfiles (bash, git, starship, superfile)..."
+    if is_symlinked "$HOME/.bashrc" "$DOTFILES_REPO/bash/.bashrc" &&
+       is_symlinked "$HOME/.gitconfig" "$DOTFILES_REPO/git/.gitconfig" &&
+       is_symlinked "$HOME/.config/starship.toml" "$DOTFILES_REPO/starship/.config/starship.toml" &&
+       is_symlinked "$HOME/.config/superfile/config.toml" "$DOTFILES_REPO/superfile/.config/superfile/config.toml"; then
+        print_skip "Base dotfiles (bash, git, starship, superfile) are already stowed"
+        return
+    fi
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v bash git starship superfile"
     if [ "$DRY_RUN" = true ]; then
         print_dry "source $HOME/.bashrc"
     else
@@ -183,6 +194,61 @@ install_chrome() {
     fi
     run "wget -O /tmp/google-chrome-stable_current_amd64.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && sudo apt install -y /tmp/google-chrome-stable_current_amd64.deb"
     print_ok "Google Chrome installed"
+}
+
+install_caddy() {
+    print_status "Installing Caddy..."
+    local just_installed=false
+    if is_apt_installed caddy; then
+        print_skip "Caddy is already installed"
+    else
+        # Adds Caddy's apt repo so 'apt upgrade' keeps it updated
+        run "sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl"
+        run "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
+        run "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null"
+        run "sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list"
+        run "sudo apt update"
+        run "sudo apt install -y caddy"
+        print_ok "Caddy installed"
+        just_installed=true
+    fi
+
+    # The package starts a 'caddy' systemd service serving a default page on :80,
+    # which blocks projects running 'caddy run' themselves. Upgrades keep it disabled.
+    if [ "$just_installed" = true ] ||
+       systemctl is-enabled --quiet caddy 2>/dev/null ||
+       systemctl is-active --quiet caddy 2>/dev/null; then
+        run "sudo systemctl disable --now caddy"
+        print_ok "Caddy systemd service disabled"
+    else
+        print_skip "Caddy systemd service is already disabled"
+    fi
+}
+
+allow_unprivileged_low_ports() {
+    print_status "Allowing unprivileged processes to bind ports 80 and above..."
+    # Lets 'caddy run' (or any dev server) bind 80/443 without root. Unlike setcap,
+    # this survives binary upgrades. Fine for a dev machine.
+    local conf="/etc/sysctl.d/50-unprivileged-ports.conf"
+    local setting="net.ipv4.ip_unprivileged_port_start=80"
+    if grep -qxF "$setting" "$conf" 2>/dev/null; then
+        print_skip "Unprivileged port start is already set to 80"
+        return
+    fi
+    run "echo '$setting' | sudo tee $conf >/dev/null"
+    run "sudo sysctl --system >/dev/null"
+    print_ok "Unprivileged port start set to 80"
+}
+
+install_aspire() {
+    print_status "Installing Aspire CLI..."
+    if is_cmd aspire || [ -x "$HOME/.aspire/bin/aspire" ]; then
+        print_skip "Aspire CLI is already installed"
+        return
+    fi
+    # --skip-path: ~/.bashrc is stowed, so PATH is set there instead of letting the installer append to it
+    run "curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path"
+    print_ok "Aspire CLI installed"
 }
 
 install_opencode() {
@@ -290,6 +356,17 @@ install_opendesign() {
     print_ok "OpenDesign installed"
 }
 
+install_claude_code() {
+    print_status "Installing Claude Code..."
+    if is_cmd claude; then
+        print_skip "Claude Code is already installed"
+        return
+    fi
+    run "curl -fsSL https://claude.ai/install.sh | bash"
+    print_ok "Claude Code installed"
+    print_warn "Run 'claude' and follow the sign-in steps — see claude/README.md"
+}
+
 stow_opencode_dotfiles() {
     print_status "Stowing opencode dotfiles (agents, opencode)..."
     if is_symlinked "$HOME/.agents/skills/find-docs/SKILL.md" "$DOTFILES_REPO/agents/.agents/skills/find-docs/SKILL.md" &&
@@ -299,6 +376,18 @@ stow_opencode_dotfiles() {
     fi
     run "cd $DOTFILES_REPO && stow --adopt --no-folding -v agents opencode"
     print_ok "opencode dotfiles stowed"
+    print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
+}
+
+stow_claude_dotfiles() {
+    print_status "Stowing Claude Code dotfiles (claude)..."
+    if is_symlinked "$HOME/.claude/settings.json" "$DOTFILES_REPO/claude/.claude/settings.json"; then
+        print_skip "Claude Code dotfiles (claude) are already stowed"
+        return
+    fi
+    # --no-folding keeps ~/.claude a real directory so credentials/history never land in the repo
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v claude"
+    print_ok "Claude Code dotfiles stowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
 }
 
@@ -333,16 +422,22 @@ main() {
     update_system
     install_packages
     install_starship
+    install_superfile
     stow_base_dotfiles
     create_projects_dir
     install_gitkraken
     install_node
     install_bun
     install_chrome
+    install_caddy
+    allow_unprivileged_low_ports
+    install_aspire
     install_opencode
+    install_claude_code
     install_superpowers
     install_opendesign
     stow_opencode_dotfiles
+    stow_claude_dotfiles
 
     echo ""
     printf "${GREEN}✨ ${BOLD}Done.${RESET}\n"

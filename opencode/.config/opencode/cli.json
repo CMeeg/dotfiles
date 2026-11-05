@@ -4,5 +4,13 @@
     "name": "dracula",
     "mode": "dark"
   },
-  "plugins": ["./herdr-opencode"]
+  "plugins": [
+    "./herdr-opencode"
+  ],
+  "tabs": {
+    "mode": "off"
+  },
+  "session": {
+    "scrollbar": false
+  }
 }

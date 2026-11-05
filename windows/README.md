@@ -10,6 +10,10 @@ These setup instructions are for Windows 11.
 * Copy Starship config
   * `starship/.config/starship.toml` -> `~/.config/starship.toml`
 
+### claude code
+
+* See [Claude Code → Windows](../claude/README.md#windows). It runs alongside the WSL install without clashing.
+
 ### vscode
 
 * Install extensions

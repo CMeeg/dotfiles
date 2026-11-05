@@ -9,7 +9,6 @@
         "type": "local",
         "command": [
           "pnpx",
-          "-y",
           "chrome-devtools-mcp@latest"
         ]
       },
@@ -25,7 +24,8 @@
         ],
         "environment": {
           "OD_DATA_DIR": "{env:HOME}/.opendesign/.od",
-          "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/default/daemon.sock"
+          "OD_SIDECAR_IPC_PATH": "/tmp/open-design/ipc/default/daemon.sock",
+          "OD_DAEMON_URL": "http://127.0.0.1:7456"
         }
       }
     }

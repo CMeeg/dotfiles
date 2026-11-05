@@ -78,6 +78,27 @@ update_starship() {
     print_ok "Starship updated"
 }
 
+update_superfile() {
+    print_status "Updating superfile..."
+    if ! is_cmd spf; then
+        print_skip "superfile is not installed — skipping"
+        return
+    fi
+    run 'bash -c "$(curl -sLo- https://superfile.dev/install.sh)"'
+    print_ok "superfile updated"
+}
+
+update_aspire() {
+    print_status "Updating Aspire CLI..."
+    if [ ! -x "$HOME/.aspire/bin/aspire" ]; then
+        print_skip "Aspire CLI is not installed — skipping"
+        return
+    fi
+    # Re-running the installer fetches the latest stable release
+    run "curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path"
+    print_ok "Aspire CLI updated"
+}
+
 update_opencode() {
     print_status "Updating OpenCode..."
     if ! is_cmd opencode; then
@@ -86,6 +107,16 @@ update_opencode() {
     fi
     run "opencode upgrade"
     print_ok "OpenCode updated"
+}
+
+update_claude_code() {
+    print_status "Updating Claude Code..."
+    if ! is_cmd claude; then
+        print_skip "Claude Code is not installed — skipping"
+        return
+    fi
+    run "claude update"
+    print_ok "Claude Code updated"
 }
 
 update_superpowers() {
@@ -116,7 +147,9 @@ update_opendesign() {
         run "pkill -f open-design"
     fi
     run "cd $OPENDESIGN_DIR && git stash && git pull --ff-only && yes | pnpm install && pnpm --filter @open-design/web build"
+    run "nohup $OPENDESIGN_DIR/node_modules/.bin/od --port 7456 --no-open >/dev/null 2>&1 & disown"
     print_ok "OpenDesign updated"
+    print_ok "OpenDesign daemon restarted (http://127.0.0.1:7456)"
 }
 
 restow() {
@@ -125,7 +158,7 @@ restow() {
         print_warn "Dotfiles repo not found at $DOTFILES_REPO — skipping restow"
         return
     fi
-    run "cd $DOTFILES_REPO && git stash && git pull && stow --adopt --no-folding -v agents bash git opencode starship && git stash pop || true"
+    run "cd $DOTFILES_REPO && git stash && git pull && stow --adopt --no-folding -v agents bash git opencode starship superfile && git stash pop || true"
     print_ok "Dotfiles restowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
     print_warn "If changes look good, commit and push them"
@@ -161,7 +194,10 @@ main() {
     update_system
     update_bun
     update_starship
+    update_superfile
+    update_aspire
     update_opencode
+    update_claude_code
     update_superpowers
     update_opendesign
     restow
