@@ -57,7 +57,7 @@ reload
 * Update distro
   * `sudo apt update && sudo apt upgrade -y`
 * Install packages
-  * `sudo apt install build-essential curl fonts-jetbrains-mono git python-is-python3 python3 stow unzip wget -y`
+  * `sudo apt install build-essential curl fonts-jetbrains-mono git libnss3-tools python-is-python3 python3 stow unzip wget -y`
 
 ### Starship
 

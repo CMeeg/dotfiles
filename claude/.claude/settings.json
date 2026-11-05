@@ -1,7 +1,10 @@
 {
   "respectGitignore": false,
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/mods/model-effort-status"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/mods"
+  },
+  "permissions": {
+    "defaultMode": "auto"
   },
   "hooks": {
     "SessionStart": [
@@ -60,6 +63,5 @@
       }
     }
   },
-  "theme": "custom:dracula:dracula",
-  "editorMode": "normal"
+  "theme": "custom:dracula:dracula"
 }

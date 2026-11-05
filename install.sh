@@ -73,7 +73,7 @@ update_system() {
 
 install_packages() {
     print_status "Installing base packages..."
-    local packages=(build-essential curl fonts-jetbrains-mono python-is-python3 python3 stow unzip wget)
+    local packages=(build-essential curl fonts-jetbrains-mono libnss3-tools python-is-python3 python3 stow unzip wget)
     local missing=()
 
     for pkg in "${packages[@]}"; do
