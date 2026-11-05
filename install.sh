@@ -26,8 +26,9 @@ run() {
         print_dry "$1"
         return 0
     fi
-    if ! bash -c "$1"; then
-        local ec=$?
+    local ec=0
+    bash -c "$1" || ec=$?
+    if [ "$ec" -ne 0 ]; then
         print_warn "Command failed (exit code $ec): $1"
         exit "$ec"
     fi
@@ -110,16 +111,27 @@ install_superfile() {
     print_ok "superfile installed (run 'spf' to start)"
 }
 
+install_herdr() {
+    print_status "Installing herdr..."
+    if is_cmd herdr; then
+        print_skip "herdr is already installed"
+        return
+    fi
+    run "curl -fsSL https://herdr.dev/install.sh | sh"
+    print_ok "herdr installed (run 'herdr' to start)"
+}
+
 stow_base_dotfiles() {
-    print_status "Stowing base dotfiles (bash, git, starship, superfile)..."
+    print_status "Stowing base dotfiles (bash, git, starship, superfile, herdr)..."
     if is_symlinked "$HOME/.bashrc" "$DOTFILES_REPO/bash/.bashrc" &&
        is_symlinked "$HOME/.gitconfig" "$DOTFILES_REPO/git/.gitconfig" &&
        is_symlinked "$HOME/.config/starship.toml" "$DOTFILES_REPO/starship/.config/starship.toml" &&
-       is_symlinked "$HOME/.config/superfile/config.toml" "$DOTFILES_REPO/superfile/.config/superfile/config.toml"; then
-        print_skip "Base dotfiles (bash, git, starship, superfile) are already stowed"
+       is_symlinked "$HOME/.config/superfile/config.toml" "$DOTFILES_REPO/superfile/.config/superfile/config.toml" &&
+       is_symlinked "$HOME/.config/herdr/config.toml" "$DOTFILES_REPO/herdr/.config/herdr/config.toml"; then
+        print_skip "Base dotfiles (bash, git, starship, superfile, herdr) are already stowed"
         return
     fi
-    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v bash git starship superfile"
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v bash git starship superfile herdr"
     if [ "$DRY_RUN" = true ]; then
         print_dry "source $HOME/.bashrc"
     else
@@ -423,6 +435,7 @@ main() {
     install_packages
     install_starship
     install_superfile
+    install_herdr
     stow_base_dotfiles
     create_projects_dir
     install_gitkraken

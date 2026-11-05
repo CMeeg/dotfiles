@@ -1,0 +1,11 @@
+onboarding = false
+[ui]
+agent_panel_sort = "spaces"
+
+status_indicators = "symbols"
+[theme]
+name = "dracula"
+auto_switch = false
+
+[ui.sound]
+enabled = false

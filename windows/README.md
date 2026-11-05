@@ -10,6 +10,17 @@ These setup instructions are for Windows 11.
 * Copy Starship config
   * `starship/.config/starship.toml` -> `~/.config/starship.toml`
 
+### herdr
+
+* Install [herdr](https://herdr.dev/tui/docs/install/) (PowerShell)
+  * `powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"`
+  * If endpoint security blocks that, run in Command Prompt: `curl.exe -fsSLo install.cmd https://herdr.dev/install.cmd && install.cmd && del install.cmd`
+* Copy herdr config
+  * `herdr/.config/herdr/config.toml` -> `%APPDATA%\herdr\config.toml`
+* Update herdr
+  * `herdr update`
+  * Re-copy the config afterwards if it changed in the repo
+
 ### claude code
 
 * See [Claude Code → Windows](../claude/README.md#windows). It runs alongside the WSL install without clashing.

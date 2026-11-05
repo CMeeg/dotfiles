@@ -70,13 +70,20 @@ reload
   * `bash -c "$(curl -sLo- https://superfile.dev/install.sh)"`
   * Run `spf` to start
 
+### herdr
+
+* Install [herdr](https://herdr.dev/tui/docs/install/)
+  * `curl -fsSL https://herdr.dev/install.sh | sh`
+  * Run `herdr` to start
+  * Config lives at `~/.config/herdr/config.toml` (stowed from `herdr/` below — only `config.toml` is tracked; logs, sockets and sessions in that folder stay local)
+
 ### Dotfiles (base)
 
 * Clone the repo
   * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v bash git starship superfile`
+  * `stow --adopt --no-folding -v bash git starship superfile herdr`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
@@ -195,6 +202,8 @@ reload
   * `curl -sS https://starship.rs/install.sh | sh`
 * Update superfile
   * `bash -c "$(curl -sLo- https://superfile.dev/install.sh)"` - re-running the installer fetches the latest release
+* Update herdr
+  * `herdr update`
 * Update Aspire CLI
   * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - re-running the installer fetches the latest release
 * Update Bun
@@ -220,8 +229,8 @@ reload
   * `cd ~/.dotfiles`
   * `git stash`
   * `git pull`
-  * `stow --adopt --no-folding -v agents bash git opencode starship superfile`
-  * `git stash pop`
+  * `git stash pop` - before stowing, so packages that only exist locally are present
+  * `stow --adopt --no-folding -v agents bash git opencode starship superfile herdr`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes

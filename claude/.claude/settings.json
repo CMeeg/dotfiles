@@ -25,7 +25,8 @@
     "dracula@claude-themes": true,
     "sub-meter@statuslines": true,
     "context-bar@statuslines": true,
-    "chrome-devtools-mcp@claude-plugins-official": true
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "context7@anthropic-plugin-directory": true
   },
   "extraKnownMarketplaces": {
     "storyblok": {

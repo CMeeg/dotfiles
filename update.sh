@@ -27,8 +27,9 @@ run() {
         print_dry "$1"
         return 0
     fi
-    if ! bash -c "$1"; then
-        local ec=$?
+    local ec=0
+    bash -c "$1" || ec=$?
+    if [ "$ec" -ne 0 ]; then
         print_warn "Command failed (exit code $ec): $1"
         exit "$ec"
     fi
@@ -86,6 +87,21 @@ update_superfile() {
     fi
     run 'bash -c "$(curl -sLo- https://superfile.dev/install.sh)"'
     print_ok "superfile updated"
+}
+
+update_herdr() {
+    print_status "Updating herdr..."
+    if ! is_cmd herdr; then
+        print_skip "herdr is not installed — skipping"
+        return
+    fi
+    # herdr refuses to update from inside one of its own sessions
+    if [ -n "${HERDR_PANE_ID:-}" ]; then
+        print_warn "Running inside a herdr session — skipping (detach and run 'herdr update')"
+        return
+    fi
+    run "herdr update"
+    print_ok "herdr updated"
 }
 
 update_aspire() {
@@ -158,7 +174,36 @@ restow() {
         print_warn "Dotfiles repo not found at $DOTFILES_REPO — skipping restow"
         return
     fi
-    run "cd $DOTFILES_REPO && git stash && git pull && stow --adopt --no-folding -v agents bash git opencode starship superfile && git stash pop || true"
+    local packages="agents bash git opencode starship superfile herdr"
+    if [ "$DRY_RUN" = true ]; then
+        print_dry "cd $DOTFILES_REPO && git stash (if needed) && git pull && git stash pop"
+        print_dry "stow --adopt --no-folding -v $packages"
+        return
+    fi
+
+    # Stash local changes so the pull can fast-forward, and always put them back
+    # BEFORE stowing — otherwise packages that only exist locally are missing
+    local stashed=false
+    if [ -n "$(git -C "$DOTFILES_REPO" status --porcelain --untracked-files=no)" ]; then
+        if ! git -C "$DOTFILES_REPO" stash push -m "update.sh restow"; then
+            print_warn "Could not stash local changes — skipping restow"
+            return
+        fi
+        stashed=true
+    fi
+    if ! git -C "$DOTFILES_REPO" pull; then
+        print_warn "git pull failed — restowing the local copy as-is"
+    fi
+    if [ "$stashed" = true ] && ! git -C "$DOTFILES_REPO" stash pop; then
+        print_warn "Could not re-apply local changes — they are still in 'git stash list'"
+        print_warn "Resolve the conflict, run 'git stash drop', then restow manually"
+        return
+    fi
+
+    if ! (cd "$DOTFILES_REPO" && stow --adopt --no-folding -v $packages); then
+        print_warn "stow failed — see the errors above"
+        return
+    fi
     print_ok "Dotfiles restowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
     print_warn "If changes look good, commit and push them"
@@ -195,6 +240,7 @@ main() {
     update_bun
     update_starship
     update_superfile
+    update_herdr
     update_aspire
     update_opencode
     update_claude_code

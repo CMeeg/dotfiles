@@ -2,39 +2,6 @@
 
 This repository contains dotfiles, setup scripts, and reference configs for setting up **Windows 11**, **WSL 2**, and **Linux (Debian on WSL)**.
 
-## Directory Layout
-
-### Stow packages (managed with GNU Stow)
-These directories are symlinked into `$HOME` using `stow --adopt -v <package>`:
-
-| Directory | Contents |
-|-----------|----------|
-| `bash/` | `.bashrc`, `.bash_aliases`, `.bash_logout`, `.profile` |
-| `git/` | `.gitconfig` |
-| `starship/` | `.config/starship.toml` — Starship prompt theme (Dracula) |
-| `superfile/` | `.config/superfile/config.toml` — superfile (`spf`) config |
-| `agents/` | `.agents/skills/` — opencode agent skill definitions |
-| `opencode/` | `.config/opencode/` — opencode config (MCP servers, TUI theme) |
-| `claude/` | `.claude/` — Claude Code `settings.json`, mods, and skills (also holds the setup guide `README.md`) |
-
-### Setup guides
-| Directory | Contents |
-|-----------|----------|
-| `linux/` | Debian setup guide |
-| `windows/` | Windows 11 setup guide |
-| `wsl/` | WSL 2 `.wslconfig` and setup guide |
-| `gitkraken/` | GitKraken setup guide |
-| `opendesign/` | OpenDesign notes — slow `git fetch` issue + repo prune command |
-
-### Reference configs
-These files are not stowed but serve as reference for manual configuration:
-
-| Directory | Contents |
-|-----------|----------|
-| `powershell/` | PowerShell profile + oh-my-posh theme (Windows) |
-| `vscode/` | VS Code `settings.json` reference |
-| `windows-terminal/` | Windows Terminal `settings.json` reference |
-
 ## Conventions
 
 - **Shell**: Bash (`.bashrc` is primary config)
@@ -55,12 +22,9 @@ These files are not stowed but serve as reference for manual configuration:
 
 | Command | Description |
 |---------|-------------|
-| `stow --adopt --no-folding -v bash git starship superfile` | Link shell, git, starship, and superfile dotfiles |
+| `stow --adopt --no-folding -v bash git starship superfile herdr` | Link shell, git, starship, superfile, and herdr dotfiles |
 | `stow --adopt --no-folding -v agents opencode` | Link opencode config and agent skills |
 | `stow --adopt --no-folding -v claude` | Link Claude Code settings, mods, and skills |
-| `./install.sh` | Automated Debian setup (idempotent) |
-| `./install.sh --dry-run` | Preview what the installer would do |
-| `source ~/.bashrc` | Reload bash configuration |
 
 ## Working on This Repo
 
@@ -68,7 +32,7 @@ These files are not stowed but serve as reference for manual configuration:
   existing target files into the stow directory. Review with `git diff` afterwards.
 - `.stow-local-ignore` tells stow to skip `.git`, `.DS_Store`, and `README.md`.
 - The `install.sh` script is idempotent and supports `--dry-run`.
-- Not every directory is a stow package — only `bash/`, `git/`, `starship/`, `superfile/`, `agents/`,
+- Not every directory is a stow package — only `bash/`, `git/`, `starship/`, `superfile/`, `herdr/`, `agents/`,
   `opencode/`, and `claude/` are managed with stow.
 - Only commit hand-written Claude Code config under `claude/.claude/` (settings, mods, skills, `CLAUDE.md`, etc.) — never credentials, history, sessions, or plugin caches. `.gitignore` allowlists the safe paths. Always stow `claude` with `--no-folding` so `~/.claude` stays a real directory.
 - When adding new dotfiles, create them inside the appropriate stow package
