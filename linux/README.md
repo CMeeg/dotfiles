@@ -48,7 +48,8 @@ reload
 ```
 
 > The script must be run from within the cloned `~/.dotfiles` directory.
-> This script will attempt to update programs regardless of whether updates are needed or not.
+> On other machines, run `git pull --autostash` in `~/.dotfiles` first (tools such as GitKraken leave `claude/.claude/settings.json` modified, which a plain `git pull` refuses), then `./update.sh`, so the updater's own changes (e.g. new retire steps) apply in the same run.
+> GitKraken and Node are only reinstalled when a newer version is available; the other programs re-run their installer or update command every time.
 
 ## Manual setup
 
@@ -105,19 +106,14 @@ reload
 ### Node
 
 * [Install Node](https://nodejs.org/en/download)
-  * `curl -o- https://fnm.vercel.app/install | bash` - install fnm
+  * `curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell` - install fnm (`--skip-shell` because `bash/.bashrc` already sets up fnm)
   * `reload` - reload bash (using alias)
-  * `fnm install 24` - or whatever version you want
+  * `fnm install --lts` - install the latest LTS
+  * `fnm default <version>` - make it the default (e.g. `fnm default v26.13.0`; `fnm list` shows installed versions)
   * `node -v` - verify node is installed
 * Enable pnpm
   * `corepack enable pnpm` - enable pnpm
   * `pnpm -v` - verify pnpm available
-
-## Bun
-
-* Install [bun](https://bun.com/docs/installation)
-  * `curl -fsSL https://bun.com/install | bash`
-  * `reload` - reload bash (using alias)
 
 ### Chrome
 
@@ -152,6 +148,7 @@ reload
   * `--skip-path` stops the installer appending to `~/.bashrc` (which is stowed) — `bash/.bashrc` already adds `~/.aspire/bin` to `PATH`
   * `reload` - reload bash (using alias)
   * `aspire --version` - verify the CLI is installed
+* Use the install script on every machine, not the .NET global tool (`dotnet tool install -g aspire.cli`) — `install.sh` and `update.sh` remove the global tool if they find it; run `./install.sh` to reinstall Aspire with the script
 * Running Aspire apps also needs the [.NET SDK](https://aspire.dev/get-started/prerequisites/) and a container runtime
 
 ### OpenCode
@@ -161,34 +158,16 @@ reload
   * `reload` - reload bash (using alias)
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v agents opencode`
+  * `stow --adopt --no-folding -v opencode`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
     * Commit and push, if needed
-* Add [Superpowers](https://github.com/obra/superpowers)
-  * Clone superpowers into a standalone location
-    * `git clone https://github.com/obra/superpowers.git ~/.local/share/opencode/packages/superpowers`
-  * In `~/.config\opencode/opencode.jsonc`, the plugin uses the local path (V2 shape; requires superpowers v6.4.1+ and OpenCode 2.0.4+):
-    * `"plugins": ["~/.local/share/opencode/packages/superpowers"]`
+* [Superpowers](https://github.com/obra/superpowers) is installed as an opencode plugin — the stowed `opencode.jsonc` already has the entry (V2 shape; needs OpenCode 2.0.4+):
+  * `"plugins": ["superpowers@git+https://github.com/obra/superpowers.git"]`
+  * opencode fetches and caches it on start — there's nothing to clone
 * Run `opencode`
 * Run `/connect` and connect a provider
-
-### OpenDesign
-
-* Install [opendesign](https://github.com/nexu-io/open-design/blob/main/QUICKSTART.md)
-  * `mkdir -p ~/.opendesign`
-  * `git clone https://github.com/nexu-io/open-design.git ~/.opendesign`
-  * `cd ~/.opendesign`
-  * `corepack enable`
-  * `pnpm install`
-  * `pnpm --filter @open-design/web build`
-  * `reload` - reload bash (using alias) will restart opendesign
-* Add to [coding agent](https://github.com/nexu-io/open-design/tree/main#platform-compatibility)
-  * Add mcp - see OpenCode config
-* Start OpenDesign Web UI
-  * Open `http://localhost:7456/` in a browser
-  * The first time you open this you will need to do some initial setup
 
 ### Claude Code
 
@@ -198,6 +177,15 @@ reload
 
 * Update distro
   * `sudo apt update && sudo apt upgrade -y` - update distro
+* Update GitKraken
+  * The `.deb` adds no apt repo, so `apt upgrade` doesn't update it — download and install the latest `.deb` again
+  * `wget -O /tmp/gitkraken-amd64.deb https://release.gitkraken.com/linux/gitkraken-amd64.deb`
+  * `sudo apt install -y /tmp/gitkraken-amd64.deb`
+  * `update.sh` does this only when a newer version is available
+* Update fnm and Node
+  * `curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell` - fnm has no self-update, so re-run the installer
+  * `fnm install --lts` then `fnm default <version>` - move to the latest LTS
+  * Older Node versions stay installed — remove one with `fnm uninstall <version>`
 * Update Starship
   * `curl -sS https://starship.rs/install.sh | sh`
 * Update superfile
@@ -206,23 +194,12 @@ reload
   * `herdr update`
 * Update Aspire CLI
   * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - re-running the installer fetches the latest release
-* Update Bun
-  * `bun upgrade`
 * Update OpenCode
   * `opencode upgrade`
 * Update Superpowers
-  * `cd ~/.local/share/opencode/packages/superpowers`
-  * `git pull`
-  * Keep it at v6.4.1+ when OpenCode 2 is installed
+  * opencode caches the plugin, so an update may not show up after a restart — clear opencode's package cache or reinstall the plugin (see `opencode/.config/opencode/README.md`)
 * One-time OpenCode v1 → v2 migration
   * See `opencode/.config/opencode/README.md` in this repo
-* Update OpenDesign
-  * `od stop`
-  * `cd ~/.opendesign`
-  * `git stash`
-  * `git pull --ff-only`
-  * `pnpm install`
-  * `pnpm --filter @open-design/web build`
 * Update Claude Code
   * `claude update`
 * Restow
@@ -230,7 +207,7 @@ reload
   * `git stash`
   * `git pull`
   * `git stash pop` - before stowing, so packages that only exist locally are present
-  * `stow --adopt --no-folding -v agents bash git opencode starship superfile herdr`
+  * `stow --adopt --no-folding -v bash git opencode starship superfile herdr claude`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes

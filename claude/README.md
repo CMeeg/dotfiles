@@ -107,7 +107,7 @@ If Context7 has been added to your claude.ai account, Claude Code installs it fo
 
 ### Skills
 
-Personal skills live in `claude/.claude/skills/<name>/` and are linked into `~/.claude/skills/`:
+Personal skills live in `claude/.claude/skills/<name>/` and are linked into `~/.claude/skills/`. opencode reads `~/.claude/skills` too, so these skills work in both tools:
 
 * New skill — create it in `claude/.claude/skills/<name>/SKILL.md`, then run `stow --no-folding -v claude` (from the dotfiles root)
 * Existing skill already in `~/.claude/skills/<name>/` — copy it into `claude/.claude/skills/<name>/`, then run `stow --adopt --no-folding -v claude` to replace the original with a symlink
