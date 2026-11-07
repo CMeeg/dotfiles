@@ -1,10 +1,29 @@
 {
   "respectGitignore": false,
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/mods"
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins"
   },
   "permissions": {
-    "defaultMode": "auto"
+    "defaultMode": "auto",
+    "deny": [
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.secrets)",
+      "Read(~/.secrets)",
+      "Read(**/local.settings.json)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.pfx)",
+      "Read(**/*.p12)",
+      "Read(~/.ssh/id_*)",
+      "Read(~/.netrc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.pgpass)",
+      "Read(~/.aws/credentials)",
+      "Read(~/.docker/config.json)",
+      "Read(~/.config/gh/hosts.yml)",
+      "Read(~/.claude/.credentials.json)"
+    ]
   },
   "hooks": {
     "SessionStart": [
@@ -56,6 +75,7 @@
   },
   "awaySummaryEnabled": false,
   "askUserQuestionTimeout": "never",
+  "feedbackDrafts": "quiet",
   "pluginConfigs": {
     "sub-meter@statuslines": {
       "options": {

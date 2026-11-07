@@ -12,7 +12,7 @@ Regenerate the `## Skill Dispatch` section in `AGENTS.md` by scanning all instal
 - `.agents/skills/*/SKILL.md` (project-local)
 - `.opencode/skills/*/SKILL.md` (project-local alternate)
 - `~/.config/opencode/skills/*/SKILL.md` (global config)
-- `~/.agents/skills/*/SKILL.md` (global agent-compatible)
+- `~/.claude/skills/*/SKILL.md` (global, shared with Claude Code)
 - `skills-lock.json` (for remote-installed skills — skip any already covered above)
 
 For each SKILL.md found, read the YAML frontmatter and extract `name` + `description`.

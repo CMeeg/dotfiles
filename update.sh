@@ -174,7 +174,7 @@ restow() {
         print_warn "Dotfiles repo not found at $DOTFILES_REPO — skipping restow"
         return
     fi
-    local packages="agents bash git opencode starship superfile herdr"
+    local packages="bash git opencode starship superfile herdr"
     if [ "$DRY_RUN" = true ]; then
         print_dry "cd $DOTFILES_REPO && git stash (if needed) && git pull && git stash pop"
         print_dry "stow --adopt --no-folding -v $packages"

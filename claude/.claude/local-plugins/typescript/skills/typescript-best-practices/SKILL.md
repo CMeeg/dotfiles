@@ -5,8 +5,8 @@ description: >-
   settings, type-level modeling (discriminated unions, branded/nominal types,
   `as const`/`satisfies`, exhaustiveness), `unknown` over `any`, immutability,
   error handling with a Result type, null/undefined hygiene, async/promise
-  rules, module and naming conventions, and the project rule that every class
-  exposes `toString()` and `toJSON()`. Use when writing new TypeScript, doing
+  rules, module and naming conventions, and an optional `toString()`/`toJSON()`
+  convention for classes. Use when writing new TypeScript, doing
   code review, setting up a tsconfig, modeling a domain type, or answering
   "what is the idiomatic TypeScript way to do this" questions. Ships ready-to-
   copy templates for value objects, entities, errors, Result, state machines,
@@ -27,18 +27,18 @@ This skill is about *idioms and conventions*. For OO design pressure use `solid-
 
 1. Match the symptom in the decision guide to a rule.
 2. Open `references/idioms.md` for that rule's full rationale, a bad example, the idiomatic refactor, and when *not* to apply it.
-3. Copy the closest file from `assets/` and adapt it. The templates already encode the conventions below (strict types, `toString`/`toJSON`, exhaustiveness) so you start compliant instead of retrofitting.
+3. Copy the closest file from `assets/` and adapt it. The templates already encode the conventions below (strict types, exhaustiveness, and the optional `toString`/`toJSON`) so you start compliant instead of retrofitting; drop `toString`/`toJSON` if the project doesn't use the convention.
 4. **Framework check first** — If the project uses a framework (Astro, Next, SvelteKit, etc.), use `find-docs` to check whether it has its own TypeScript guidance or tsconfig recommendations before applying generic defaults. Framework conventions may override settings like `module`/`moduleResolution`.
 5. Apply the smallest change that removes real pain. Strictness is earned by demonstrated bugs, not applied as ceremony — but the *defaults* here (strict tsconfig, no `any`, no floating promises) are non-negotiable because their failure mode is silent.
 
-## Project rule: every class has `toString()` and `toJSON()`
+## Optional convention: classes have `toString()` and `toJSON()`
 
-This is a hard convention in this codebase, not a suggestion.
+Follow the project's convention if it has one. Otherwise, give a class these two methods when its instances are logged, serialised (`JSON.stringify`, API responses, persistence) or interpolated into strings, which is most domain classes; a class that's never any of those doesn't need them.
 
 - **`toJSON()`** — returns a plain, serializable object. `JSON.stringify` calls it automatically, so logs, API responses, and persistence get a stable, intentional shape instead of leaking private fields, class internals, or `undefined`. Never return the instance itself.
 - **`toString()`** — returns a short human-readable identifier for logs, error messages, and template literals (`` `order ${order}` ``). It is for humans; `toJSON()` is for machines. They are not interchangeable.
 
-Why it is mandatory: without `toJSON()`, serialization is accidental — it exposes whatever fields happen to be public today and breaks the moment a private field is added. Without `toString()`, a class interpolated into a string is `[object Object]`, which destroys logs and error context. Both methods make the class's *external contract* explicit and decoupled from its internal representation (information hiding). See `references/tostring-tojson.md` for the full rationale, edge cases (circular refs, `Date`, `bigint`, secrets redaction), and the copy-ready pattern. Every template in `assets/` demonstrates it.
+Why it helps: without `toJSON()`, serialization is accidental — it exposes whatever fields happen to be public today and breaks the moment a private field is added. Without `toString()`, a class interpolated into a string is `[object Object]`, which destroys logs and error context. Both methods make the class's *external contract* explicit and decoupled from its internal representation (information hiding). See `references/tostring-tojson.md` for the full rationale, edge cases (circular refs, `Date`, `bigint`, secrets redaction), and the copy-ready pattern. Every template in `assets/` demonstrates it.
 
 ## Decision guide
 
@@ -58,6 +58,7 @@ Why it is mandatory: without `toJSON()`, serialization is accidental — it expo
 | Floating promise / unhandled rejection | Always `await`; `void` deliberate fire-and-forget | idioms.md §11 |
 | Hand-written `{ id: ..., name: ... }` derived from another type | Utility types (`Pick`/`Omit`/`Partial`) | idioms.md §12 |
 | Validating external input by casting | Type guard / assertion function (or a schema lib) | idioms.md §13, assets/type-guards.ts |
+| Reaching for `as` or `!` to make the types agree | A guard, typed accessor or tighter parameter; a commented cast only at a boundary | idioms.md §15 |
 | New class, modeling a domain value | Value object template | assets/value-object.ts |
 | New class with identity/lifecycle | Entity template | assets/entity.ts |
 | `interface` vs `type` vs `class` indecision | Decision rule | idioms.md §14 |
@@ -65,7 +66,7 @@ Why it is mandatory: without `toJSON()`, serialization is accidental — it expo
 ## Reference files
 
 - `references/idioms.md` — every rule above with motivation, a bad example, the idiomatic refactor, TypeScript-specific notes, and when the rule is over-engineering.
-- `references/tostring-tojson.md` — the mandatory `toString`/`toJSON` convention in depth: contract, edge cases, redaction, testing.
+- `references/tostring-tojson.md` — the optional `toString`/`toJSON` convention in depth: contract, edge cases, redaction, testing.
 
 ## Templates (copy and adapt)
 
@@ -87,6 +88,6 @@ These are silent-failure rules; apply them everywhere from day one:
 1. `strict: true`, `noUncheckedIndexedAccess`, and `noImplicitOverride` in tsconfig.
 2. No `any` in committed code — `unknown` + narrowing instead.
 3. No floating promises — `await` or explicit `void`.
-4. Every class implements `toString()` and `toJSON()`.
-5. Exported functions have explicit return types.
-6. External/untrusted data is validated at the boundary, never cast.
+4. Exported functions have explicit return types.
+5. External/untrusted data is validated at the boundary. Cast it only when it's trusted to have a documented shape and there's no schema to check it with (§15).
+6. No `as` or `!` outside tests except where the types can't say it (a library boundary, a branded type's smart constructor, inside a guard or type-level builder), each with a one-line comment saying why.

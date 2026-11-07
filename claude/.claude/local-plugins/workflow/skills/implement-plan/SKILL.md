@@ -1,6 +1,6 @@
 ---
 name: implement-plan
-description: Use when the user asks to implement (or resume implementing) a written implementation plan. Executes it one task at a time on the current branch, pausing for the user's review after every task, and never stages, commits or pushes.
+description: Use when the user asks to implement, or resume implementing, a written implementation plan.
 argument-hint: <path to the plan file>
 ---
 
@@ -33,7 +33,9 @@ These come from the user and override other skills' defaults, e.g. worktrees, pe
 1. Work through the task's steps in order, including the failing-test-first steps. Run every verification command the step names, and read its output. Never claim a pass you didn't see.
 2. As each step completes, tick its checkbox in the plan file (`- [ ]` → `- [x]`), so progress survives across sessions.
 3. Steps that need the user, such as logging in to a service, exporting data, acting in a third-party UI, or confirming a destructive operation, are instructions to them. Give one clear instruction, wait for "done", then verify. Never ask for, or accept, tokens or credentials in chat.
-4. Before pausing, load `superpowers:verification-before-completion` if it's available, and re-run the task's final verification commands fresh.
+4. When you notice work the task doesn't cover (a bug, an inconsistency, a better approach), say so and ask whether to do it now or record it; don't broaden the task on your own. Record what's deferred in the project's list for deferred work. If it has none, ask where, suggesting an "Addenda" section at the end of the plan file first. Note each one for the pause report.
+5. Before pausing, load `superpowers:verification-before-completion` if it's available, and re-run the task's final verification commands fresh.
+6. **REQUIRED:** then use the `task-self-review` skill (`workflow:task-self-review` in Claude Code) and fix what it finds within the task.
 
 ## The pause report
 
@@ -42,10 +44,18 @@ End the turn with:
 - **Task N: <name> — done** (or blocked, and why);
 - **Changed files:** created, modified and deleted, as clickable paths;
 - **Verification:** each command run and its actual result (pass/fail counts, exit codes);
+- **Self-review:** the section the `task-self-review` skill produces, including scope raised and where each item is recorded, and anything still running;
 - **Deviations from the plan:** what and why, or "none";
 - **Needs your input:** decisions, follow-ups or anything to check in review;
 - the question: "Ready for review — shall I move on to Task N+1, or are changes needed?"
 
+## After the last task
+
+Once the last task is reviewed, before the plan is called finished:
+
+1. List every item raised and deferred while implementing the plan: from the pause reports, the project's list of deferred work, and `TODO` comments the plan added. For each, say where it's recorded and suggest whether it's worth doing before the next plan starts.
+2. Ask the user which to take on now, and record the decision against each item. Nothing is dropped without their say.
+
 ## Resuming in a new session
 
-Run `/implement-plan <plan>` again. The ticked checkboxes show where work stopped. Re-read the plan and confirm the next task with the user before starting.
+Run this skill again with the plan (`/workflow:implement-plan <plan>` in Claude Code). The ticked checkboxes show where work stopped. Re-read the plan and confirm the next task with the user before starting.

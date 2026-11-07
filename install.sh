@@ -74,7 +74,7 @@ update_system() {
 
 install_packages() {
     print_status "Installing base packages..."
-    local packages=(build-essential curl fonts-jetbrains-mono libnss3-tools python-is-python3 python3 stow unzip wget)
+    local packages=(build-essential curl fonts-jetbrains-mono libnss3-tools jq python-is-python3 python3 stow unzip wget)
     local missing=()
 
     for pkg in "${packages[@]}"; do
@@ -380,13 +380,12 @@ install_claude_code() {
 }
 
 stow_opencode_dotfiles() {
-    print_status "Stowing opencode dotfiles (agents, opencode)..."
-    if is_symlinked "$HOME/.agents/skills/find-docs/SKILL.md" "$DOTFILES_REPO/agents/.agents/skills/find-docs/SKILL.md" &&
-       is_symlinked "$HOME/.config/opencode/opencode.jsonc" "$DOTFILES_REPO/opencode/.config/opencode/opencode.jsonc"; then
-        print_skip "opencode dotfiles (agents, opencode) are already stowed"
+    print_status "Stowing opencode dotfiles (opencode)..."
+    if is_symlinked "$HOME/.config/opencode/opencode.jsonc" "$DOTFILES_REPO/opencode/.config/opencode/opencode.jsonc"; then
+        print_skip "opencode dotfiles (opencode) are already stowed"
         return
     fi
-    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v agents opencode"
+    run "cd $DOTFILES_REPO && stow --adopt --no-folding -v opencode"
     print_ok "opencode dotfiles stowed"
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
 }

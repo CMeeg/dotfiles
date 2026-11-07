@@ -14,7 +14,7 @@ import type { Brand } from "./branded-type.js";
 export type OrderId = Brand<string, "OrderId">;
 export const OrderId = (raw: string): OrderId => {
   if (!raw) throw new Error("OrderId cannot be empty");
-  return raw as OrderId;
+  return raw as OrderId; // the brand exists only in the type: this constructor is the one place that creates it
 };
 
 export type OrderStatus = "draft" | "placed" | "shipped" | "cancelled";

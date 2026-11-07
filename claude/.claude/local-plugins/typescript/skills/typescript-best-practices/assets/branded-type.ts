@@ -18,7 +18,7 @@ export function UserId(raw: string): UserId {
   if (!/^u_[a-z0-9]{6,}$/.test(raw)) {
     throw new Error(`Invalid UserId: ${JSON.stringify(raw)}`);
   }
-  return raw as UserId;
+  return raw as UserId; // the brand exists only in the type: this constructor is the one place that creates it
 }
 
 // --- Example: a branded number with units ---------------------------------
@@ -27,7 +27,7 @@ export type Cents = Brand<number, "Cents">;
 
 export function Cents(n: number): Cents {
   if (!Number.isInteger(n)) throw new Error(`Cents must be an integer, got ${n}`);
-  return n as Cents;
+  return n as Cents; // the brand exists only in the type: this constructor is the one place that creates it
 }
 
 // --- Usage -----------------------------------------------------------------

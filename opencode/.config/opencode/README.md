@@ -33,7 +33,7 @@ This repo's stowed config is already in native V2 shape, so on other machines th
 4. **Restart OpenCode.** The v2 terminal client migrates supported global `tui.json` settings to `~/.config/opencode/cli.json` on first start. This repo stows `cli.json` (Dracula) instead of the old `tui.jsonc`:
 
    ```bash
-   cd ~/.dotfiles && stow --adopt --no-folding -v agents opencode
+   cd ~/.dotfiles && stow --adopt --no-folding -v opencode
    ```
 
    `--adopt` imports the local `cli.json` over the repo file; see `git diff` and commit if V2 wrote anything different.
@@ -43,7 +43,7 @@ This repo's stowed config is already in native V2 shape, so on other machines th
    - `opencode --version` → 2.x
    - Models and credentials still load (same auth)
    - MCP servers connect: chrome-devtools, microsoft-learn, open-design
-   - `~/.agents/skills/*` skills resolve (superpowers registers them)
+   - the local plugins' skills resolve (each plugin's `skills/` folder is listed under `skills` in `opencode.jsonc`)
    - Ask superpowers: "Tell me about your superpowers"
 
 ### herdr integration (V2)

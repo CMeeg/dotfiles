@@ -1,8 +1,8 @@
 # The `toString()` / `toJSON()` convention
 
-**Rule: every class in this codebase implements both `toString()` and `toJSON()`.** This page is the rationale, the contract, edge cases, and the copy-ready pattern. Every file in `templates/` follows it.
+**An optional convention: a class implements both `toString()` and `toJSON()`** when its instances are logged, serialised or interpolated into strings, unless the project has a convention of its own. This page is the rationale, the contract, edge cases, and the copy-ready pattern. Every file in `templates/` follows it.
 
-## Why both, and why mandatory
+## Why both
 
 | | `toJSON()` | `toString()` |
 |---|---|---|
@@ -11,7 +11,7 @@
 | Returns | a plain serializable object | a short string |
 | Failure if absent | leaks private fields or emits `{}`/`undefined` | `"[object Object]"` |
 
-The deeper reason is **information hiding**. A class's internal fields are an implementation detail. Default serialization (`JSON.stringify(instance)`) couples every consumer — your API, your logs, your DB — to that internal shape, so renaming a private field silently changes the wire format or leaks a secret. `toJSON()` makes the *external representation* an explicit, reviewable contract that is decoupled from internal storage. `toString()` does the same for human-facing identity. Making them mandatory means the contract is never accidental.
+The deeper reason is **information hiding**. A class's internal fields are an implementation detail. Default serialization (`JSON.stringify(instance)`) couples every consumer — your API, your logs, your DB — to that internal shape, so renaming a private field silently changes the wire format or leaks a secret. `toJSON()` makes the *external representation* an explicit, reviewable contract that is decoupled from internal storage. `toString()` does the same for human-facing identity. Implementing both means the contract is never accidental.
 
 ## The contract
 
@@ -87,7 +87,7 @@ Snapshot-test `toJSON()` so accidental shape changes fail loudly in review — t
 
 ## Review checklist
 
-- [ ] Class has both `toString()` and `toJSON()`.
+- [ ] If the project uses the convention (or the class is logged, serialised or interpolated): it has both `toString()` and `toJSON()`.
 - [ ] `toJSON()` returns a fresh plain object, typed by a named `XxxJSON`.
 - [ ] No secrets/PII in either; non-JSON types normalized.
 - [ ] `toString()` is short, single-line, and contains the identifier.

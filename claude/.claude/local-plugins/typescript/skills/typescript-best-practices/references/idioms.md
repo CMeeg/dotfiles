@@ -304,7 +304,7 @@ function assertIsCreateUser(v: unknown): asserts v is CreateUser {
 
 - **`type`** — default for unions, intersections, mapped/conditional types, function types, and most object shapes.
 - **`interface`** — public object/contract that may be `implements`-ed, or that benefits from declaration merging (rare in app code). Slightly better error messages and extension ergonomics for object contracts.
-- **`class`** — when you need identity, invariants enforced in a constructor, behavior bundled with data, or instances (`instanceof`). Classes here **must** implement `toString()` and `toJSON()` — see `references/tostring-tojson.md`.
+- **`class`** — when you need identity, invariants enforced in a constructor, behavior bundled with data, or instances (`instanceof`). A class that's logged, serialised or interpolated benefits from `toString()` and `toJSON()`, unless the project has a convention of its own — see `references/tostring-tojson.md`.
 
 ```ts
 type Result<T, E> = Ok<T> | Err<E>;          // unions → type
@@ -315,3 +315,49 @@ class Money { /* invariants + behavior + toString/toJSON */ } // class
 **Rule of thumb:** reach for `type`; switch to `interface` for an implement-able contract; use `class` only when an instance with behavior earns its keep. Don't model a pure data bag as a class.
 
 **Over-engineering:** a class with only public fields and no methods/invariants — that's a `type`/`interface`.
+
+---
+
+## §15 Casts (`as`) and non-null assertions (`!`) only where the types can't say it
+
+**Intent:** a cast or `!` tells the compiler "trust me" and turns off the check at exactly the point where the types disagree, so a later change that makes the claim false compiles cleanly. Most casts are a sign the types could say it: a guard, a typed accessor or a better parameter type removes the disagreement instead of hiding it.
+
+```ts
+// ❌ bad — widening the list to call includes, and asserting a key exists
+const SIZES = ["s", "m", "l"] as const;
+type Size = (typeof SIZES)[number];
+if ((SIZES as readonly string[]).includes(input)) use(input as Size);
+const label = LABELS[key as keyof typeof LABELS]!;
+
+// ✅ idiomatic — a reusable guard narrows, and an own-key check narrows the key
+const isOneOf = <T extends string>(list: readonly T[], value: string): value is T =>
+  (list as readonly string[]).includes(value); // the one cast, inside the guard: includes can't take a wider type
+if (isOneOf(SIZES, input)) use(input);
+
+const hasKey = <T extends object>(obj: T, key: PropertyKey): key is keyof T => Object.hasOwn(obj, key);
+if (hasKey(LABELS, key)) render(LABELS[key]);
+```
+
+**Where a cast is right:**
+
+- **A library boundary:** one library's type for another's data, or data trusted to have a documented shape (a response the API's docs define), when there's no schema to validate it with (§13).
+- **A branded type's smart constructor,** once, after it has validated the value (`assets/branded-type.ts`): the brand exists only in the type, so nothing else can create one.
+- **Inside a guard or a type-level builder,** once, where the narrowing itself can't be expressed (as in `isOneOf` above).
+- **Tests and throwaway scripts,** where the shape is asserted right there.
+
+Each cast in application code gets a one-line comment saying why the types can't say it. If you can't write that comment, there's a better fix.
+
+**Instead of a cast, reach for:**
+
+| Situation | Fix |
+|---|---|
+| Checking a value is one of a list | a guard like `isOneOf` |
+| Indexing an object by a string | an own-key guard like `hasKey`, or a `Map` |
+| `!` on a value you know is set | narrow it (`if (!x) throw …`), or make the type say it's set (a required parameter, a non-optional field) |
+| A registry indexed by a union, whose entries' types depend on the key | a mapped type indexed through a type parameter (TypeScript's pattern for correlated unions: `function run<K extends Kind>(kind: K, value: Values[K]) { return handlers[kind](value) }` with `handlers: { [K in Kind]: (v: Values[K]) => R }`) |
+| A function that receives a wider type than it needs | tighten the parameter type, so callers prove it |
+| `as const` | fine: it narrows rather than asserts |
+
+**Notes:** ban the unchecked forms in lint: `@typescript-eslint/no-explicit-any`, `consistent-type-assertions` (e.g. `objectLiteralTypeAssertions: "never"`), `no-non-null-assertion` and `no-unnecessary-type-assertion`, relaxed for tests. Prefer the project's existing guards over writing new ones: search for `is…`/`has…` helpers first.
+
+**Over-engineering:** a guard written to avoid one cast at a genuine library boundary. The commented cast is clearer.

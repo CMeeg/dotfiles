@@ -1,0 +1,6 @@
+{
+  "name": "engineering",
+  "version": "0.1.0",
+  "description": "General software design principles and patterns: SOLID, design principles and the Gang of Four patterns",
+  "author": { "name": "Chris Meagher" }
+}

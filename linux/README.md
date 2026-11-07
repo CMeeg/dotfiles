@@ -161,7 +161,7 @@ reload
   * `reload` - reload bash (using alias)
 * Link dotfiles
   * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v agents opencode`
+  * `stow --adopt --no-folding -v opencode`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes
@@ -230,7 +230,7 @@ reload
   * `git stash`
   * `git pull`
   * `git stash pop` - before stowing, so packages that only exist locally are present
-  * `stow --adopt --no-folding -v agents bash git opencode starship superfile herdr`
+  * `stow --adopt --no-folding -v bash git opencode starship superfile herdr`
   * Accept or reject changes to dotfiles (if any)
     * View the diff of the dotfiles repo
     * Accept/merge/reject changes

@@ -3,6 +3,13 @@
   "plugins": [
     "~/.local/share/opencode/packages/superpowers"
   ],
+  "skills": [
+    "~/.dotfiles/claude/.claude/local-plugins/workflow/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/writing/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/engineering/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/typescript/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/web/skills"
+  ],
   "mcp": {
     "servers": {
       "chrome-devtools": {
