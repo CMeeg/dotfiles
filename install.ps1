@@ -37,6 +37,8 @@ function Update-System {
 function Install-Packages {
   Write-Status 'Installing base packages...'
   $packages = 'build-essential', 'curl', 'fonts-jetbrains-mono', 'libnss3-tools', 'jq', 'python-is-python3', 'python3', 'unzip', 'wget'
+  # sshd lets the Windows Herdr app reach a WSL distro (see the sshd setup action)
+  if (Test-Wsl) { $packages += 'openssh-server' }
   $missing = @($packages | Where-Object { -not (Test-AptInstalled $_) })
   if (-not $missing.Count) {
     Write-Skip 'All base packages are already installed'
@@ -74,6 +76,18 @@ function Install-Herdr {
   }
   Invoke-Step 'curl -fsSL https://herdr.dev/install.sh | sh'
   Write-Ok "herdr installed (run 'herdr' to start)"
+}
+
+# The Herdr desktop app's runtime. On every Linux machine, not just WSL: any of them can be added as a
+# machine in the app.
+function Install-HerdrCore {
+  Write-Status 'Installing herdr-core...'
+  if ([IO.File]::Exists((Get-HerdrCorePath))) {
+    Write-Skip 'herdr-core is already installed'
+    return
+  }
+  Invoke-Step 'curl -fsSL https://releases.herdr.dev/core/install.sh | sh'
+  Write-Ok 'herdr-core installed'
 }
 
 function New-ProjectsDirectory {
@@ -268,6 +282,7 @@ try {
   Install-Starship
   Install-Superfile
   Install-Herdr
+  Install-HerdrCore
   New-ProjectsDirectory
   Install-GitKraken
   Install-Node

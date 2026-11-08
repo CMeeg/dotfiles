@@ -63,5 +63,19 @@ function Get-FnmDefault {
   $null
 }
 
-Export-ModuleMember -Function Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
+# Checks WSL's interop file rather than $env:WSL_DISTRO_NAME, which SSH sessions don't have.
+function Test-Wsl {
+  [OutputType([bool])]
+  param()
+  [IO.File]::Exists('/proc/sys/fs/binfmt_misc/WSLInterop')
+}
+
+# The installer only adds an 'hc' link when no other 'hc' is on PATH, so steps use this path instead.
+function Get-HerdrCorePath {
+  [OutputType([string])]
+  param()
+  "$($env:HOME)/.local/bin/herdr-core"
+}
+
+Export-ModuleMember -Function Test-Wsl, Get-HerdrCorePath, Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
   Test-GitKrakenNeedsUpdate, Get-LatestNodeLts, Get-FnmDefault -Variable GitKrakenDebUrl

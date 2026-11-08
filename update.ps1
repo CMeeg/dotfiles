@@ -117,6 +117,18 @@ function Update-Herdr {
   Write-Ok 'herdr updated'
 }
 
+function Update-HerdrCore {
+  Write-Status 'Updating herdr-core...'
+  $herdrCore = Get-HerdrCorePath
+  if (-not [IO.File]::Exists($herdrCore)) {
+    Write-Skip 'herdr-core is not installed — skipping'
+    return
+  }
+  # Running terminals keep running
+  Invoke-Step "$(ConvertTo-ShellArgument $herdrCore) update"
+  Write-Ok 'herdr-core updated'
+}
+
 function Update-Aspire {
   Write-Status 'Updating Aspire CLI...'
   if (-not [IO.File]::Exists("$(Get-HomeDir)/.aspire/bin/aspire")) {
@@ -188,6 +200,7 @@ try {
   Update-Starship
   Update-Superfile
   Update-Herdr
+  Update-HerdrCore
   Update-Aspire
   Update-Opencode
   Update-ClaudeCode

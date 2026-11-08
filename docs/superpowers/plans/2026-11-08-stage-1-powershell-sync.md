@@ -451,7 +451,7 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 - `install.ps1`: `openssh-server` joins the apt packages only when `Test-Wsl`. New step after herdr: `Write-Status "Installing herdr-core..."`, skip if `Get-HerdrCorePath` exists, else `Invoke-Step 'curl -fsSL https://releases.herdr.dev/core/install.sh | sh'`. On every Linux machine, not just WSL: any of them can be added as a machine in the app.
 - `update.ps1`: new step after herdr: `Write-Status "Updating herdr-core..."`, skip if `Get-HerdrCorePath` is missing, else `Invoke-Step "<herdr-core path> update"` (running terminals keep running).
 
-- [ ] **Step 1: Write the failing tests** in `tests/Setup.Tests.ps1` (`Mock Test-Wsl -ModuleName Setup`; fake `sudo` and `systemctl` on `PATH` that log calls, with a configurable failing command; temp `ConfigDir`; a temp file as `SshdPath`)
+- [x] **Step 1: Write the failing tests** in `tests/Setup.Tests.ps1` (`Mock Test-Wsl -ModuleName Setup`; fake `sudo` and `systemctl` on `PATH` that log calls, with a configurable failing command; temp `ConfigDir`; a temp file as `SshdPath`)
 
   | Test | Assert |
   |---|---|
@@ -464,19 +464,19 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
   | `sshd: warns when authorized_keys has no key` | empty `<home>/.ssh/authorized_keys` → `!` line containing `authorized_keys` |
   | `sshd: -WhatIf changes nothing` | no `sudo` calls; `~` lines |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Setup.Tests.ps1 -Output Detailed'`
   Expected: the 8 new tests fail; Task 7's still pass.
 
-- [ ] **Step 3: Write `herdr-wsl.conf`; implement `Test-Wsl`, `Get-HerdrCorePath`, `Invoke-WslSshd` and the install/update steps**
+- [x] **Step 3: Write `herdr-wsl.conf`; implement `Test-Wsl`, `Get-HerdrCorePath`, `Invoke-WslSshd` and the install/update steps**
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
 
-- [ ] **Step 5: Dry-run both scripts on this machine**
+- [x] **Step 5: Dry-run both scripts on this machine**
 
   ```bash
   pwsh -NoProfile ./install.ps1 -WhatIf   # expect: openssh-server in the apt list; "Installing herdr-core..." then a "-" line (already installed); setup actions end with the four "~ sudo ..." sshd lines (the trial's file has a different name)
