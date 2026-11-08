@@ -125,11 +125,10 @@ My skills are all in [local plugins](#local-plugins), grouped by when I'd reach 
 My own plugins live in `claude/.claude/local-plugins/<name>/`, each grouping related skills, hooks and mods (a mod is a plugin that changes Claude Code's interface, e.g. the status line, footer or panels):
 
 * `model-effort-status`: a mod that shows the current model and reasoning effort at the bottom right of the prompt footer
-* `workflow`: how I work with agents, which I don't push on anyone else: `implement-plan` (carries out a written plan one reviewed task at a time), `task-self-review` (the checks before handing work over), `verify-before-planning` (the facts a spec or plan rests on), `find-docs` (current documentation for a library or service) and `agent-guidance-retro` (reviews past sessions for recurring corrections and proposes guidance to prevent them)
+* `workflow`: how I work with agents, which I don't push on anyone else: `implement-plan` (carries out a written plan one reviewed task at a time), `task-self-review` (the checks before handing work over), `verify-before-planning` (the facts a spec or plan rests on) and `agent-guidance-retro` (reviews past sessions for recurring corrections and proposes guidance to prevent them)
 * `writing`: documents for people and for agents: `audience-first-writing` (documents other people read) and `structuring-agent-docs` (splitting and trimming `AGENTS.md`/`CLAUDE.md` files and moving procedures into skills)
-* `engineering`: general design principles and patterns: `design-principles`, `solid-principles` and `gof-patterns`
+* `engineering`: `design-principles` (SOLID and the wider design principles, language-neutral; the language plugins say how they look in code)
 * `typescript`: `typescript-best-practices`
-* `web`: `web-perf`
 
 Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/local-plugins`), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). That path is the same on Linux and Windows, so edits land in the repo with no copying. Stow skips the folder (`claude/.stow-local-ignore`), as Claude Code wouldn't load anything linked into `~/.claude/`. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
 

@@ -1,86 +1,24 @@
 /**
- * Typed, serializable error hierarchy.
- *
- * - One base class so `catch` can narrow with a single `instanceof`.
- * - A stable string `code` for programmatic handling (don't switch on `message` — that's human text and will change).
- * - `toJSON()` / `toString()` per the project convention: safe to log and to put on an API response without leaking internals or secrets.
+ * Errors: a small `Error` subclass per kind of failure a caller might handle, with `name` set (logs and
+ * name checks rely on it) and the original error kept as `cause` when one is wrapped.
  */
 
-export interface AppErrorJSON {
-  readonly name: string;
-  readonly code: string;
-  readonly message: string;
-  /** Safe, structured detail — never secrets/PII. Optional. */
-  readonly context?: Readonly<Record<string, unknown>>;
-}
+export class QuotaError extends Error {
+  override name = "QuotaError";
 
-export class AppError extends Error {
-  readonly code: string;
-  readonly context?: Readonly<Record<string, unknown>>;
-
-  constructor(
-    code: string,
-    message: string,
-    options?: { cause?: unknown; context?: Record<string, unknown> },
-  ) {
-    super(message, { cause: options?.cause });
-    this.name = new.target.name;          // correct subclass name
-    this.code = code;
-    this.context = options?.context;
-    Object.setPrototypeOf(this, new.target.prototype); // fix instanceof
-  }
-
-  /** Machine shape — what a logger / API serializes. No stack, no secrets. */
-  toJSON(): AppErrorJSON {
-    return {
-      name: this.name,
-      code: this.code,
-      message: this.message,
-      ...(this.context ? { context: this.context } : {}),
-    };
-  }
-
-  /** Human shape — one line for log messages and `${err}`. */
-  toString(): string {
-    return `${this.name}[${this.code}]: ${this.message}`;
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
   }
 }
 
-// --- Domain subclasses (map cleanly to e.g. HTTP status at the edge) -------
-
-export class ValidationError extends AppError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super("VALIDATION", message, { context });
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(resource: string, id: string) {
-    super("NOT_FOUND", `${resource} not found`, { context: { resource, id } });
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string, context?: Record<string, unknown>) {
-    super("CONFLICT", message, { context });
-  }
-}
-
-// --- Narrowing helper for `catch (e: unknown)` -----------------------------
-
-export function isAppError(e: unknown): e is AppError {
-  return e instanceof AppError;
-}
-
-// --- Usage -----------------------------------------------------------------
+// Wrapping a lower-level failure without losing it:
 //
-//   try {
-//     await repo.save(order);
-//   } catch (e) {
-//     if (isAppError(e)) {
-//       log.warn(e.toJSON());            // structured, redacted
-//       return reply(statusFor(e.code), e.toJSON());
-//     }
-//     log.error("unexpected", { value: String(e) });
-//     throw e;                           // rethrow what we can't handle
-//   }
+//   try { await storage.put(key, value) }
+//   catch (error) { throw new QuotaError(`Saving ${key} would exceed the quota`, { cause: error }) }
+
+/**
+ * Whether an error is a `QuotaError`, by name. `instanceof` compares class identity, which fails when the
+ * error comes from another copy of this module (some bundlers include a module once per entry point).
+ */
+export const isQuotaError = (error: unknown): error is QuotaError =>
+  error instanceof Error && error.name === "QuotaError";

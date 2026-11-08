@@ -53,8 +53,9 @@ End the turn with:
 
 Once the last task is reviewed, before the plan is called finished:
 
-1. List every item raised and deferred while implementing the plan: from the pause reports, the project's list of deferred work, and `TODO` comments the plan added. For each, say where it's recorded and suggest whether it's worth doing before the next plan starts.
-2. Ask the user which to take on now, and record the decision against each item. Nothing is dropped without their say.
+1. Run a fresh-context review of everything the plan changed: a subagent that hasn't seen the conversation, briefed with the plan, the changed files and the repository's guardrails. Check each finding yourself, and report those that hold with what you'd fix; fix them once the user agrees.
+2. List every item raised and deferred while implementing the plan: from the pause reports, the project's list of deferred work, and `TODO` comments the plan added. For each, say where it's recorded and suggest whether it's worth doing before the next plan starts.
+3. Ask the user which to take on now, and record the decision against each item. Nothing is dropped without their say.
 
 ## Resuming in a new session
 

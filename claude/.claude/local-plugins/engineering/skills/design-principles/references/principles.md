@@ -1,489 +1,187 @@
-# Design Principles — TypeScript Reference
+# The principles in detail
 
-Each section: intent → smell → bad example → refactor → TypeScript notes → when applying it is over-engineering. Principles covered by `solid-principles` or `gof-patterns` are referenced, not repeated.
+Each principle: what it's for, the smell that calls for it, the fix in words, and when applying it is over-engineering. Code is deliberately left to the language skills: the fix looks different in each language (see "How each principle looks" in `SKILL.md`).
 
----
+## Single responsibility
 
-## Coupling — keep it loose; measure it with connascence
+**Intent:** a module (class, file, package) has one reason to change: one actor or concern whose needs drive its edits.
 
-**Intent:** Minimize what one module must know about another so a change stays local. "Coupling" is vague on its own; **connascence** makes it actionable — two pieces of code are connascent if changing one forces a change in the other. Weak/visible forms are tolerable; strong/distant forms are debt.
+**Smell:** one module changes for unrelated reasons, e.g. a pricing rule, an email template and a database schema all edited in the same file; a description that needs "and".
 
-Strength ladder (weak → strong): **Name** → **Type** → **Meaning** → **Position** → **Algorithm** → **Timing/Execution-order**. Rule of thumb: weaken the form, or shrink its distance to a single module.
+**Fix:** split by reason to change, not by size. Pull each concern into its own module and have a thin coordinator call them in order.
 
-**Smell:** Editing one function forces ripple edits elsewhere; callers must pass arguments in a magic order; two modules must agree on an undocumented convention (`-1 means "not found"`).
+**Over-engineering when:** the split leaves single-line modules with more wiring than logic, or separates things that always change together (that's cohesion, below).
 
-### Bad
+## Open for extension, closed for modification
 
-```ts
-// Connascence of Position (arg order) + Meaning (magic numbers)
-function createUser(name: string, age: number, role: number, active: number) {
-  // role: 0 admin, 1 member  | active: 0 no, 1 yes  (callers must "just know")
-}
-createUser("Ada", 36, 0, 1);
-```
+**Intent:** adding a variant (a payment method, a notification channel, a file format) means adding code next to the existing variants, not editing a central switch that every variant passes through.
 
-### Refactor
+**Smell:** a growing `switch` or `if` chain on a type or name; every new variant touches the same function; type checks (`instanceof`, `kind ===`) decide behaviour in several places.
 
-```ts
-// Connascence of Name only — strongest coupling reduced to a shared shape
-type Role = "admin" | "member";
-function createUser(input: {
-  name: string;
-  age: number;
-  role: Role;
-  active: boolean;
-}) {}
+**Fix:** make the variation a value the caller or a registry supplies: one implementation per variant behind a shared contract, selected by name, with the shared flow written once. When the set of variants is closed and small, a union with an exhaustive check is the simpler form: adding a member is a compile error until every place handles it.
 
-createUser({ name: "Ada", age: 36, role: "admin", active: true });
-```
+**Over-engineering when:** there are two variants and no third in sight; an extension point no one will extend.
 
-**TypeScript notes:** Options objects convert connascence of position → name. Branded/literal types convert connascence of meaning → type (checked by the compiler). Keep connascence of algorithm (e.g. a hash both sides must compute identically) inside one module exposing a function — never duplicated across a boundary.
+## Substitutability (Liskov)
 
-**Over-engineering when:** two modules genuinely *are* one concept; forcing an interface between them just to "decouple" adds an indirection with one implementation (that is also a YAGNI violation). Some coupling is the design.
+**Intent:** any implementation of a contract can stand in for any other without the caller noticing: same inputs accepted, same promises kept, no surprise exceptions.
 
----
+**Smell:** an implementation throws "not supported" or silently does nothing for part of its contract; callers check which implementation they have before calling it.
 
-## Cohesion — group what changes and is used together
+**Fix:** narrow the contract to what every implementation can honour, and split out the extra capability as its own contract. Prefer composition to inheritance when a subtype would have to disable behaviour it inherited.
 
-**Intent:** A module's elements should belong together. Highest value is *functional* cohesion (everything serves one well-defined job). Avoid *coincidental* ("misc utils") and *temporal* ("things we happen to do at startup") cohesion.
+**Over-engineering when:** there's only one implementation and no plan for another.
 
-**Smell:** `helpers.ts` / `utils.ts` imported by half the codebase for unrelated reasons; a class where no method uses the same fields as any other.
+## Interface segregation
 
-### Bad
+**Intent:** a caller depends only on the operations it uses, so changes to the others can't affect it.
 
-```ts
-// Coincidental cohesion: unrelated functions sharing a file by accident
-export function formatCurrency(n: number) { /* ... */ }
-export function retry<T>(fn: () => Promise<T>) { /* ... */ }
-export function isValidEmail(s: string) { /* ... */ }
-```
+**Smell:** implementers stub members they don't need; a function takes a whole client or service to call one method; tests must fake a large surface to exercise a small path.
 
-### Refactor
+**Fix:** depend on the narrowest contract that works: a role interface with the one or two operations needed, or a single function.
 
-```ts
-// money.ts
-export function formatCurrency(n: number) { /* ... */ }
-// async.ts
-export function retry<T>(fn: () => Promise<T>) { /* ... */ }
-// email.ts
-export function isValidEmail(s: string) { /* ... */ }
-```
+**Over-engineering when:** each caller gets its own bespoke interface for operations that always travel together.
 
-A telling test: if you can describe the module without "and", it is cohesive.
+## Dependency inversion
 
-**TypeScript notes:** Cohesion shows up in imports — a module imported for one of its five exports by every caller signals it should be split. Co-locate types with the behavior that owns them rather than a global `types.ts`.
+**Intent:** the code that holds the policy (business rules) doesn't depend on the details (databases, HTTP clients, SDKs, the clock, the environment). It states what it needs, and the details are passed in from outside.
 
-**Over-engineering when:** splitting yields single-line modules with more import noise than logic, or a "package per function" structure. Cohesion is about *related change*, not minimal file size. (Module-level SRP overlaps here — see `solid-principles`; this entry adds the cohesion *taxonomy*.)
+**Smell:** business logic constructs or imports a concrete client, reads environment variables or the clock directly; unit tests need a real network, database or time.
 
----
+**Fix:** declare what the logic needs as a contract it owns (an interface or a function type), pass the implementations in, and wire the real ones in one composition root (the one place that builds the application's objects). Tests pass fakes. Where a vendor's API can't be substituted (static calls, sealed types), put a thin adapter you own around it and keep the rules out of the adapter, in code that receives it: the rules are then testable with a fake adapter, and the adapter is too small to need a unit test.
 
-## DRY — one authoritative source for each piece of knowledge
+**Over-engineering when:** abstracting something no caller or test will ever substitute (a pure helper, a constant), or wrapping a library in an interface with exactly its own shape "in case".
 
-**Intent:** Each business rule, formula, or fact has exactly one representation. Duplication of *knowledge* means a change must be made in N places and one will be missed.
+## Coupling, measured by connascence
 
-**Smell:** The same tax rule, validation regex, or status-transition table copied into several files; a bug fixed in one copy but not the others.
+**Intent:** minimise what one module must know about another so a change stays local. Connascence makes coupling concrete: two pieces of code are connascent if changing one forces a change in the other.
 
-### Bad
+From weakest to strongest: **name** (they agree on an identifier), **type**, **meaning** (they agree that `-1` means "not found"), **position** (they agree on argument order), **algorithm** (both must compute a hash the same way), **timing** (one must run before the other). Weaken the form, or shrink its distance to one module.
 
-```ts
-// Knowledge "free shipping over $50" duplicated and already drifting
-function cartSummary(c: Cart) {
-  const free = c.total >= 50;       // dollars
-}
-function checkout(c: Cart) {
-  const free = c.total >= 5000;     // cents — silently inconsistent
-}
-```
+**Smell:** editing one function forces edits elsewhere; arguments must be passed in a magic order; two modules share an undocumented convention.
 
-### Refactor
+**Fix:** named arguments or an options object instead of position; named values or types instead of magic numbers; one module owning a shared algorithm and exposing it, never two copies across a boundary.
 
-```ts
-const FREE_SHIPPING_CENTS = 5_000;
-export const qualifiesForFreeShipping = (totalCents: number) =>
-  totalCents >= FREE_SHIPPING_CENTS;
-```
+**Over-engineering when:** the two modules really are one concept; an interface between them just to "decouple" adds an indirection with one implementation. Some coupling is the design.
 
-### The counter-rule (false DRY)
+## Cohesion
 
-```ts
-// These look identical TODAY but encode unrelated decisions.
-// Coupling them means a change to one breaks the other. Keep separate.
-const isEligibleForTrial = (u: User) => u.country === "US" && u.age >= 18;
-const canPurchaseAlcohol = (u: User) => u.country === "US" && u.age >= 18;
-```
+**Intent:** keep together what changes together and is used together.
 
-**TypeScript notes:** DRY *types* with utility types (`Pick`, `Omit`, `ReturnType`, `as const` + `typeof`) and a single source-of-truth schema (e.g. infer types from a Zod schema) instead of hand-syncing interfaces.
+**Smell:** a "utils" or "helpers" module whose functions share nothing but the file; a feature whose code is scattered across layers, so one change touches many folders.
 
-**Over-engineering when:** you deduplicate incidental similarity. Apply the **Rule of Three**: tolerate the second occurrence; extract on the third, once the shared *concept* is proven. Premature abstraction is harder to undo than duplication.
+**Fix:** group by what the code is about. Move each function next to the code it serves, or to the most general module it fits if callers unrelated to that code would use it too.
 
----
+**Over-engineering when:** a module is split so finely that understanding one behaviour means opening many files.
 
-## YAGNI — You Aren't Gonna Need It
+## DRY
 
-**Intent:** Don't add capability, configurability, or generality until a concrete, present requirement demands it. Speculative flexibility is carrying cost (more code, more tests, more coupling) for unproven benefit.
+**Intent:** each piece of knowledge (a business rule, a threshold, a format) has one authoritative home.
 
-**Smell:** Config flags with one value; an interface with one implementation and no test double; "we might support Postgres *and* Mongo" plumbing when only Postgres ships; generic `<T>` parameters always instantiated as one type.
+**Smell:** the same rule written in several places, so changing it means finding them all.
 
-### Bad
+**Fix:** one named definition, used everywhere the rule applies. Derive what you can from it (types from a schema, labels from a list) rather than keeping copies in step.
 
-```ts
-// One payment provider exists. This abstracts three that don't.
-interface PaymentGateway { charge(c: Charge): Promise<Receipt>; }
-class StripeGateway implements PaymentGateway { /* ... */ }
-// + GatewayFactory, GatewayConfig, GATEWAY_REGISTRY ... all for Stripe-only
-```
+**The counter-rule (false DRY):** code that looks the same but encodes different decisions stays separate. A free-trial rule and a legal-age rule may share a condition today; merging them means changing one breaks the other. Wait for the third occurrence, and a proven shared concept, before extracting.
 
-### Refactor
+**Over-engineering when:** deduplicating incidental similarity.
 
-```ts
-// Ship the concrete thing. Introduce the interface when the SECOND
-// provider (or a real test-double need) actually arrives.
-export async function charge(c: Charge): Promise<Receipt> { /* Stripe */ }
-```
+## YAGNI
 
-**TypeScript notes:** YAGNI directly tensions with OCP/DIP from `solid-principles` — resolve it by *deferring*: structural typing means you can extract the interface later in minutes without touching call sites, so there is no cost to waiting.
+**Intent:** build for the requirement in front of you.
 
-**Over-engineering when:** the future need is essentially certain and the reversal is expensive (public API shape, persisted data schema, wire formats). YAGNI is about *speculative* needs, not known irreversibility — those warrant upfront design.
+**Smell:** options, flags, extension points or abstractions "for later" with one caller; configuration nobody sets.
 
----
+**Fix:** delete or inline them, and add them back when a real requirement arrives. Code written for a guessed requirement is usually wrong for the real one.
 
-## KISS — Keep It Simple
+**Over-engineering when:** n/a. The counterweight is cost: when adding something later would mean a data migration or a breaking change to a published API, decide now.
 
-**Intent:** Among designs that meet the requirement, prefer the one with the fewest moving parts and the lowest reader cognitive load. Complexity must buy something measurable.
+## KISS
 
-**Smell:** A metaprogramming/decorator/generic-constraint maze where a plain function or `switch` would do; a "framework" for a three-case problem.
+**Intent:** the simplest design that works. Complexity must be earned by a real requirement.
 
-### Bad
+**Smell:** a generic layer, metaprogramming or clever type-level code that few people on the team can explain; indirection that doesn't buy anything.
 
-```ts
-const dispatch = (cmds: Record<string, (...a: any[]) => unknown>) =>
-  new Proxy({}, { get: (_t, k: string) => cmds[k] ?? (() => { throw 0; }) });
-```
+**Fix:** the plain version. If it falls short, explain why before adding the clever one.
 
-### Refactor
+**Over-engineering when:** "simple" becomes a long copy-pasted `switch` that a small abstraction would make clearer. Simplicity is fewest concepts, not fewest lines.
 
-```ts
-function handle(cmd: "start" | "stop") {
-  return cmd === "start" ? start() : stop();
-}
-```
+## Separation of concerns
 
-**TypeScript notes:** Reach for the simplest construct first: union + `switch` before a class hierarchy, a closure before a Strategy class, `as const` before an enum. Escalate only when the simple version demonstrably hurts.
+**Intent:** transport (HTTP, queues, UI), policy (business rules) and storage live apart and can change apart.
 
-**Over-engineering when:** "simple" becomes a 400-line `switch` or copy-paste that a known pattern would tame. KISS is fewest *essential* parts, not fewest abstractions at any cost — see `gof-patterns` for when indirection earns its keep.
+**Smell:** one function parses the request, applies business rules, queries the database and formats the response.
 
----
+**Fix:** a thin outer layer that translates in and out, policy in the middle that knows nothing of transport or storage, and storage behind contracts the policy owns (dependency inversion).
 
-## Separation of Concerns
+**Over-engineering when:** a small script or a single endpoint gets three layers and their wiring.
 
-**Intent:** Different concerns (transport, business policy, persistence, presentation) live in different modules/layers that can be reasoned about, tested, and replaced independently.
+## Encapsulation
 
-**Smell:** A request handler that parses HTTP, applies business rules, builds SQL, and formats the response in one function — untestable without a server and a database.
+**Intent:** hide how something is represented; expose what it's for.
 
-### Bad
+**Smell:** callers reach into internal state and mutate it; a representation change (a list to a map, cents to a money type) breaks code far away.
 
-```ts
-app.post("/orders", async (req, res) => {
-  if (!req.body.items?.length) return res.status(400).end();   // transport
-  const total = req.body.items.reduce((s, i) => s + i.price, 0); // policy
-  await db.query("INSERT INTO orders ...", [total]);             // persistence
-  res.send(`<b>Total $${total / 100}</b>`);                      // presentation
-});
-```
+**Fix:** expose operations and read-only views, not mutable internals. In object-oriented code that's private state behind methods; in functional code, state held in a closure or module and exposed through functions, with read-only types.
 
-### Refactor
+**Over-engineering when:** wrapping plain data that is just data (a request body, a view model) in accessors.
 
-```ts
-// policy (pure, unit-testable)
-export const orderTotal = (items: Item[]) => items.reduce((s, i) => s + i.price, 0);
-// persistence
-export const saveOrder = (db: Db, total: number) => db.query("INSERT ...", [total]);
-// transport — thin, just wiring
-app.post("/orders", async (req, res) => {
-  const items = parseItems(req.body);          // validation/transport
-  const total = orderTotal(items);             // policy
-  await saveOrder(db, total);                  // persistence
-  res.json({ total });                         // presentation
-});
-```
+## Tell, don't ask
 
-**TypeScript notes:** Keep the policy layer free of `req`/`res`/SDK types so it is pure and fast to test. This is SRP "in the large"; `solid-principles` covers the class-level case — the addition here is the *layering* lens.
+**Intent:** the code that owns the data makes the decisions about it, rather than every caller reading the state and deciding for itself.
 
-**Over-engineering when:** a CRUD endpoint with no business logic is split into controller→service→repository→mapper for three lines of code. Layer count should track domain complexity, not ceremony.
+**Smell:** the same "read the fields, decide, write back" logic repeated at several call sites.
 
----
+**Fix:** move the decision next to the data: a method on the object, or a function in the module that owns the data, which callers ask to decide.
 
-## Encapsulation / Information Hiding
+**Over-engineering when:** applied to data that's legitimately read for display or serialisation (view models, API responses). Querying state to show it is fine; deciding domain behaviour from outside is the smell.
 
-**Intent:** Hide *how* an object represents its state; expose *what* it can do. Callers depend on behavior, so the representation can change freely.
+## Law of Demeter
 
-**Smell:** Public mutable fields; getters/setters that expose every field; callers reaching into nested structures and maintaining invariants the object should own.
+**Intent:** talk to your immediate collaborators, not to their collaborators.
 
-### Bad
+**Smell:** chains reaching through the object graph (`order.customer().address().postcode()`), so a change deep in the graph breaks callers far away.
 
-```ts
-class Wallet {
-  balance = 0;                      // anyone can set it negative
-}
-const w = new Wallet();
-w.balance -= 100;                   // invariant ("never negative") not enforced
-```
+**Fix:** ask the nearest collaborator for what you actually need, or pass that value in directly.
 
-### Refactor
+**Over-engineering when:** applied to fluent APIs and plain data navigation (`config.server.port`), where the chain is the design.
 
-```ts
-class Wallet {
-  #balanceCents = 0;                // true runtime privacy
-  get balanceCents() { return this.#balanceCents; }
-  deposit(cents: number) {
-    if (cents <= 0) throw new RangeError("deposit must be positive");
-    this.#balanceCents += cents;
-  }
-  withdraw(cents: number) {
-    if (cents > this.#balanceCents) throw new Error("insufficient funds");
-    this.#balanceCents -= cents;
-  }
-}
-```
+## Composition over inheritance
 
-**TypeScript notes:** Prefer `#field` over `private` when callers must not bypass it — `private` is erased at runtime and reachable via `any`/JS. Return `readonly T[]` / `Readonly<T>` (or copies) from accessors so callers can't mutate internal collections.
+**Intent:** assemble behaviour from small parts; reserve inheritance for genuine "is a substitutable kind of".
 
-**Over-engineering when:** wrapping a pure data transfer object (DTO) / config / JSON payload in getters and setters that add no invariant. Data with no rules can stay a plain typed object.
+**Smell:** a subtype inherits behaviour it has to disable; deep hierarchies where a change to a base class ripples unpredictably; a subclass created to vary one step.
 
----
+**Fix:** pass the varying part in (delegation, a strategy, a function parameter) and wrap rather than extend.
 
-## Tell, Don't Ask
+**Over-engineering when:** a shallow, stable hierarchy (often a framework's own extension point) already expresses the relationship.
 
-**Intent:** Tell objects what to do; don't extract their state to make the decision for them. Logic that uses an object's data belongs *with* that data.
+## Command–query separation
 
-**Smell:** `if (obj.x && obj.y) { obj.z = ... }` outside the object; the same state-poking decision repeated at every call site.
+**Intent:** a call either changes state or answers a question, not both, so reading never has hidden effects.
 
-### Bad
+**Smell:** a getter that also writes or caches visibly; a `check` that also fixes; a function named like a question that mutates.
 
-```ts
-if (account.status === "active" && account.balanceCents >= amount) {
-  account.balanceCents -= amount;        // caller enforces the rule
-} else {
-  throw new Error("cannot debit");
-}
-```
+**Fix:** split into a command and a query. Where returning the result of a write is the convention (an inserted row's ID, a stack's `pop`), name it as a command.
 
-### Refactor
+**Over-engineering when:** splitting an atomic operation that has to read and write together.
 
-```ts
-class Account {
-  debit(amount: number) {                // object enforces its own rule
-    if (this.status !== "active") throw new Error("inactive account");
-    if (this.balanceCents < amount) throw new Error("insufficient funds");
-    this.balanceCents -= amount;
-  }
-}
-account.debit(amount);
-```
+## Least astonishment
 
-**TypeScript notes:** This is the force behind GoF Strategy/State/Command (see `gof-patterns`). Apply it to domain/service objects. Deliberately *do not* apply it to view models / API DTOs that React or serializers must read — those are legitimately "ask" objects.
+**Intent:** behaviour matches the name and what a caller would reasonably expect.
 
-**Over-engineering when:** it pushes unrelated rendering/formatting logic into a domain entity just to avoid a getter, hurting cohesion. Querying state for display is fine; *deciding domain behavior* from outside is not.
+**Smell:** `getUser` creates a user when it's missing; a boolean parameter switches what the function does (`render(true)`); defaults that surprise.
 
----
+**Fix:** a name that says everything the function does, or split it. Replace a behaviour-switching flag with two focused functions, or a parameter that is the behaviour itself.
 
-## Law of Demeter (Principle of Least Knowledge)
+**Over-engineering when:** n/a; but beware renaming established, widely used APIs for purity.
 
-**Intent:** A method should talk only to: itself, its parameters, objects it creates, and its direct fields. Don't navigate through one object to reach another ("don't talk to strangers").
+## Fail fast
 
-**Smell:** Train wrecks: `order.getCustomer().getAddress().getZip()`. The caller is now coupled to the entire object graph's shape.
+**Intent:** reject invalid input where it enters, loudly, before it spreads.
 
-### Bad
+**Smell:** bad data detected several layers in, or not at all; defaults that hide missing configuration.
 
-```ts
-function shippingZone(order: Order) {
-  return zoneFor(order.getCustomer().getAddress().getCountry()); // 3 hops
-}
-```
+**Fix:** validate at the boundary (requests, files, environment, external APIs) with the project's existing validation tools, check required configuration at startup, and model states so invalid ones can't be represented.
 
-### Refactor
-
-```ts
-class Order {
-  shippingCountry(): string {            // expose the answer, not the graph
-    return this.customer.address.country;
-  }
-}
-function shippingZone(order: Order) {
-  return zoneFor(order.shippingCountry());
-}
-```
-
-**TypeScript notes:** Optional chaining (`a?.b?.c`) makes train wrecks *null-safe* but not *decoupled* — null-safety hides the design smell, it does not fix it. Add an intention-revealing method on the owning object instead.
-
-**Over-engineering when:** applied to data structures and DTOs you *own* and that are stable (e.g. `config.server.port`, a parsed JSON tree). Demeter targets *behavioral* objects whose internal structure should stay private, not plain nested data.
-
----
-
-## Composition over Inheritance
-
-**Intent:** Build behavior by assembling small parts (delegation) rather than extending a base class. Reserve inheritance for genuine "is-substitutable-for" relationships (and then it must obey LSP — see `solid-principles`).
-
-**Smell:** Deep class hierarchies; a subclass that overrides a parent method to throw/no-op; needing behavior from two unrelated parents.
-
-### Bad
-
-```ts
-class Bird { fly() { /* ... */ } }
-class Penguin extends Bird {
-  fly() { throw new Error("penguins can't fly"); }   // LSP violation
-}
-```
-
-### Refactor
-
-```ts
-interface Mover { move(): void; }
-const walks: Mover = { move() { /* waddle */ } };
-const flies: Mover = { move() { /* fly */ } };
-
-class Bird {
-  constructor(private readonly locomotion: Mover) {}
-  move() { this.locomotion.move(); }                 // behavior injected
-}
-const penguin = new Bird(walks);
-```
-
-**TypeScript notes:** Favor interface + delegation, or just function parameters. The patterns that operationalize this — Strategy, Decorator, Bridge — are in `gof-patterns`; this entry is the *general principle* and the inheritance smell test.
-
-**Over-engineering when:** a shallow, stable hierarchy with true substitution (e.g. `class HttpError extends Error`) is replaced by composition machinery. Inheritance is a tool, not a sin; it is wrong only when it forces non-substitutable subtypes.
-
----
-
-## Program to an Interface, not an Implementation
-
-**Intent:** Depend on the *role* a collaborator plays (a contract), not its concrete class, so implementations can be swapped (real ↔ fake ↔ alternative) without touching consumers.
-
-**Smell:** Business logic that imports and `new`s a concrete SDK/client; tests that need a live database/network because the type is the concrete class.
-
-### Bad
-
-```ts
-import { S3Client } from "@aws-sdk/client-s3";
-class ReportService {
-  private s3 = new S3Client({});                 // welded to AWS
-  async publish(r: Report) { /* uses this.s3 */ }
-}
-```
-
-### Refactor
-
-```ts
-type BlobStore = { put(key: string, body: Uint8Array): Promise<void> };
-
-class ReportService {
-  constructor(private readonly store: BlobStore) {}   // depends on the role
-  async publish(r: Report) { await this.store.put(r.key, r.bytes); }
-}
-// composition root injects an S3-backed BlobStore; tests inject an in-memory one
-```
-
-**TypeScript notes:** Structural typing means the contract can be a one-line `type` (often a single function), and concrete classes satisfy it *without* `implements`. This principle is the practical sibling of DIP/ISP — see `solid-principles` for the dependency-direction and segregation arguments; the contribution here is "define the seam as the *narrowest role*."
-
-**Over-engineering when:** there is exactly one implementation, no test-double need, and the dependency is trivial/stable (`Math`, `JSON`, a pure util). An interface with one impl and one caller is also a YAGNI violation.
-
----
-
-## Command–Query Separation (CQS)
-
-**Intent:** Every method is either a **command** (changes state, returns `void`/ack) or a **query** (returns data, no observable side effects) — never both. Queries become safe to call freely, reorder, cache, and reason about.
-
-**Smell:** A getter that mutates (lazy init with side effects callers don't expect); `save()` that also mutates and returns the entity; `pop()`-style methods that both read and remove (a known, accepted CQS exception).
-
-### Bad
-
-```ts
-class Counter {
-  #n = 0;
-  next(): number { return ++this.#n; }     // query-looking, but mutates
-}
-const c = new Counter();
-log(c.next(), c.next());                    // result depends on call order
-```
-
-### Refactor
-
-```ts
-class Counter {
-  #n = 0;
-  get value(): number { return this.#n; }   // query: pure
-  increment(): void { this.#n += 1; }       // command: no return
-}
-```
-
-**TypeScript notes:** Name commands as verbs (`activate`, `enqueue`) returning `void` or `Promise<void>`; name queries as nouns/`get*`/`is*`/`has*` and keep them side-effect free. Mark query-only inputs `readonly` to back the promise with the type system.
-
-**Over-engineering when:** idiomatic, well-understood combined operations (`array.pop()`, `map.delete()` returning a boolean, `INSERT ... RETURNING id`). CQS is a default to make side effects visible, not a prohibition on every useful return value.
-
----
-
-## Principle of Least Astonishment (POLA)
-
-**Intent:** A component should behave the way its name, signature, and context lead a reasonable caller to expect. Surprise is a defect even when "correct."
-
-**Smell:** `getUser()` that creates a user if missing; a `==`-style helper that mutates an argument; a sort that isn't stable when the name implies it; a boolean param that silently flips behavior at call sites.
-
-### Bad
-
-```ts
-function getConfig(): Config {
-  if (!cached) cached = loadFromDiskAndMutateGlobalEnv();  // surprising I/O
-  return cached;
-}
-function parseDate(s: string, strict = false) { /* default is lenient?! */ }
-```
-
-### Refactor
-
-```ts
-function loadConfig(): Config { /* name signals work/I/O happens */ }
-function getCachedConfig(): Config | undefined { /* pure, honest */ }
-
-function parseDate(s: string, opts: { strict: boolean }) { /* explicit */ }
-```
-
-**TypeScript notes:** Encode expectations in the signature: replace boolean flags with named options or distinct functions; let names advertise cost (`load*`/`fetch*` may be slow/async, `get*`/`is*` should be cheap & pure); make impossible inputs unrepresentable so callers can't be surprised.
-
-**Over-engineering when:** chasing "zero surprise" with hyper-explicit APIs nobody asked for, or breaking strong platform conventions in the name of your own intuition. The baseline is the *ecosystem's* expectations, not a personal one.
-
----
-
-## Fail Fast
-
-**Intent:** Detect invalid state/inputs at the earliest, outermost boundary and stop loudly — close to the cause — instead of limping on with bad data that corrupts state and surfaces as a confusing error far away.
-
-**Smell:** Defensive `?.`/`|| {}`/`?? 0` smeared through deep layers to survive inputs that should have been rejected at entry; a `NaN`/`undefined` that travels three modules before exploding.
-
-### Bad
-
-```ts
-function priceWithTax(order: any) {
-  const t = order?.items?.reduce?.((s: number, i: any) => s + (i?.price ?? 0), 0) ?? 0;
-  return t * (1 + (order?.taxRate ?? 0));   // silently returns 0, hiding the bug
-}
-```
-
-### Refactor
-
-```ts
-import { z } from "zod";
-const Order = z.object({
-  items: z.array(z.object({ price: z.number().nonnegative() })).nonempty(),
-  taxRate: z.number().min(0).max(1),
-});
-
-function priceWithTax(raw: unknown) {
-  const order = Order.parse(raw);           // throws AT THE BOUNDARY, precisely
-  const sub = order.items.reduce((s, i) => s + i.price, 0);
-  return sub * (1 + order.taxRate);         // core logic trusts its inputs
-}
-```
-
-**TypeScript notes:** Validate `unknown` at every trust boundary (HTTP body, env vars, JSON, message payloads) and convert it to a precise type once; internal code then relies on the type system instead of re-checking. Make illegal states unrepresentable (discriminated unions, branded types) so "fail fast" happens at *compile* time. Throw/assert on broken invariants rather than returning a degraded default.
-
-**Over-engineering when:** re-validating already-validated, internally-typed data at every function (paranoia tax), or crashing a long-running consumer on *recoverable* per-item errors that should be isolated and logged. Fail fast at *boundaries*; degrade gracefully for expected, recoverable runtime conditions.
+**Over-engineering when:** re-validating data already checked at the boundary on every internal call. For a failure the system can survive (one optional section of a page), degrade gracefully and log it instead of failing the whole.

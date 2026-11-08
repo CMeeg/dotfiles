@@ -28,7 +28,7 @@ function isOrder(v: unknown): v is { total: number } {
 }
 
 const data = parse(input);
-if (!isOrder(data)) throw new AppError("INVALID_ORDER", "bad payload");
+if (!isOrder(data)) throw new TypeError("The order payload has no numeric total");
 const total = data.total * 1.1; // safe
 ```
 
@@ -89,7 +89,7 @@ function render(s: State) {
 }
 ```
 
-See `templates/discriminated-union.ts`. Pair with §5 for exhaustiveness.
+See `assets/discriminated-union.ts`. Pair with §5 for exhaustiveness.
 
 **Over-engineering:** a struct with independent optional fields that genuinely *are* independent (e.g. an address with optional `line2`) — that is not a state machine; leave it.
 
@@ -111,7 +111,7 @@ getUser("o_123");            // ❌ compile error — plain string
 getUser(UserId("u_123"));    // ✅
 ```
 
-Full helper in `templates/branded-type.ts`.
+Full helper in `assets/branded-type.ts`.
 
 **Over-engineering:** branding every string. Reserve it for IDs, money, units, and other primitives whose accidental mix-up is a real, costly bug class.
 
@@ -164,48 +164,47 @@ config.port;  // type 8080 (literal), checked, autocompleted
 
 ---
 
-## §7 Return a `Result<T, E>` for expected failures
+## §7 Expected outcomes are a union; faults are thrown
 
-**Intent:** Exceptions are for *unexpected* faults. "Validation failed", "not found", "insufficient funds" are expected control flow — model them in the return type so callers must handle them and the type system tracks them.
+**Intent:** follow the project's own error style first. Where it has none: an outcome the caller has to branch on ("not found", "rejected input", "served from cache") belongs in the return type, so the compiler makes every caller handle it. A fault the caller can't do anything about (a bug, missing configuration, an unreachable service with nothing to fall back to) is thrown, and caught where it can be handled or reported.
 
 ```ts
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
+type Lookup =
+  | { found: true; user: User }
+  | { found: false; reason: "missing" | "disabled" };
 
-function withdraw(acct: Account, amt: Money): Result<Account, "INSUFFICIENT"> {
-  if (amt.gt(acct.balance)) return { ok: false, error: "INSUFFICIENT" };
-  return { ok: true, value: acct.debit(amt) };
-}
-
-const r = withdraw(a, m);
-if (!r.ok) return reply(400, r.error); // compiler forces this branch
-use(r.value);
+const lookup = await findUser(id);
+if (!lookup.found) return notFound(lookup.reason); // the compiler forces this branch
+greet(lookup.user);
 ```
 
-Full helpers (`ok`, `err`, `map`, `mapError`, `unwrap`) in
-`templates/result.ts`.
+**Notes:** give each function its own union, with fields named for what it returns, rather than a shared generic `Result<T, E>` with combinators (`map`, `flatMap`, `unwrap`): that's a library-style abstraction to adopt only if the project already uses one.
 
-**Over-engineering:** truly unrecoverable invariants (programmer error, "this should never happen") — `throw` an `AppError` there; don't thread a `Result` through 10 layers that all just propagate it.
+**Over-engineering:** threading a union through layers that only pass it on. Throw instead, and catch where it's handled.
 
 ---
 
 ## §8 Type the `catch`, narrow the error
 
-**Intent:** Under `useUnknownInCatchVariables` (on with `strict`) the catch binding is `unknown`. Don't cast it — narrow it.
+**Intent:** under `useUnknownInCatchVariables` (on with `strict`) the catch binding is `unknown`. Don't cast it: narrow it, handle what you can, and rethrow the rest.
 
 ```ts
 try {
-  await save();
-} catch (e) {
-  if (e instanceof AppError) return handle(e);
-  if (e instanceof Error) log.error(e.message, { stack: e.stack });
-  else log.error("non-error thrown", { value: String(e) });
-  throw e; // rethrow what you can't handle
+  await save(draft);
+} catch (error) {
+  if (error instanceof QuotaError) return showQuotaMessage();
+  logger.error("Saving the draft failed", { error }); // the error itself: its type, message and stack
+  throw error;
 }
 ```
 
-See `templates/app-error.ts` for a serializable error hierarchy with `toJSON`/`toString`.
+**Notes:**
 
-**Over-engineering:** none. Swallowing errors or `catch (e: any)` is the anti-pattern.
+- An error class is a small `Error` subclass that sets `name`; when it wraps another error, pass `{ cause }` so the original isn't lost. See `assets/app-error.ts`.
+- `instanceof` compares class identity, so it fails when the error comes from another copy of the class's module (some bundlers include a module once per entry point). Where that can happen, check `error.name` instead.
+- Log the error object, not `error.message`, which drops its type and stack.
+
+**Over-engineering:** none. Swallowing errors, or `catch (e: any)`, is the anti-pattern.
 
 ---
 
@@ -288,13 +287,13 @@ type CreateUser = Omit<User, "id">;
 
 ```ts
 function assertIsCreateUser(v: unknown): asserts v is CreateUser {
-  if (typeof v !== "object" || v === null) throw new AppError("BAD_INPUT", "not an object");
-  const o = v as Record<string, unknown>;
-  if (typeof o.email !== "string") throw new AppError("BAD_INPUT", "email required");
+  if (typeof v !== "object" || v === null) throw new TypeError("not an object");
+  const o = v as Record<string, unknown>; // inside the guard: reading fields of a checked object
+  if (typeof o.email !== "string") throw new TypeError("email required");
 }
 ```
 
-**Notes:** for non-trivial schemas use a runtime validation library (Zod, Valibot, ArkType) that infers the static type from the schema — single source of truth, no hand-written guard drift. Hand guards (see `templates/type-guards.ts`) are fine for small/internal shapes.
+**Notes:** for non-trivial schemas, use the runtime validation library the project already has, ideally one that infers the static type from the schema so the two can't drift; don't add one without asking. Hand-written guards (see `assets/type-guards.ts`) are fine for small or internal shapes.
 
 **Over-engineering:** validating data you fully control and that never crosses a process/IO boundary.
 
@@ -302,19 +301,17 @@ function assertIsCreateUser(v: unknown): asserts v is CreateUser {
 
 ## §14 `interface` vs `type` vs `class`
 
-- **`type`** — default for unions, intersections, mapped/conditional types, function types, and most object shapes.
-- **`interface`** — public object/contract that may be `implements`-ed, or that benefits from declaration merging (rare in app code). Slightly better error messages and extension ergonomics for object contracts.
-- **`class`** — when you need identity, invariants enforced in a constructor, behavior bundled with data, or instances (`instanceof`). A class that's logged, serialised or interpolated benefits from `toString()` and `toJSON()`, unless the project has a convention of its own — see `references/tostring-tojson.md`.
+- **`type`:** the default for unions, intersections, mapped and conditional types, function types, and most object shapes.
+- **`interface`:** an object contract that something implements or that benefits from declaration merging (rare in application code), e.g. a plugin's shape.
+- **`class`:** only where it earns its place: an `Error` subclass, an interface a library requires you to implement, or a project that already uses classes. Anything with dependencies and behaviour is otherwise a factory function returning an object (`references/design.md`).
 
 ```ts
-type Result<T, E> = Ok<T> | Err<E>;          // unions → type
-interface Repository<T> { save(x: T): Promise<void>; } // contract → interface
-class Money { /* invariants + behavior + toString/toJSON */ } // class
+type Lookup = Found | Missing;                                   // union → type
+interface Plugin { name: string; received?(c: Context): void; }  // contract → interface
+class QuotaError extends Error { override name = "QuotaError"; } // error → class
 ```
 
-**Rule of thumb:** reach for `type`; switch to `interface` for an implement-able contract; use `class` only when an instance with behavior earns its keep. Don't model a pure data bag as a class.
-
-**Over-engineering:** a class with only public fields and no methods/invariants — that's a `type`/`interface`.
+**Over-engineering:** a class with only public fields and no behaviour (a `type`), or a class wrapping one function (the function).
 
 ---
 
@@ -330,8 +327,8 @@ if ((SIZES as readonly string[]).includes(input)) use(input as Size);
 const label = LABELS[key as keyof typeof LABELS]!;
 
 // ✅ idiomatic — a reusable guard narrows, and an own-key check narrows the key
-const isOneOf = <T extends string>(list: readonly T[], value: string): value is T =>
-  (list as readonly string[]).includes(value); // the one cast, inside the guard: includes can't take a wider type
+const isOneOf = <T extends string>(list: readonly T[], value: unknown): value is T =>
+  typeof value === "string" && list.some((member) => member === value);
 if (isOneOf(SIZES, input)) use(input);
 
 const hasKey = <T extends object>(obj: T, key: PropertyKey): key is keyof T => Object.hasOwn(obj, key);
@@ -342,7 +339,7 @@ if (hasKey(LABELS, key)) render(LABELS[key]);
 
 - **A library boundary:** one library's type for another's data, or data trusted to have a documented shape (a response the API's docs define), when there's no schema to validate it with (§13).
 - **A branded type's smart constructor,** once, after it has validated the value (`assets/branded-type.ts`): the brand exists only in the type, so nothing else can create one.
-- **Inside a guard or a type-level builder,** once, where the narrowing itself can't be expressed (as in `isOneOf` above).
+- **Inside a guard or a type-level builder,** once, where the narrowing itself can't be expressed (e.g. reading the fields of an `unknown` already checked to be an object, §13).
 - **Tests and throwaway scripts,** where the shape is asserted right there.
 
 Each cast in application code gets a one-line comment saying why the types can't say it. If you can't write that comment, there's a better fix.

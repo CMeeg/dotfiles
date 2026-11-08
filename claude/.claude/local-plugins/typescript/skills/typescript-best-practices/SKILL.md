@@ -1,93 +1,60 @@
 ---
 name: typescript-best-practices
-description: >-
-  Idiomatic TypeScript conventions and best practices: strict compiler
-  settings, type-level modeling (discriminated unions, branded/nominal types,
-  `as const`/`satisfies`, exhaustiveness), `unknown` over `any`, immutability,
-  error handling with a Result type, null/undefined hygiene, async/promise
-  rules, module and naming conventions, and an optional `toString()`/`toJSON()`
-  convention for classes. Use when writing new TypeScript, doing
-  code review, setting up a tsconfig, modeling a domain type, or answering
-  "what is the idiomatic TypeScript way to do this" questions. Ships ready-to-
-  copy templates for value objects, entities, errors, Result, state machines,
-  branded types, type guards, and a strict tsconfig.
+description: Use when writing, reviewing or refactoring TypeScript, setting up a tsconfig, modelling data types, or deciding how a TypeScript module should take its dependencies, report failures or be extended.
 ---
 
-# TypeScript Best Practices & Idioms
+# TypeScript best practices
 
-How to write TypeScript that the compiler can actually protect: model illegal states out of existence, prefer narrow types over `any`, make invariants explicit, and keep runtime behavior (serialization, equality, errors) predictable.
-
-## 🎯 Why: Design for Change
-
-The goal of writing software is to be able to **change it safely**. Strict types, discriminated unions, branded types, and `Result` errors turn the compiler into a change-detector: when a shape moves, every caller lights up. `any` and loose types are change-hiders — they make the next edit *look* safe while it isn't. Idiomatic TS exists to keep the next refactor mechanical instead of archaeological.
-
-This skill is about *idioms and conventions*. For OO design pressure use `solid-principles` and `design-principles`; for named patterns use `gof-patterns`. This skill does not re-explain those.
+Write TypeScript the compiler can protect, in the language's own idiom: functions and closures, structural types, unions for state, and classes only where they earn their place. Follow the project's existing conventions first; everything here is the default when it has none.
 
 ## How to use this skill
 
-1. Match the symptom in the decision guide to a rule.
-2. Open `references/idioms.md` for that rule's full rationale, a bad example, the idiomatic refactor, and when *not* to apply it.
-3. Copy the closest file from `assets/` and adapt it. The templates already encode the conventions below (strict types, exhaustiveness, and the optional `toString`/`toJSON`) so you start compliant instead of retrofitting; drop `toString`/`toJSON` if the project doesn't use the convention.
-4. **Framework check first** — If the project uses a framework (Astro, Next, SvelteKit, etc.), use `find-docs` to check whether it has its own TypeScript guidance or tsconfig recommendations before applying generic defaults. Framework conventions may override settings like `module`/`moduleResolution`.
-5. Apply the smallest change that removes real pain. Strictness is earned by demonstrated bugs, not applied as ceremony — but the *defaults* here (strict tsconfig, no `any`, no floating promises) are non-negotiable because their failure mode is silent.
-
-## Optional convention: classes have `toString()` and `toJSON()`
-
-Follow the project's convention if it has one. Otherwise, give a class these two methods when its instances are logged, serialised (`JSON.stringify`, API responses, persistence) or interpolated into strings, which is most domain classes; a class that's never any of those doesn't need them.
-
-- **`toJSON()`** — returns a plain, serializable object. `JSON.stringify` calls it automatically, so logs, API responses, and persistence get a stable, intentional shape instead of leaking private fields, class internals, or `undefined`. Never return the instance itself.
-- **`toString()`** — returns a short human-readable identifier for logs, error messages, and template literals (`` `order ${order}` ``). It is for humans; `toJSON()` is for machines. They are not interchangeable.
-
-Why it helps: without `toJSON()`, serialization is accidental — it exposes whatever fields happen to be public today and breaks the moment a private field is added. Without `toString()`, a class interpolated into a string is `[object Object]`, which destroys logs and error context. Both methods make the class's *external contract* explicit and decoupled from its internal representation (information hiding). See `references/tostring-tojson.md` for the full rationale, edge cases (circular refs, `Date`, `bigint`, secrets redaction), and the copy-ready pattern. Every template in `assets/` demonstrates it.
+1. **Look at the project first:** its tsconfig, lint rules, and a few modules like the one you're writing. Match their shape: how they take dependencies, report errors, name things and export. If the project uses a framework, check its current docs (e.g. through Context7) for its own TypeScript guidance before applying generic defaults.
+2. **Find the situation** in the guide below, and open the reference it names.
+3. **Add only what the task needs.** A branded type, a reducer or a guard is worth it where it removes a real risk, not as a template to fill in.
 
 ## Decision guide
 
-| Symptom / question | Rule | Where |
+| Situation | Default | Where |
 |---|---|---|
-| Setting up a tsconfig from scratch | Use `assets/tsconfig.template.json` — but first check framework guidance with `find-docs` | assets/tsconfig.template.json |
-| Reaching for `any` to silence the compiler | Use `unknown` + narrowing | idioms.md §1 |
-| `enum Status { ... }` | Use a string-literal union or `as const` object | idioms.md §2 |
-| Object can be in contradictory states | Model with a discriminated union | idioms.md §3 |
-| Two `string` IDs got swapped at a call site | Brand the types (nominal) | idioms.md §4, assets/branded-type.ts |
-| `switch` silently misses a new case | Exhaustiveness check with `never` | idioms.md §5 |
-| Config object loses literal types | `as const` + `satisfies` | idioms.md §6 |
-| Throwing for an expected, recoverable failure | Return a `Result<T, E>` | idioms.md §7, assets/result.ts |
-| `catch (e)` then `e.message` | `unknown` catch + error narrowing | idioms.md §8, assets/app-error.ts |
-| Mutable shared object mutated far away | `readonly` / `Readonly<T>` / freeze | idioms.md §9 |
-| `null` vs `undefined` used interchangeably | Pick one convention; `?.`/`??` | idioms.md §10 |
-| Floating promise / unhandled rejection | Always `await`; `void` deliberate fire-and-forget | idioms.md §11 |
-| Hand-written `{ id: ..., name: ... }` derived from another type | Utility types (`Pick`/`Omit`/`Partial`) | idioms.md §12 |
-| Validating external input by casting | Type guard / assertion function (or a schema lib) | idioms.md §13, assets/type-guards.ts |
-| Reaching for `as` or `!` to make the types agree | A guard, typed accessor or tighter parameter; a commented cast only at a boundary | idioms.md §15 |
-| New class, modeling a domain value | Value object template | assets/value-object.ts |
-| New class with identity/lifecycle | Entity template | assets/entity.ts |
-| `interface` vs `type` vs `class` indecision | Decision rule | idioms.md §14 |
+| A module needs collaborators (a client, a logger, a cache) that tests must replace | a factory taking them as one options object; a composition root wires the real ones | design.md, "Dependencies are parameters" |
+| Behaviour will vary, or others will add to it | a function parameter, a list of plugins with hooks, or a registry keyed by a union; not a boolean flag | design.md, "Extension without editing" |
+| Adding logging, caching or retries around a function | a wrapper function of the same type | design.md, "Wrapping instead of subclassing" |
+| A caller must branch on the outcome (found or not, cache or network) | a union named for the function | idioms.md §7 |
+| A failure the caller can't handle | throw an `Error` subclass with `name` set, wrapping with `cause` | idioms.md §8, assets/app-error.ts |
+| One part may fail without failing the whole (a page section) | catch it in one place, log once, return the part's empty value | design.md, "Outcomes, failures and partial pages" |
+| Work waits on I/O and may be abandoned | accept an `AbortSignal` and pass it down | design.md, "Cancellation" |
+| An instance must be shared by everything that imports it | a module-level instance; on `globalThis` only where the toolchain duplicates or re-runs modules (e.g. Next.js server routes, hot reload), checking errors by `name` | design.md, "Module state and bundlers" |
+| A Gang of Four pattern comes to mind | its usual TypeScript form | design.md, "Patterns, in TypeScript" |
+| Reaching for `any` | `unknown` and narrow it | idioms.md §1 |
+| `enum` | a string-literal union or an `as const` object | idioms.md §2 |
+| An object can be in contradictory states | a discriminated union | idioms.md §3, assets/discriminated-union.ts |
+| Two values of the same primitive type are easily swapped (IDs, units) | a branded type | idioms.md §4, assets/branded-type.ts |
+| A `switch` should fail to compile when a case is added | an exhaustiveness check | idioms.md §5 |
+| Config or lookup tables lose their literal types | `as const` and `satisfies` | idioms.md §6 |
+| `catch (e)` then `e.message` | narrow the `unknown`, log the error itself | idioms.md §8 |
+| Data mutated far from where it's made | `readonly` types | idioms.md §9 |
+| `null` and `undefined` used interchangeably | one convention, `?.` and `??` | idioms.md §10 |
+| A promise nobody awaits | `await` it, or `void` it deliberately | idioms.md §11 |
+| A type hand-copied from another | derive it (`Pick`, `Omit`, `Partial`) | idioms.md §12 |
+| External input (JSON, request bodies, env) | validate it at the boundary | idioms.md §13, assets/type-guards.ts |
+| `interface`, `type` or `class`? | `type` by default | idioms.md §14 |
+| Reaching for `as` or `!` | a guard, typed accessor or tighter parameter; a commented cast only at a boundary | idioms.md §15 |
+| Setting up a tsconfig | the template, after the framework's own guidance | assets/tsconfig.template.json |
 
-## Reference files
+## Defaults, unless the project differs
 
-- `references/idioms.md` — every rule above with motivation, a bad example, the idiomatic refactor, TypeScript-specific notes, and when the rule is over-engineering.
-- `references/tostring-tojson.md` — the optional `toString`/`toJSON` convention in depth: contract, edge cases, redaction, testing.
+These fail silently when skipped, so apply them from the start:
 
-## Templates (copy and adapt)
-
-| File | Use case |
-|---|---|
-| `assets/tsconfig.template.json` | Strict baseline compiler config |
-| `assets/value-object.ts` | Immutable validated value (Money, Email) with factory, `equals`, `toString`/`toJSON` |
-| `assets/entity.ts` | Domain entity with identity, lifecycle, `toString`/`toJSON` |
-| `assets/result.ts` | `Result<T, E>` type + `ok`/`err`/`map`/`unwrap` helpers |
-| `assets/app-error.ts` | Typed error base class + subclasses, serializable, with `toJSON`/`toString` |
-| `assets/discriminated-union.ts` | State modeled as a tagged union with exhaustive handling |
-| `assets/branded-type.ts` | Zero-cost nominal types and smart constructors |
-| `assets/type-guards.ts` | User-defined type guards and assertion functions |
-
-## Non-negotiable defaults
-
-These are silent-failure rules; apply them everywhere from day one:
-
-1. `strict: true`, `noUncheckedIndexedAccess`, and `noImplicitOverride` in tsconfig.
-2. No `any` in committed code — `unknown` + narrowing instead.
-3. No floating promises — `await` or explicit `void`.
+1. `strict: true` and `noImplicitOverride`; `noUncheckedIndexedAccess` for a new project.
+2. No `any` outside tests: `unknown` and narrowing.
+3. No floating promises: `await`, or an explicit `void` for deliberate fire-and-forget.
 4. Exported functions have explicit return types.
-5. External/untrusted data is validated at the boundary. Cast it only when it's trusted to have a documented shape and there's no schema to check it with (§15).
-6. No `as` or `!` outside tests except where the types can't say it (a library boundary, a branded type's smart constructor, inside a guard or type-level builder), each with a one-line comment saying why.
+5. External data is validated at the boundary. Cast it only when it's trusted to have a documented shape and there's no schema to check it with (§15).
+6. No `as` or `!` outside tests except where the types can't say it (a library boundary, a branded type's constructor, inside a guard), each with a one-line comment saying why.
+
+## Files
+
+- `references/idioms.md`: the type-level rules (§1 to §15), each with its reason, an example and when it's over-engineering.
+- `references/design.md`: how design principles look in TypeScript: dependencies, extension, wrappers, outcomes, cancellation, module state, and the Gang of Four patterns in TypeScript form. The principles themselves are in the `design-principles` skill.
+- `assets/`: starting points to adapt, not copy whole: `tsconfig.template.json`, `app-error.ts`, `discriminated-union.ts`, `branded-type.ts`, `type-guards.ts`.

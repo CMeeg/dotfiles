@@ -27,7 +27,7 @@ Anything the plan would be wrong without:
 |---|---|
 | Code, config, what exists | reading it (search for every caller and every place a setting is used); for "was this done already?", the code and the project's status docs, not memory |
 | Data | querying it read-only, or asking the user to run the query |
-| Libraries | the registry for the latest version (e.g. `npm view <pkg> version`), then current docs (a docs skill or tool such as `find-docs` or Context7 if available) for the version you'll use |
+| Libraries | the registry for the latest version (e.g. `npm view <pkg> version`), then current docs (a docs tool such as Context7, if available) for the version you'll use |
 | Platforms and services | official docs; where they're silent, a small experiment, or mark it unverified |
 | Decisions | the project's decision record, `PROJECT.md`, spec and earlier plans |
 | Numbers | the reason, written next to the number, with its unit; a measurement where one is possible |

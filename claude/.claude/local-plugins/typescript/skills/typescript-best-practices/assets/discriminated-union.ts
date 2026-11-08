@@ -41,9 +41,23 @@ export function describe(state: RemoteData): string {
 
 // --- A small state machine on top of the union -----------------------------
 
-export function reduce(state: RemoteData, event: RemoteData): RemoteData {
-  // transitions are explicit; an impossible (state,event) pair can be rejected
-  return event;
+export type RemoteEvent =
+  | { type: "fetch" }
+  | { type: "resolve"; data: User }
+  | { type: "reject"; error: Error };
+
+export function reduce(state: RemoteData, event: RemoteEvent): RemoteData {
+  // each transition is explicit; a fetch while already loading keeps the current state
+  switch (event.type) {
+    case "fetch":
+      return state.status === "loading" ? state : { status: "loading" };
+    case "resolve":
+      return { status: "success", data: event.data };
+    case "reject":
+      return { status: "error", error: event.error };
+    default:
+      return assertNever(event);
+  }
 }
 
 // --- Usage -----------------------------------------------------------------

@@ -1,10 +1,11 @@
 {
-  // Scenario-based TSConfig matching Total TypeScript recommendations.
+  // Scenario-based TSConfig following Total TypeScript's cheat sheet (checked against its April 2024 version),
+  // plus TypeScript 6's change to `types` below.
   // Pick the sections that apply to your project; uncomment and adjust as needed.
   // See https://www.totaltypescript.com/tsconfig-cheat-sheet
   //
   // IMPORTANT: If you use a framework (Astro, Next, SvelteKit, etc.), check
-  // for framework-specific tsconfig guidance FIRST via the `find-docs` skill.
+  // for framework-specific tsconfig guidance FIRST in its current docs (e.g. through Context7).
   // Framework conventions may override these generic defaults.
   "compilerOptions": {
 
@@ -34,23 +35,26 @@
     /* ── Transpiling with TypeScript (uncomment if tsc emits .js) ── */
     // "module": "NodeNext",
     // "outDir": "./dist",
-    // "sourceMap": true,
     //
     //   ── Library (add if consumers need .d.ts files) ──
     //   "declaration": true,
     //
     //     ── Monorepo library (add if part of a monorepo) ──
     //     "composite": true,
+    //     "sourceMap": true,
     //     "declarationMap": true,
 
     /* ── NOT transpiling with TypeScript (uncomment if bundler/esbuild/etc. emits) ── */
     // "module": "preserve",
     // "noEmit": true,
 
+    /* ── Global types: TypeScript 6 includes no @types package's globals unless listed ── */
+    // "types": ["node"],                  // e.g. Node's globals (process, Buffer) for server code
+
     /* ── Runtime environment ── */
     // DOM:     "lib": ["es2022", "dom", "dom.iterable"]
     // No DOM:  "lib": ["es2022"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", ".agents", ".claude", ".opencode"]
+  // "include": the project's source folders, if not everything under this file
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,6 +1,6 @@
 {
   "name": "engineering",
   "version": "0.1.0",
-  "description": "General software design principles and patterns: SOLID, design principles and the Gang of Four patterns",
+  "description": "Language-neutral software design principles: SOLID and the wider design principles, applied through each language's idioms",
   "author": { "name": "Chris Meagher" }
 }

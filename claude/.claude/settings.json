@@ -4,7 +4,6 @@
     "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins"
   },
   "permissions": {
-    "defaultMode": "auto",
     "deny": [
       "Read(**/.env.local)",
       "Read(**/.env.*.local)",
@@ -23,7 +22,8 @@
       "Read(~/.docker/config.json)",
       "Read(~/.config/gh/hosts.yml)",
       "Read(~/.claude/.credentials.json)"
-    ]
+    ],
+    "defaultMode": "auto"
   },
   "hooks": {
     "SessionStart": [
@@ -73,9 +73,9 @@
       }
     }
   },
+  "feedbackDrafts": "quiet",
   "awaySummaryEnabled": false,
   "askUserQuestionTimeout": "never",
-  "feedbackDrafts": "quiet",
   "pluginConfigs": {
     "sub-meter@statuslines": {
       "options": {

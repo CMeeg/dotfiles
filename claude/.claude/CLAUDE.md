@@ -23,6 +23,7 @@ These are my defaults in every repository. A repository's own `AGENTS.md` or `CL
 - **When I change my mind, propagate it.** Record the new decision with what it supersedes, then update every document and every piece of code that states the old one, in the same step.
 - **Settle names early, and mark what isn't settled.** During design, propose names for the things that will last (modules, types, fields, routes, variables). If I'm not sure yet, mark the name *provisional* in the spec, so renaming it later is expected and done everywhere at once.
 - **Name for what something will permanently be,** not for the project, phase or tool that created it.
+- **Show it before building it fully.** When a choice is easier to judge by seeing it (a layout, a structure, a tool, a workflow), offer a small spike or mock-up first, so a change of mind costs little.
 
 ## Writing code
 
@@ -42,6 +43,7 @@ These are my defaults in every repository. A repository's own `AGENTS.md` or `CL
 
 ## Verifying
 
+- **A fresh pair of eyes at the end.** When a plan, a sub-project or a substantial change is finished, have it reviewed by a subagent that hasn't seen the conversation, briefed with what changed, what it's for and the repository's guardrails. Check each finding yourself, then report the ones that hold with what you'd fix.
 - **Check it in the real app.** Passing tests don't show that a UI, an editor flow or an integration works: run it, including navigation and repeated actions, before saying it's done. A visual difference from the reference (live site, design) is a regression until I've agreed it isn't.
 - **Verify claims before relying on them.** A claim about how a library, platform or service behaves, or what the code already does, gets checked against current docs or the code before it goes into a plan, and is marked unverified if it can't be.
 
