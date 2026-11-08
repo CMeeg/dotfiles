@@ -145,6 +145,15 @@ function Start-SudoKeepAlive {
   [void][Diagnostics.Process]::Start($start)
 }
 
+# Puts $Directory first on this process's PATH unless it's already there. Installers often put tools in
+# folders a fresh login doesn't have on PATH yet, and later steps need to find them.
+function Add-PathEntry {
+  param([Parameter(Mandatory)][string]$Directory)
+  $separator = [IO.Path]::PathSeparator
+  if (($env:PATH -split [regex]::Escape($separator)) -ccontains $Directory) { return }
+  $env:PATH = "$Directory$separator$env:PATH"
+}
+
 function Test-Command {
   [OutputType([bool])]
   param([Parameter(Mandatory)][string]$Name)
@@ -153,4 +162,4 @@ function Test-Command {
 
 Export-ModuleMember -Function Get-HomeDir, Get-RepoDir, Get-StateDir, Resolve-TargetPath, Set-DryRun, Test-DryRun,
   Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Write-StopReason, Read-TextFile, Write-TextFile, Resolve-LinkTarget,
-  Test-LinkInto, ConvertTo-ShellArgument, Start-SudoKeepAlive, Test-Command
+  Test-LinkInto, ConvertTo-ShellArgument, Start-SudoKeepAlive, Add-PathEntry, Test-Command

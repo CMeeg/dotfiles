@@ -25,6 +25,9 @@ Import-Module "$PSScriptRoot/lib/Setup.psm1"
 Set-DryRun ([bool]$WhatIfPreference)
 # -WhatIf would otherwise reach the cmdlets inside the modules. The modules check the dry-run flag instead.
 $WhatIfPreference = $false
+# On a fresh machine the shell that started this script predates the tools, so its PATH lacks their folders;
+# later steps (skip checks, setup actions) need to find what earlier steps installed.
+foreach ($dir in Get-ToolBinDirectories) { Add-PathEntry $dir }
 
 # ---------- Sections ----------
 

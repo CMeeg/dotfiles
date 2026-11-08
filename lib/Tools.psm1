@@ -77,5 +77,14 @@ function Get-HerdrCorePath {
   "$($env:HOME)/.local/bin/herdr-core"
 }
 
-Export-ModuleMember -Function Test-Wsl, Get-HerdrCorePath, Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
+# The folders under home that installers put tools in, the same ones bash/.bashrc adds to PATH. Scripts put
+# them on their own PATH, because on a fresh machine the shell that started them predates the tools.
+function Get-ToolBinDirectories {
+  [OutputType([string[]])]
+  param()
+  $homeDir = $env:HOME
+  "$homeDir/.local/bin", "$homeDir/.local/share/fnm", "$homeDir/.opencode/bin", "$homeDir/.aspire/bin"
+}
+
+Export-ModuleMember -Function Get-ToolBinDirectories, Test-Wsl, Get-HerdrCorePath, Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
   Test-GitKrakenNeedsUpdate, Get-LatestNodeLts, Get-FnmDefault -Variable GitKrakenDebUrl

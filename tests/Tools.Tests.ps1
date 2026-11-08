@@ -33,6 +33,24 @@ Describe 'GitKraken versions' {
   }
 }
 
+Describe 'Get-ToolBinDirectories' {
+  It "covers every home folder the repo's .bashrc adds to PATH" {
+    $savedHome = $env:HOME
+    try {
+      $env:HOME = '/tmp/h'
+      $bashrc = Get-Content -Raw "$PSScriptRoot/../bash/.bashrc"
+      # Folders written as $HOME/... directly in a PATH export, or through a variable such as FNM_PATH.
+      $added = [regex]::Matches($bashrc, '(?m)^\s*(?:export\s+)?(?:PATH|[A-Z_]+_PATH)="\$HOME/([^":$]+)') |
+        ForEach-Object { "/tmp/h/$($_.Groups[1].Value)" }
+      $added | Should -Not -BeNullOrEmpty
+      $directories = @(Get-ToolBinDirectories)
+      foreach ($dir in $added) { $directories | Should -Contain $dir }
+    } finally {
+      $env:HOME = $savedHome
+    }
+  }
+}
+
 Describe 'fnm' {
   BeforeEach {
     $savedPath = $env:PATH

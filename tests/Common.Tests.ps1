@@ -58,6 +58,18 @@ Describe 'Common' {
     "$tmp/x" | Should -Exist
   }
 
+  It 'Add-PathEntry puts a folder first on PATH once' {
+    $savedPath = $env:PATH
+    try {
+      $env:PATH = '/usr/bin:/bin'
+      Add-PathEntry '/tmp/h/.local/bin'
+      Add-PathEntry '/tmp/h/.local/bin'
+      $env:PATH | Should -Be '/tmp/h/.local/bin:/usr/bin:/bin'
+    } finally {
+      $env:PATH = $savedPath
+    }
+  }
+
   It "Write-Skip uses the bash scripts' prefix" {
     $out = Write-Skip 'hello' 6>&1 | Out-String
     $out | Should -Match ([regex]::Escape('  - hello'))

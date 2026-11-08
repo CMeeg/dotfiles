@@ -24,6 +24,9 @@ Import-Module "$PSScriptRoot/lib/Setup.psm1"
 Set-DryRun ([bool]$WhatIfPreference)
 # -WhatIf would otherwise reach the cmdlets inside the modules. The modules check the dry-run flag instead.
 $WhatIfPreference = $false
+# On a fresh machine the shell that started this script predates the tools, so its PATH lacks their folders;
+# later steps (skip checks, setup actions) need to find what earlier steps installed.
+foreach ($dir in Get-ToolBinDirectories) { Add-PathEntry $dir }
 
 # ---------- Sections ----------
 
@@ -121,14 +124,10 @@ function Install-Node {
   # --skip-shell: bash/.bashrc (applied by sync) already sets up fnm, so the installer must not append to it
   Invoke-Step 'curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell'
   if (Test-DryRun) {
-    Write-Dry 'Add fnm to PATH'
     Write-Dry 'fnm install <latest LTS> && fnm default <latest LTS>'
     Write-Ok 'fnm and Node (latest LTS) installed'
     return
   }
-  # This process's PATH doesn't come from .bashrc, so add fnm directly
-  $fnmPath = "$(Get-HomeDir)/.local/share/fnm"
-  if ([IO.Directory]::Exists($fnmPath)) { $env:PATH = "${fnmPath}:$env:PATH" }
   $lts = Get-LatestNodeLts
   if (-not $lts) {
     Write-Warn "Couldn't find the latest Node LTS — run 'fnm install --lts' later"
@@ -226,7 +225,8 @@ function Install-Opencode {
   if (Test-Command opencode) {
     Write-Warn 'opencode v1 detected — the installer will replace it with v2'
   }
-  Invoke-Step 'curl -fsSL https://opencode.ai/v2/install | bash'
+  # --no-modify-path: bash/.bashrc (applied by sync) already adds ~/.opencode/bin to PATH
+  Invoke-Step 'curl -fsSL https://opencode.ai/v2/install | bash -s -- --no-modify-path'
   Write-Ok 'opencode installed'
 }
 
