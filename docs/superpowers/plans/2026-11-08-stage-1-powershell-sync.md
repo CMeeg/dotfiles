@@ -15,7 +15,7 @@
 - PowerShell 7 only. Every `.ps1`/`.psm1` starts with `Set-StrictMode -Version Latest` and `$ErrorActionPreference = 'Stop'`. 2-space indent for PowerShell, JSON, Shell (AGENTS.md).
 - `bootstrap.sh`: `#!/usr/bin/env bash`, `set -euo pipefail`, 2-space indent, idempotent.
 - Output style matches today's bash scripts exactly: `• ` (cyan) status, `  ✓ ` (green) ok, `  - ` (yellow) skip, `  ! ` (yellow) warn, `  ~ ` (blue) dry-run. No PowerShell `What if:` lines.
-- `-WhatIf` changes nothing on disk, in the repo, in state or in running processes. Commands that change things go through `Invoke-Step`; file writes go through helpers that honour the dry-run flag.
+- `-WhatIf` changes nothing on disk, in the repo, in state or in running processes. Commands that change things go through `Invoke-Step`; file writes go through helpers that honour the dry-run flag. Each script calls `Set-DryRun ([bool]$WhatIfPreference)` and then sets `$WhatIfPreference = $false`: PowerShell's own `-WhatIf` otherwise reaches cmdlets inside the modules (found 2026-11-08: it skipped a `Remove-Item` of a temp folder and printed a `What if:` line).
 - Shell one-liners run via `bash -o pipefail -c`, and every native command's exit code is checked (spec: a failed download fails the step).
 - Retire steps only remove; they never install.
 - Scripts never commit or push.
@@ -216,36 +216,43 @@
 ### Task 4: Pull, three-way merge and conflicts
 
 **Files:**
+- Create: `lib/Json.psm1`, `tests/Json.Tests.ps1`
 - Modify: `lib/Sync.psm1`, `sync.ps1`, `tests/Sync.Tests.ps1`
 
 **Interfaces:**
 - Consumes: Task 3.
+- Produces, in `lib/Json.psm1` (added 2026-11-08, see the spec's apply table): `Find-JsonDuplicateKey [string]$Text` → `[string]` (the first key that appears twice in one object) or `$null`. Skips strings and `//`/`/* */` comments, so it works for `.jsonc`; doesn't validate the rest of the syntax (`ConvertFrom-Json` does that).
 - Produces, in `lib/Sync.psm1`:
   - `Invoke-RepoPull [string]$RepoDir` → `[bool]`. If `git status --porcelain --untracked-files=no` is non-empty: `git stash push -m sync.ps1`. Then `git pull --rebase`, then `git stash pop` if stashed. Returns `$false` (after `Write-Warn` listing `git diff --name-only --diff-filter=U`) if any step fails or unmerged files remain. Dry-run: `Write-Dry "git pull --rebase (stashing local changes if needed)"`, returns `$true`.
-  - `Invoke-ThreeWayMerge [string]$Live, [string]$Base, [string]$Repo, [string]$Target` → `[pscustomobject]@{ Clean = [bool]; Content = [string] }` using temp files and `git merge-file -p -L live -L base -L repo`. Exit 0 = clean; > 0 = conflicts; < 0 = throw. For `.json`/`.jsonc` targets a clean merge that `ConvertFrom-Json` rejects is `Clean = $false`.
+  - `Invoke-ThreeWayMerge [string]$Live, [string]$Base, [string]$Repo, [string]$Target` → `[pscustomobject]@{ Clean = [bool]; Content = [string] }` using temp files and `git merge-file -p -L live -L base -L repo`. Exit 0 = clean; > 0 = conflicts; < 0 = throw. For `.json`/`.jsonc` targets a clean merge that `ConvertFrom-Json` rejects, or that has a key twice in one object (`Find-JsonDuplicateKey`), is `Clean = $false`.
   - `Invoke-Sync` now handles `Merge`: clean → write content to live, write **repo** content as the applied copy, list under `Merged`. Not clean → conflict. Conflicts: if prompting is allowed (`-not $NoPrompt`, input and output not redirected) and `Test-Command code`, run `code --wait --merge <live> <repo tmp> <base tmp> <result tmp>`, write the result to live and the repo content as applied; otherwise leave live untouched and report the file with `Write-Warn "Conflict: <target> — run ./sync.ps1 in a terminal to merge it in VS Code"`.
 - `sync.ps1`: unless `-NoPull`, call `Invoke-RepoPull` first; on `$false`, exit 1 without applying.
+- `Invoke-Sync` throws (so `sync.ps1` exits 1) before any write if `git diff --name-only --diff-filter=U` lists files: a pull or stash pop that stopped on a conflict leaves markers in the working tree, and `-NoPull` runs (including `install.ps1`'s) would otherwise copy them into live files. Added 2026-11-08.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   | Test | Arrange | Assert |
   |---|---|---|
   | `applies an upstream change` | first sync; `Set-Upstream otherrc b`; sync (with pull) | exit 0; live `.otherrc` = `b` |
   | `merges non-overlapping edits to the same file` | `plainrc` has 5 lines; sync; local edits line 1; upstream edits line 5; sync | live has both edits; `Merged` names it; applied copy equals repo |
   | `overlapping edits are a conflict and live is kept` | local and upstream change line 1 differently; sync `-NoPrompt` | exit 0; live has the local edit; output contains `Conflict:` and `.plainrc` |
-  | `a clean merge that breaks JSON is a conflict` | `cfg/app.json` = `{"a":1,"b":2}`; local adds `"c":3,` after `"a":1,` and upstream adds `"d":4,` in the same spot so the textual merge is clean but the JSON is invalid (implementer picks the exact lines and checks `git merge-file` reports clean) | live unchanged; output contains `Conflict:` |
+  | `a clean merge that breaks JSON is a conflict` | `cfg/app.json` = `a`, `m`, `b` on separate lines; local adds `"c": 3,` after `"a": 1,` and upstream adds `"c": 4,` after `"m": 0,`, so `git merge-file` reports clean but the result has `c` twice (`ConvertFrom-Json` accepts duplicate keys, and a missing comma can only come from adjacent edits, which already conflict) | live unchanged; output contains `Conflict:` |
+  | `merges a clean JSON change` | as above, but upstream adds `"d": 4,` | live has both keys and parses; `Merged` names it |
   | `a pull conflict stops before any write` | commit a local change to repo `plainrc` and push a conflicting one upstream; also change upstream `otherrc` | exit 1; live `.otherrc` unchanged; output names the unmerged file |
+  | `refuses to apply while the repo has unresolved git conflicts` (added 2026-11-08) | a pull stops on a conflict in `plainrc`; then sync `-NoPull` | exit 1; output names `plainrc`; live `.plainrc` unchanged (the repo file holds conflict markers) |
   | `-NoPull doesn't touch git` | `Set-Upstream otherrc b` | `-NoPull` exit 0; repo `HEAD` unchanged; live `.otherrc` unchanged |
   | `stashes and restores uncommitted repo changes around the pull` | uncommitted edit to repo `plainrc`; upstream change to `otherrc`; sync | exit 0; repo working tree still has the `plainrc` edit; live `.otherrc` updated |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+  `tests/Json.Tests.ps1`: `finds a key repeated in one object`, `finds a repeat in a nested object`, `allows the same key in different objects`, `ignores keys inside strings and comments`, `returns $null for an empty object`.
 
-  Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Sync.Tests.ps1 -Output Detailed'`
-  Expected: the 7 new tests fail; Task 3's still pass.
+- [x] **Step 2: Run the tests to verify they fail**
 
-- [ ] **Step 3: Implement `Invoke-RepoPull`, `Invoke-ThreeWayMerge` and the merge/conflict handling**
+  Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Sync.Tests.ps1, tests/Json.Tests.ps1 -Output Detailed'`
+  Expected: the 8 new sync tests and the Json tests fail; Task 3's still pass.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 3: Implement `Invoke-RepoPull`, `Invoke-ThreeWayMerge` and the merge/conflict handling**
+
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
@@ -268,7 +275,7 @@
   - Summary lines at the end: counts for written, merged, conflicts, local changes, new local files, deleted, copied back; when anything was copied back, `Write-Warn "Review with 'git diff' in <repo>, stage what you want, then commit and push"`.
 - `sync.ps1` gains `-CopyBack` (non-interactive: copy back every local change and new local file without asking). Used by the tests and available to the user.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   | Test | Arrange | Assert |
   |---|---|---|
@@ -278,14 +285,14 @@
   | `-NoPrompt doesn't copy back` | local change | repo file unchanged |
   | `-CopyBack -WhatIf changes nothing` | local change | repo file unchanged; output contains `~ Copy back` |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Sync.Tests.ps1 -Output Detailed'`
   Expected: the 5 new tests fail.
 
-- [ ] **Step 3: Implement the report, prompt, `-CopyBack` and summary**
+- [x] **Step 3: Implement the report, prompt, `-CopyBack` and summary**
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.

@@ -143,7 +143,7 @@ Usage: `sync.ps1 [-NoPull] [-WhatIf]`, reading `DOTFILES_REPO` (default `~/.dotf
    | live == repo, base exists | nothing to write; **don't** touch the last-applied copy |
    | live == base (only repo changed) | write repo |
    | repo == base (only live changed) | leave live alone; list as a local change |
-   | both changed | `git merge-file` live ← base → repo. Clean merge (and, for `.json`/`.jsonc`, still parses with `ConvertFrom-Json`) → write it. Otherwise it's a conflict (below). |
+   | both changed | `git merge-file` live ← base → repo. Clean merge (and, for `.json`/`.jsonc`, still parses with `ConvertFrom-Json` and has no key twice in one object) → write it. The duplicate-key check was added on 2026-11-08: `ConvertFrom-Json` accepts duplicate keys, and both sides adding the same key in different places is the usual way a clean textual merge breaks a JSON file (a missing comma needs adjacent edits, which `git merge-file` already reports as a conflict). Otherwise it's a conflict (below). |
    | no base, live differs from repo | conflict (first sight of an unmanaged-by-sync file) |
    | live missing, base exists | deleted locally; report it, don't recreate it |
    | file removed from repo, live == base | delete live |
@@ -191,7 +191,7 @@ Because the repo layout of the remaining packages is unchanged, their links stil
 
 ### Testing
 
-- **Pester tests for `sync.ps1`** in a throwaway environment: a temp `HOME`, a bare remote, and two clones ("this machine" and "another machine"). They cover every row of the apply table, plus: placeholder round trip; local-only entries surviving repeated syncs; a clean JSON merge; a merge producing invalid JSON being treated as a conflict; a pull conflict stopping before any write; `-WhatIf` changing nothing (hashes of live files, repo and state unchanged, `HEAD` unchanged); `-NoPull` not touching git; copy-back writing placeholders; new files under a managed directory being reported; excluded paths being ignored.
+- **Pester tests for `sync.ps1`** in a throwaway environment: a temp `HOME`, a bare remote, and two clones ("this machine" and "another machine"). They cover every row of the apply table, plus: placeholder round trip; local-only entries surviving repeated syncs; a clean JSON merge; a merge producing invalid JSON (the same key added on both sides) being treated as a conflict; a pull conflict stopping before any write; `-WhatIf` changing nothing (hashes of live files, repo and state unchanged, `HEAD` unchanged); `-NoPull` not touching git; copy-back writing placeholders; new files under a managed directory being reported; excluded paths being ignored.
 - **Pester tests for `retire.ps1`'s stow step** (links into the repo replaced by copies with state seeded; dangling links deleted; links pointing elsewhere untouched; second run does nothing).
 - **Script checks:** `install.ps1 -WhatIf`, `update.ps1 -WhatIf` and `retire.ps1 -WhatIf` run cleanly on this machine and list the expected steps.
 - **End-to-end check on a throwaway WSL distro:** a fresh install via `bootstrap.sh`, then a stow-machine migration (install the pre-Stage-1 commit with the old `install.sh`, including the retired tools; check out the Stage 1 commit; run `bootstrap.sh`), checking that no links into the repo remain, the retired tools are gone, herdr's hook is registered, and a second sync reports nothing beyond expected local-only entries.

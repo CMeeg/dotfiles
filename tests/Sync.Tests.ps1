@@ -214,11 +214,181 @@ Describe 'sync.ps1 apply' {
     Get-TreeHashes $h, $r, $f.State | Should -Be $before
     git -C $r rev-parse HEAD | Should -Be $head
     $result.Output | Should -Match '~ '
+    $result.Output | Should -Not -Match 'What if:'
   }
 
   It 'fills @HOME@ on apply' {
     Write-FixtureFile "$r/cfg/app.json" '{"p":"@HOME@/x"}'
     (Invoke-TestSync).ExitCode | Should -Be 0
     Read-FixtureFile "$h/.config/app/app.json" | Should -BeExactly "{`"p`":`"$h/x`"}"
+  }
+}
+
+Describe 'sync.ps1 pull and merge' {
+  BeforeEach {
+    $f = New-SyncFixture
+    $h = $f.Home
+    $r = $f.Repo
+    $applied = "$($f.State)/applied"
+  }
+
+  AfterEach {
+    Remove-SyncFixture
+  }
+
+  It 'applies an upstream change' {
+    (Invoke-SyncScript '-NoPrompt').ExitCode | Should -Be 0
+    Set-Upstream 'otherrc' "b`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$h/.otherrc" | Should -BeExactly "b`n"
+  }
+
+  It 'merges non-overlapping edits to the same file' {
+    Set-Upstream 'plainrc' "1`n2`n3`n4`n5`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.plainrc" "1 local`n2`n3`n4`n5`n"
+    Set-Upstream 'plainrc' "1`n2`n3`n4`n5 upstream`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$h/.plainrc" | Should -BeExactly "1 local`n2`n3`n4`n5 upstream`n"
+    $result.Output | Should -Match 'Merged .*/\.plainrc'
+    Read-FixtureFile "$applied/.plainrc" | Should -BeExactly "1`n2`n3`n4`n5 upstream`n"
+  }
+
+  It 'overlapping edits are a conflict and live is kept' {
+    Set-Upstream 'plainrc' "1`n2`n3`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.plainrc" "1 local`n2`n3`n"
+    Set-Upstream 'plainrc' "1 upstream`n2`n3`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$h/.plainrc" | Should -BeExactly "1 local`n2`n3`n"
+    $result.Output | Should -Match 'Conflict: .*/\.plainrc'
+    Read-FixtureFile "$applied/.plainrc" | Should -BeExactly "1`n2`n3`n"
+  }
+
+  It 'a clean merge that breaks JSON is a conflict' {
+    Set-Upstream 'cfg/app.json' "{`n  `"a`": 1,`n  `"m`": 0,`n  `"b`": 2`n}`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    $local = "{`n  `"a`": 1,`n  `"c`": 3,`n  `"m`": 0,`n  `"b`": 2`n}`n"
+    Write-FixtureFile "$h/.config/app/app.json" $local
+    Set-Upstream 'cfg/app.json' "{`n  `"a`": 1,`n  `"m`": 0,`n  `"c`": 4,`n  `"b`": 2`n}`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$h/.config/app/app.json" | Should -BeExactly $local
+    $result.Output | Should -Match 'Conflict: .*/app\.json'
+  }
+
+  It 'merges a clean JSON change' {
+    Set-Upstream 'cfg/app.json' "{`n  `"a`": 1,`n  `"m`": 0,`n  `"b`": 2`n}`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.config/app/app.json" "{`n  `"a`": 1,`n  `"c`": 3,`n  `"m`": 0,`n  `"b`": 2`n}`n"
+    Set-Upstream 'cfg/app.json' "{`n  `"a`": 1,`n  `"m`": 0,`n  `"d`": 4,`n  `"b`": 2`n}`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    $live = Read-FixtureFile "$h/.config/app/app.json"
+    $live | Should -BeExactly "{`n  `"a`": 1,`n  `"c`": 3,`n  `"m`": 0,`n  `"d`": 4,`n  `"b`": 2`n}`n"
+    { $live | ConvertFrom-Json } | Should -Not -Throw
+    $result.Output | Should -Match 'Merged .*/app\.json'
+  }
+
+  It 'a pull conflict stops before any write' {
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$r/plainrc" "plain`nmine`n"
+    git -C $r commit -q -am 'local change'
+    Set-Upstream 'plainrc' "plain`ntheirs`n"
+    Set-Upstream 'otherrc' "other`nupstream`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 1
+    Read-FixtureFile "$h/.otherrc" | Should -BeExactly "other`n"
+    $result.Output | Should -Match 'plainrc'
+  }
+
+  It 'refuses to apply while the repo has unresolved git conflicts' {
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$r/plainrc" "plain`nmine`n"
+    git -C $r commit -q -am 'local change'
+    Set-Upstream 'plainrc' "plain`ntheirs`n"
+    (Invoke-SyncScript '-NoPrompt').ExitCode | Should -Be 1
+    Read-FixtureFile "$r/plainrc" | Should -Match '<<<<<<<'
+    $result = Invoke-SyncScript '-NoPull', '-NoPrompt'
+    $result.ExitCode | Should -Be 1
+    $result.Output | Should -Match 'unresolved git conflicts.*plainrc'
+    Read-FixtureFile "$h/.plainrc" | Should -BeExactly "plain`n"
+  }
+
+  It "-NoPull doesn't touch git" {
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Set-Upstream 'otherrc' "b`n"
+    $head = git -C $r rev-parse HEAD
+    $result = Invoke-SyncScript '-NoPull', '-NoPrompt'
+    $result.ExitCode | Should -Be 0
+    git -C $r rev-parse HEAD | Should -Be $head
+    Read-FixtureFile "$h/.otherrc" | Should -BeExactly "other`n"
+  }
+
+  It 'stashes and restores uncommitted repo changes around the pull' {
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$r/plainrc" "plain`nuncommitted`n"
+    Set-Upstream 'otherrc' "b`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/plainrc" | Should -BeExactly "plain`nuncommitted`n"
+    Read-FixtureFile "$h/.otherrc" | Should -BeExactly "b`n"
+    git -C $r stash list | Should -BeNullOrEmpty
+  }
+}
+
+Describe 'sync.ps1 local changes and copy-back' {
+  BeforeEach {
+    $f = New-SyncFixture
+    $h = $f.Home
+    $r = $f.Repo
+    $applied = "$($f.State)/applied"
+    Invoke-TestSync | Out-Null
+  }
+
+  AfterEach {
+    Remove-SyncFixture
+  }
+
+  It '-CopyBack writes the live change into the repo with placeholders' {
+    $before = Read-FixtureFile "$applied/.config/app/app.json"
+    Write-FixtureFile "$h/.config/app/app.json" "{`"a`":1,`"q`":`"$h/y`"}`n"
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/cfg/app.json" | Should -BeExactly "{`"a`":1,`"q`":`"@HOME@/y`"}`n"
+    Read-FixtureFile "$applied/.config/app/app.json" | Should -BeExactly $before
+  }
+
+  It '-CopyBack adds a new file under a managed directory' {
+    Write-FixtureFile "$h/.skills/new/SKILL.md" "new skill`n"
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/skills/new/SKILL.md" | Should -BeExactly "new skill`n"
+  }
+
+  It 'report shows the home path as @HOME@' {
+    Write-FixtureFile "$h/.plainrc" "plain`n$h/z`n"
+    $result = Invoke-TestSync
+    $result.ExitCode | Should -Be 0
+    $result.Output | Should -Match ([regex]::Escape('@HOME@/z'))
+    $result.Output | Should -Not -Match ([regex]::Escape("$h/z"))
+  }
+
+  It "-NoPrompt doesn't copy back" {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal`n"
+    (Invoke-TestSync).ExitCode | Should -Be 0
+    Read-FixtureFile "$r/plainrc" | Should -BeExactly "plain`n"
+  }
+
+  It '-CopyBack -WhatIf changes nothing' {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal`n"
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack', '-WhatIf'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/plainrc" | Should -BeExactly "plain`n"
+    $result.Output | Should -Match '~ Copy back'
+    $result.Output | Should -Not -Match 'What if:'
   }
 }
