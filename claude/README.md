@@ -52,23 +52,7 @@ Stow isn't available on Windows, so set up the config by hand.
 * Don't copy `claude/.claude/settings.json` as it is. Some of its settings are specific to one OS or one project:
   * `hooks`: hooks often run OS-specific commands, so set them up on each OS instead of copying them. For example, the `SessionStart` hook comes from [herdr](https://herdr.dev). Run `herdr integration install claude` and it adds a hook that suits the OS (a bash script in WSL, a PowerShell script on Windows).
   * `extraKnownMarketplaces` and `enabledPlugins`: some marketplaces and plugins are only there because one project needed them. Add those when you work on that project.
-* Instead, create `%USERPROFILE%\.claude\settings.json` with the settings that work on both:
-
-  ```json
-  {
-    "permissions": {
-      "defaultMode": "auto"
-    },
-    "respectGitignore": false,
-    "awaySummaryEnabled": false,
-    "askUserQuestionTimeout": "never",
-    "feedbackDrafts": "quiet",
-    "env": {
-      "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins"
-    }
-  }
-  ```
-
+* Instead, create `%USERPROFILE%\.claude\settings.json` with the [settings](#config) that work on both:
 * Add `permissions.deny` from `claude/.claude/settings.json` as well (see [Secrets](#secrets)).
 * Leave out `theme`, `extraKnownMarketplaces`, `enabledPlugins` and `pluginConfigs` for now. Installing the theme and plugins below adds those settings for you.
 * Copy `claude/.claude/CLAUDE.md` (the global instructions, see [Global instructions](#global-instructions)) to `%USERPROFILE%\.claude\CLAUDE.md`
@@ -88,7 +72,19 @@ Stow isn't available on Windows, so set up the config by hand.
 
 ### Secrets
 
-`permissions.deny` in `settings.json` stops Claude Code reading files that hold secrets in any project: `.env.local` and `.env.*.local`, `.secrets`, `local.settings.json`, keys and certificates (`*.pem`, `*.key`, `*.pfx`, `*.p12`, `~/.ssh/id_*`) and the credential files in the home folder (`.netrc`, `.git-credentials`, `.pgpass`, AWS, Docker, GitHub CLI, Claude Code's own). The rules cover the Read and Grep tools and Bash commands that name the file (`cat`, `head`, `grep`), subagents included; checking a variable is set (`[ -n "$(grep '^NAME=' .env.local)" ] && echo set`) still works. They don't cover a script that opens the file itself (e.g. `node -e "…readFileSync('.env.local')"`), which only [sandboxing](https://code.claude.com/docs/en/sandboxing) would. A committed `.env` stays readable, so a project that keeps secrets in an uncommitted `.env` or `.env.production` needs its own rule in its `.claude/settings.local.json`. opencode doesn't read these rules.
+`permissions.deny` in `settings.json` stops Claude Code reading files that hold secrets in any project:
+
+* `.env.local` and `.env.*.local`
+* `.secrets`
+* `local.settings.json`
+* keys and certificates (`*.pem`, `*.key`, `*.pfx`, `*.p12`, `~/.ssh/id_*`)
+* the credential files in the home folder (`.netrc`, `.git-credentials`, `.pgpass`, AWS, Docker, GitHub CLI, Claude Code's own)
+
+The rules cover the Read and Grep tools and Bash commands that name the file (`cat`, `head`, `grep`), subagents included; checking a variable is set (`[ -n "$(grep '^NAME=' .env.local)" ] && echo set`) still works.
+
+They don't cover a script that opens the file itself (e.g. `node -e "…readFileSync('.env.local')"`), which only [sandboxing](https://code.claude.com/docs/en/sandboxing) would.
+
+A committed `.env` stays readable, so a project that keeps secrets in an uncommitted `.env` or `.env.production` needs its own rule in its `.claude/settings.local.json`.
 
 ### Theme
 
@@ -100,11 +96,21 @@ Stow isn't available on Windows, so set up the config by hand.
 
 These are config settings I have changed from the default:
 
-* Default permission mode: `Auto`
-* Respect .gitignore in file picker: `false`
-* Session recap: `false`
-* Question auto-continue timeout: `never`
-* Feedback drafts (`feedbackDrafts`): `quiet`. When Claude drafts a bug report about something that went wrong in a session, it's queued with only a counter in the footer, instead of a notice that gets in the way mid-task; review the drafts with `/feedback` when convenient
+
+```jsonc
+{
+  "permissions": {
+    "defaultMode": "auto" // This is Claude's recommendation and does seem to work well
+  },
+  "respectGitignore": false, // It's sometimes useful to be able to reference gitignored files
+  "awaySummaryEnabled": false, // The recaps seemed too eager to display for me and you can always ask for a `/recap`
+  "askUserQuestionTimeout": "never", // If a question is asked then I want to see it!
+  "feedbackDrafts": "quiet", // The feedback "notice" can get in the way so this shows there is feedback to give in the footer instead that you can access with `/feedback`
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins" // My local plugins from this repo
+  }
+}
+```
 
 ### Plugins
 
@@ -122,17 +128,11 @@ My skills are all in [local plugins](#local-plugins), grouped by when I'd reach 
 
 ### Local plugins
 
-My own plugins live in `claude/.claude/local-plugins/<name>/`, each grouping related skills, hooks and mods (a mod is a plugin that changes Claude Code's interface, e.g. the status line, footer or panels):
+My own plugins live in `claude/.claude/local-plugins/<name>/`, each grouping related skills, hooks and mods (a mod is a plugin that changes Claude Code's interface, e.g. the status line, footer or panels).
 
-* `model-effort-status`: a mod that shows the current model and reasoning effort at the bottom right of the prompt footer
-* `workflow`: how I work with agents, which I don't push on anyone else: `implement-plan` (carries out a written plan one reviewed task at a time), `task-self-review` (the checks before handing work over), `verify-before-planning` (the facts a spec or plan rests on) and `agent-guidance-retro` (reviews past sessions for recurring corrections and proposes guidance to prevent them)
-* `writing`: documents for people and for agents: `audience-first-writing` (documents other people read) and `structuring-agent-docs` (splitting and trimming `AGENTS.md`/`CLAUDE.md` files and moving procedures into skills)
-* `engineering`: `design-principles` (SOLID and the wider design principles, language-neutral; the language plugins say how they look in code), `writing-tests`, `instrumentation-and-logging` and `config-changes`. These three started as a project's own skills and are general versions of them; a project's own version of a skill takes precedence over these
-* `typescript`: `typescript-best-practices`
-* `nextjs`: `nextjs-instrumentation` (starting logging, OpenTelemetry and process guards from `instrumentation.ts`, and what Next already does around them) and `nextjs-module-state` (instances shared across the server's bundles on `globalThis`, and errors checked by `name`). They add the Next.js part to the `engineering` and `typescript` skills
-* `aspire`: `update-aspire-skills` (adds or refreshes a project's committed copies of Aspire's agent skills without `aspire agent init` touching the global settings; its script is in the skill's `scripts/` folder)
+Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/local-plugins`), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). That path is the same on Linux and Windows, so edits land in the repo with no copying.
 
-Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/local-plugins`), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). That path is the same on Linux and Windows, so edits land in the repo with no copying. Stow skips the folder (`claude/.stow-local-ignore`), as Claude Code wouldn't load anything linked into `~/.claude/`. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
+Stow skips the folder (`claude/.stow-local-ignore`), as Claude Code wouldn't load anything linked into `~/.claude/`. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
 
 ### Marketplace mods
 

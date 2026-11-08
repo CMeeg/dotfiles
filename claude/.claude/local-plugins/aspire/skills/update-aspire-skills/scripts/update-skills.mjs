@@ -53,7 +53,7 @@ const cliVersion = () => {
   const result = runAspire(['--version'])
 
   if (result.error || result.status !== 0) {
-    throw new UpdateError('The Aspire CLI isn\'t installed (or isn\'t on the PATH): see the README\'s "Running with Aspire (optional)".')
+    throw new UpdateError('The Aspire CLI isn\'t installed (or isn\'t on the PATH): see https://aspire.dev/get-started/install-cli/')
   }
 
   // The first line, without its commit hash (`13.6.4+c89352…`), in case the CLI adds a notice after it
