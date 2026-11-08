@@ -9,7 +9,7 @@ description: Use when writing, changing or reviewing automated tests, including 
 
 Every test is code someone maintains for as long as the code it tests lives, so each one has to earn its place. A good suite fails when behaviour someone relies on breaks, and stays quiet through refactors that don't change that behaviour. Too many low-value tests is a smell: they slow every change and teach people to "just update the test".
 
-If the project has its own version of this skill, use that one: it adds the project's specifics to this.
+If the project has its own version of this skill, use that one, as it adds the project's specifics to this, and still follow this skill's "In the project" pointers to tool references.
 
 ## The yardstick
 
@@ -46,6 +46,8 @@ Tests written during TDD to drive out a detail, or to confirm a fix while develo
 
 ## In the project
 
+**If the project tests with Vitest,** load the `typescript:typescript-best-practices` skill and read its `references/vitest.md` before writing the tests; **if the code under test logs through LogTape, or records spans or metrics through OpenTelemetry,** read the "Testing" section of its `references/logtape.md` or `references/opentelemetry.md` as well.
+
 Find these before writing tests; the project's instructions, README and existing tests usually show them:
 
 - **The runner, its command and the file convention:** next to the module or in a tests folder, and, where the project has them, how type-level and component tests are named and run.
@@ -57,5 +59,5 @@ Find these before writing tests; the project's instructions, README and existing
 - **A test per input** where one table-driven test states the rule.
 - **Asserting a mock's calls** for behaviour visible in the return value.
 - **Keeping TDD scaffolding** because it passes.
-- **Testing what TypeScript already enforces,** e.g. that a function rejects a wrong type.
+- **Testing at runtime what TypeScript already enforces,** e.g. that a function rejects a wrong type. A type-level test, where the type is the contract (a generic's inferred result or constraint), is a different thing.
 - **A test that passes first time** without having been seen to fail: check it can fail (break the code briefly) before trusting it.

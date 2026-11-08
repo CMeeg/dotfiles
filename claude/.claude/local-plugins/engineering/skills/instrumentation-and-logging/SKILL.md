@@ -9,7 +9,7 @@ description: Use when adding, changing or reviewing log statements, log levels, 
 
 Logs and telemetry exist so someone can diagnose a problem in an environment they can't attach a debugger to. Every line logged outside development is usually paid for (hosted logging charges by volume) and read by a person, so each one should help answer "what happened and why", at a level that matches how much it matters, without noise, duplicates or secrets.
 
-If the project has its own version of this skill, use that one: it adds the project's specifics to this.
+If the project has its own version of this skill, use that one, as it adds the project's specifics to this, and still follow this skill's "In the project" pointers to tool references.
 
 ## Choosing a level
 
@@ -45,12 +45,14 @@ Two rules decide most cases:
 - **One resource for traces, metrics and logs,** merged from the same detectors, so they line up in the backend.
 - **The same sampler everywhere,** with only the ratio differing by environment, so local runs behave as deployed ones do.
 - **Make export failures visible:** with no diagnostic logger, a failing exporter is silent.
-- **Create meters and counters lazily** (when first used, not when a module loads): a meter created before the SDK starts can stay a no-op for the life of the process.
+- **Look meters and counters up when they're used,** not once when a module loads or first uses them: a meter created before the SDK starts can stay a no-op for the life of the process, and in tests one created once stays bound to the first test's provider.
 - **Flush on shutdown yourself** (e.g. on `SIGTERM`) rather than relying on a framework to call a shutdown function it may discard.
 - **Filter noise at the source:** health-check polls and framework-internal spans can be dropped by route or span type; keep health checks free of dependency checks, so an outage elsewhere doesn't get a healthy app restarted.
 - **Log that guards and handlers are registered** at startup (one line), so their presence can be confirmed in production.
 
 ## In the project
+
+**If the project logs through LogTape, or sets up OpenTelemetry's Node SDK,** load the `typescript:typescript-best-practices` skill and read its `references/logtape.md` or `references/opentelemetry.md` (or both) before writing any code: each applies this skill with that tool.
 
 Find these before adding logs or telemetry; the project's instructions and its existing logging usually show them:
 

@@ -1,6 +1,6 @@
 ---
 name: typescript-best-practices
-description: Use when writing, reviewing or refactoring TypeScript, setting up a tsconfig, modelling data types, or deciding how a TypeScript module should take its dependencies, report failures or be extended.
+description: Use when writing, reviewing or refactoring TypeScript, setting up a tsconfig, modelling data types, deciding how a TypeScript module should take its dependencies, report failures or be extended, or setting up or testing logging with LogTape, telemetry with OpenTelemetry's Node SDK, or tests with Vitest.
 ---
 
 # TypeScript best practices
@@ -40,6 +40,9 @@ Write TypeScript the compiler can protect, in the language's own idiom: function
 | External input (JSON, request bodies, env) | validate it at the boundary | idioms.md §13, assets/type-guards.ts |
 | `interface`, `type` or `class`? | `type` by default | idioms.md §14 |
 | Reaching for `as` or `!` | a guard, typed accessor or tighter parameter; a commented cast only at a boundary | idioms.md §15 |
+| Logging with LogTape: set-up, log lines, asserting logs in tests | the `instrumentation-and-logging` and `writing-tests` skills, applied with LogTape | references/logtape.md |
+| Telemetry with OpenTelemetry's Node SDK: starting it, custom spans and metrics, testing them | the `instrumentation-and-logging` and `writing-tests` skills, applied with the Node SDK | references/opentelemetry.md |
+| Testing with Vitest: configuration, fakes, timers, type tests | the `writing-tests` skill, applied with Vitest | references/vitest.md |
 | Setting up a tsconfig | the template, after the framework's own guidance | assets/tsconfig.template.json |
 
 ## Defaults, unless the project differs
@@ -57,4 +60,7 @@ These fail silently when skipped, so apply them from the start:
 
 - `references/idioms.md`: the type-level rules (§1 to §15), each with its reason, an example and when it's over-engineering.
 - `references/design.md`: how design principles look in TypeScript: dependencies, extension, wrappers, outcomes, cancellation, module state, and the Gang of Four patterns in TypeScript form. The principles themselves are in the `design-principles` skill.
+- `references/logtape.md`: applying the `instrumentation-and-logging` and `writing-tests` skills with LogTape.
+- `references/opentelemetry.md`: applying the same two skills with OpenTelemetry's Node SDK.
+- `references/vitest.md`: applying the `writing-tests` skill with Vitest.
 - `assets/`: starting points to adapt, not copy whole: `tsconfig.template.json`, `app-error.ts`, `discriminated-union.ts`, `branded-type.ts`, `type-guards.ts`.
