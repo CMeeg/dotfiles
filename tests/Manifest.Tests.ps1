@@ -2,6 +2,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 BeforeAll {
+  # Pester runs top-level code only while discovering tests; these lines apply strictness to the tests themselves.
+  Set-StrictMode -Version Latest
+  $ErrorActionPreference = 'Stop'
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/Manifest.psm1" -Force
 

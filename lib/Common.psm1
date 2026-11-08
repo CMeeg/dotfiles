@@ -75,6 +75,39 @@ function Invoke-Step {
   }
 }
 
+$script:Utf8 = [Text.UTF8Encoding]::new($false)
+
+# Reads a file as UTF-8, byte for byte: no BOM stripping, no line-ending changes. $null if the file is missing.
+function Read-TextFile {
+  param([Parameter(Mandatory)][string]$Path)
+  if (-not [IO.File]::Exists($Path)) { return $null }
+  $script:Utf8.GetString([IO.File]::ReadAllBytes($Path))
+}
+
+# Writes UTF-8 without a BOM, exactly as given, creating parent folders. Does nothing in dry-run, so callers
+# print their own dry-run line. An existing file keeps its mode.
+function Write-TextFile {
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+  if (Test-DryRun) { return }
+  [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($Path)) | Out-Null
+  [IO.File]::WriteAllBytes($Path, $script:Utf8.GetBytes($Content))
+}
+
+# True if $Path is a symlink whose target, resolved against the link's folder, is inside $Directory.
+function Test-LinkInto {
+  [OutputType([bool])]
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Directory)
+  $item = Get-Item -Force -LiteralPath $Path -ErrorAction SilentlyContinue
+  if (-not $item -or -not $item.LinkTarget) { return $false }
+  $destination = $item.LinkTarget
+  if (-not [IO.Path]::IsPathRooted($destination)) {
+    $destination = Join-Path ([IO.Path]::GetDirectoryName($Path)) $destination
+  }
+  $destination = [IO.Path]::GetFullPath($destination)
+  $prefix = [IO.Path]::GetFullPath($Directory).TrimEnd('/') + '/'
+  $destination.StartsWith($prefix, [StringComparison]::Ordinal)
+}
+
 function Test-Command {
   [OutputType([bool])]
   param([Parameter(Mandatory)][string]$Name)
@@ -82,4 +115,5 @@ function Test-Command {
 }
 
 Export-ModuleMember -Function Get-HomeDir, Get-RepoDir, Get-StateDir, Resolve-TargetPath, Set-DryRun, Test-DryRun,
-  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Test-Command
+  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Read-TextFile, Write-TextFile, Test-LinkInto,
+  Test-Command

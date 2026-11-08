@@ -171,7 +171,7 @@
 - `sync.ps1 [-NoPull] [-NoPrompt] [-InitialApply] [-WhatIf]` (`[CmdletBinding(SupportsShouldProcess)]`): imports the modules from `$PSScriptRoot/lib`, `Set-DryRun $WhatIfPreference`, (pull: Task 4), `Invoke-Sync`, prints the summary. Exit 0 on success (conflicts and local changes are reported, not failures), 1 on a thrown error.
 - `tests/TestHelpers.psm1`: `New-SyncFixture` → creates `TMP`, sets `$env:HOME`, `$env:DOTFILES_REPO`, `$env:DOTFILES_STATE`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`; builds a bare remote seeded with a `dotfiles.json` (file entries `plainrc` → `~/.plainrc`, `otherrc` → `~/.otherrc`, `cfg/app.json` → `~/.config/app/app.json`; directory entry `skills` → `~/.skills` excluding `synced/**`) and those files; clones it to `$env:DOTFILES_REPO` and to `<TMP>/other`. `Invoke-SyncScript [string[]]$Arguments` → `@{ ExitCode; Output }` by running `pwsh -NoProfile -File <repo root>/sync.ps1` in a child process. `Set-Upstream [string]$Path, [string]$Content` commits and pushes from `<TMP>/other`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/Sync.Tests.ps1`
+- [x] **Step 1: Write the failing tests** in `tests/Sync.Tests.ps1`
 
   `Get-SyncAction`: one table-driven `It` per row of the table above (11 cases), plus:
 
@@ -195,16 +195,16 @@
   | `-WhatIf changes nothing` | edit repo `plainrc` after a first sync | `-WhatIf` exit 0; SHA-256 of every live, repo and state file unchanged; output contains `~ ` |
   | `fills @HOME@ on apply` | repo `cfg/app.json` = `{"p":"@HOME@/x"}` | live contains `$env:HOME/x` |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Sync.Tests.ps1 -Output Detailed'`
   Expected: all fail (module or script not found).
 
-- [ ] **Step 3: Implement `lib/State.psm1`, `lib/Sync.psm1` and `sync.ps1`**
+- [x] **Step 3: Implement `lib/State.psm1`, `lib/Sync.psm1` and `sync.ps1`**
 
   Read and write with `[IO.File]::ReadAllText/WriteAllText` and `[Text.UTF8Encoding]::new($false)`. Detect a link into the repo with `(Get-Item -Force $target).LinkTarget` resolved against the link's folder.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed (15 + 28), 0 failed.
