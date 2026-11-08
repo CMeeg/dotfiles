@@ -38,6 +38,7 @@ This repo's stowed config is already in native V2 shape, so on other machines th
    - Models and credentials still load (same auth)
    - MCP servers connect: chrome-devtools, microsoft-learn
    - superpowers' skills resolve
+   - the local plugins' skills resolve (each plugin's `skills/` folder is listed under `skills` in `opencode.jsonc`)
    - Ask superpowers: "Tell me about your superpowers"
 
 ### herdr integration (V2)

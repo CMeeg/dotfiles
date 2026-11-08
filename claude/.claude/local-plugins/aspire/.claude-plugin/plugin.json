@@ -1,0 +1,6 @@
+{
+  "name": "aspire",
+  "version": "0.1.0",
+  "description": "Working with .NET Aspire AppHosts and their agent skills",
+  "author": { "name": "Chris Meagher" }
+}
