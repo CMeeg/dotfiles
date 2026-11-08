@@ -107,7 +107,7 @@
 
 - [ ] **Step 1: Write `dotfiles.json`**
 
-  File entries: `bash/.bash_aliases`, `bash/.bash_logout`, `bash/.bashrc`, `bash/.profile` → `~/<name>`; `git/.gitconfig` → `~/.gitconfig`; `starship/.config/starship.toml`, `superfile/.config/superfile/config.toml`, `herdr/.config/herdr/config.toml`, `opencode/.config/opencode/opencode.jsonc`, `opencode/.config/opencode/cli.json`, `claude/.claude/settings.json` → the same path under `~`. Directory entries: `opencode/.config/opencode/commands` → `~/.config/opencode/commands`; `claude/.claude/skills` → `~/.claude/skills` with `exclude: ["synced/**"]`. Not listed: READMEs, `.stow-local-ignore`, `claude/.claude/mods` (loaded from the repo via `CLAUDE_CODE_PLUGIN_DIRS`).
+  File entries: `bash/.bash_aliases`, `bash/.bash_logout`, `bash/.bashrc`, `bash/.profile` → `~/<name>`; `git/.gitconfig` → `~/.gitconfig`; `starship/.config/starship.toml`, `superfile/.config/superfile/config.toml`, `herdr/.config/herdr/config.toml`, `opencode/.config/opencode/opencode.jsonc`, `opencode/.config/opencode/cli.json`, `claude/.claude/settings.json`, `claude/.claude/CLAUDE.md` → the same path under `~`. No directory entries: none of today's packages needs one, but `Get-ManagedFiles` still supports them (tested with the fixture repos here and in Task 3). Not listed: READMEs, `.stow-local-ignore`, `claude/.claude/local-plugins` (loaded from the repo by Claude Code via `CLAUDE_CODE_PLUGIN_DIRS` and by opencode via the `skills` list in `opencode.jsonc`).
 
 - [ ] **Step 2: Write the failing tests** in `tests/Manifest.Tests.ps1`. Each test builds a small temp git repo with its own `dotfiles.json`.
 
@@ -117,7 +117,7 @@
   | `expands a directory entry to its files` | repo has `skills/a/SKILL.md`, `skills/b/x.md` → two files with targets under the entry target |
   | `drops excluded and gitignored files` | `skills/synced/s.md` with `exclude synced/**`, and `skills/tmp.log` gitignored → neither returned |
   | `skips entries with no key for this OS` | entry with only `windows` → not returned |
-  | `real manifest covers every stow package file` | for this repo's `dotfiles.json`, `Source` set equals `git ls-files bash git starship superfile herdr opencode claude` minus `README.md`, `.stow-local-ignore` and `claude/.claude/mods/**` |
+  | `real manifest covers every stow package file` | for this repo's `dotfiles.json`, `Source` set equals `git ls-files bash git starship superfile herdr opencode claude` minus `README.md`, `.stow-local-ignore` and `claude/.claude/local-plugins/**` |
   | `Expand-HomePlaceholder fills every token` | `"@HOME@/a @HOME@/b"` → `"/home/u/a /home/u/b"` |
   | `ConvertTo-HomePlaceholder replaces the home path before / and "` | `'"/home/u/x" /home/u'` → `'"@HOME@/x" @HOME@'` |
   | `ConvertTo-HomePlaceholder leaves a longer username alone` | `/home/u2/x` unchanged with home `/home/u` |
@@ -302,7 +302,7 @@
 **Interfaces:**
 - Consumes: Tasks 1–3 (`Get-ManagedFiles`, `Expand-HomePlaceholder`, `Write-Applied`, `Invoke-Step`, `Test-DryRun`).
 - Produces, in `lib/Retire.psm1`, one function per step, each idempotent with a single `Write-Skip` when there's nothing to do, ported from `lib/retire.sh` with the same messages:
-  - `Invoke-RetireStow` — finds symlinks (`$HOME` top level, `~/.config`, `~/.claude`, `~/.agents`, recursively except the top level; unreadable folders ignored) whose target resolves inside the repo. Managed and existing target → replace the link with a real file holding `Expand-HomePlaceholder` of the repo content, and `Write-Applied` the same content. Otherwise (dangling, or not in the manifest, e.g. `claude/.claude/mods/**`) → delete the link and remove parents left empty, never `$HOME`. Same `~/.agents` "left in place" warning rule as Stage 0. Then, if `dpkg-query` shows `stow` installed, `Invoke-Step 'sudo apt remove -y stow'`.
+  - `Invoke-RetireStow` — finds symlinks (`$HOME` top level, `~/.config`, `~/.claude`, `~/.agents`, recursively except the top level; unreadable folders ignored) whose target resolves inside the repo. Managed and existing target → replace the link with a real file holding `Expand-HomePlaceholder` of the repo content, and `Write-Applied` the same content. Otherwise (dangling, or not in the manifest, e.g. a gitignored file left in the repo) → delete the link and remove parents left empty, never `$HOME`. Same `~/.agents` "left in place" warning rule as Stage 0. Then, if `dpkg-query` shows `stow` installed, `Invoke-Step 'sudo apt remove -y stow'`.
   - `Invoke-RetireOpenDesign`, `Invoke-RetireBun`, `Invoke-RetireSuperpowersClone`, `Invoke-RetireAspireDotnetTool` — same behaviour as the bash versions (including the bracketed `pkill` pattern with `|| true`, and the Aspire message telling the user to run `./install.ps1`).
   - `Invoke-RetireSteps` — `Write-Status "Retiring removed tools..."` then the five in that order.
   - `Test-StowLinksPresent` → `[bool]`, any symlink into the repo in those folders.
@@ -314,7 +314,7 @@
   |---|---|
   | `replaces a managed stow link with a real copy and seeds state` | `~/.plainrc` → relative link to repo `plainrc`; after: regular file, same content, applied copy equal |
   | `fills @HOME@ when replacing a link` | repo file contains `@HOME@/x` → live file has `<home>/x` |
-  | `deletes a link to an unmanaged repo file` | `~/.claude/mods/m/plugin.json` → repo `claude/.claude/mods/m/plugin.json` (not in manifest) → link gone, `~/.claude/mods` gone if empty |
+  | `deletes a link to an unmanaged repo file` | `~/.config/old/x.conf` → repo `old/.config/old/x.conf` (exists, not in manifest) → link gone, `~/.config/old` gone if empty, repo file kept |
   | `deletes a dangling repo link and empty parents` | `~/.agents/skills/x/SKILL.md` dangling → link gone; `~/.agents` gone |
   | `leaves links outside the repo alone` | `~/.config/foo` → `/nonexistent` → still there |
   | `warns when ~/.agents keeps foreign files` | as Stage 0 test → output contains `left in place` |
@@ -340,7 +340,7 @@
 - [ ] **Step 5: Dry-run on this machine**
 
   Run: `pwsh -NoProfile ./retire.ps1 -WhatIf`
-  Expected: `~` lines replacing each link into the repo under `~`, `~/.config`, `~/.claude` (bash, git, starship, superfile, herdr, opencode, claude files), deleting the `~/.claude/mods/**` links, and `~ sudo apt remove -y stow`; the other steps print `-`. Nothing changes.
+  Expected: `~` lines replacing each link into the repo under `~`, `~/.config`, `~/.claude` (bash, git, starship, superfile, herdr, opencode, claude files, including `~/.claude/CLAUDE.md`), deleting any links whose target is gone or not in the manifest (none expected once this machine's dangling links are cleaned up), and `~ sudo apt remove -y stow`; the other steps print `-`. Nothing changes.
 
 - [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `add retire.ps1 with stow migration`)
 
@@ -512,7 +512,7 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 
 - [ ] **Step 4: Remove the bash scripts and stow files; update docs**
 
-  Docs per the spec's "Docs" section: `AGENTS.md` (conventions: dotfile management via `dotfiles.json` + `sync.ps1`; key commands: `./bootstrap.sh`, `pwsh ./install.ps1`, `pwsh ./update.ps1`, `pwsh ./sync.ps1 [-NoPull] [-NoPrompt] [-CopyBack] [-WhatIf]`, `pwsh ./retire.ps1 -WhatIf`, `pwsh -c 'Invoke-Pester tests'`; "Working on This Repo": add a file by adding a manifest entry; how to remove a tool; `@HOME@` and "quote it in YAML"); `linux/README.md` (bootstrap instead of stow; "Migrating a stow machine" section: commit/push, discard tool-injected entries, `git pull --autostash`, `./bootstrap.sh`); `claude/README.md` and the opencode README (sync and copy-back instead of stow/adopt). Mark the chezmoi plan superseded by the design doc.
+  Docs per the spec's "Docs" section: `AGENTS.md` (conventions: dotfile management via `dotfiles.json` + `sync.ps1`; key commands: `./bootstrap.sh`, `pwsh ./install.ps1`, `pwsh ./update.ps1`, `pwsh ./sync.ps1 [-NoPull] [-NoPrompt] [-CopyBack] [-WhatIf]`, `pwsh ./retire.ps1 -WhatIf`, `pwsh -c 'Invoke-Pester tests'`; "Working on This Repo": add a file by adding a manifest entry; how to remove a tool; `@HOME@` and "quote it in YAML"); `linux/README.md` (bootstrap instead of stow; "Migrating a stow machine" section: commit/push, discard tool-injected entries, `git pull --autostash`, `./bootstrap.sh`); `claude/README.md` and the opencode README (sync and copy-back instead of stow/adopt; in `claude/README.md`, the "Local plugins" section's "Stow skips the folder (`claude/.stow-local-ignore`)" sentence becomes "the manifest doesn't list the folder", and the "Dotfiles" and "Global instructions" sections say the files are copied by sync rather than linked). Mark the chezmoi plan superseded by the design doc.
 
   Herdr app docs (Task 8): the manual steps were written on 2026-11-08 in `linux/README.md` ("herdr app (Windows) → WSL") and `windows/README.md` ("herdr app"). In the Linux section, replace the herdr-core and sshd steps with "install.ps1 and update.ps1 do this on WSL" and point at `linux/sshd_config.d/herdr-wsl.conf` instead of the inline copy; keep the authorised-key step manual, and keep the port-2222 and "TUI stays alongside" notes. Leave the Windows section as it is: it stays manual until Stage 3.
 
@@ -547,3 +547,9 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
   From PowerShell: `wsl --unregister dotfiles-test`.
 
 - [ ] **Step 4: Checkpoint: user reviews and commits any fixes**
+
+---
+
+## Addenda: deferred items
+
+- **Repo location is hard-coded in agent config** (deferred 2026-11-08). `CLAUDE_CODE_PLUGIN_DIRS` in `claude/.claude/settings.json` (`~/.dotfiles/claude/.claude/local-plugins`) and the `skills` list in `opencode/.config/opencode/opencode.jsonc` (`~/.dotfiles/claude/.claude/local-plugins/<plugin>/skills`) assume the repo is at `~/.dotfiles`, while the scripts allow another location through `DOTFILES_REPO`. On a machine with the repo elsewhere, the local plugins and their skills wouldn't load. Possible fixes: a second placeholder (e.g. `@DOTFILES@`, filled in by sync like `@HOME@`), or documenting that the repo must live at `~/.dotfiles`.
