@@ -115,7 +115,7 @@ Each entry is either a **file** or a **directory**. For a directory, every file 
 }
 ```
 
-An entry with no key for the current OS is skipped on that OS. Stage 3 adds `windows` keys. Stage 1 must manage the set stow manages today minus the retired packages: every file in `bash`, `git`, `starship`, `superfile`, `herdr` and `claude`, minus `.stow-local-ignore` and `README.md`, with `.gitignore` rules still applying. Directory entries manage the whole folder on the target side, so files there that aren't in the repo are reported as new local files until excluded. (`example/skills` above only shows the shape: no Stage 1 entry is a directory.) `claude/.claude/local-plugins` is loaded straight from the repo (Claude Code via `CLAUDE_CODE_PLUGIN_DIRS`, opencode via the `skills` list in `opencode.jsonc`) and doesn't need copying.
+An entry with no key for the current OS is skipped on that OS. Stage 3 adds `windows` keys. The scripts also read a `macos` key on macOS (name *provisional*, 2026-11-08): no stage targets macOS, but it leaves room for it later. Stage 1 must manage the set stow manages today minus the retired packages: every file in `bash`, `git`, `starship`, `superfile`, `herdr` and `claude`, minus `.stow-local-ignore` and `README.md`, with `.gitignore` rules still applying. Directory entries manage the whole folder on the target side, so files there that aren't in the repo are reported as new local files until excluded. (`example/skills` above only shows the shape: no Stage 1 entry is a directory.) `claude/.claude/local-plugins` is loaded straight from the repo (Claude Code via `CLAUDE_CODE_PLUGIN_DIRS`, opencode via the `skills` list in `opencode.jsonc`) and doesn't need copying.
 
 ### Home-path placeholder
 

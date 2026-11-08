@@ -6,7 +6,7 @@
 
 **Architecture:** A manifest (`dotfiles.json`) lists every managed file or folder and its Linux target. `sync.ps1` compares three versions of each file (repo working tree with `@HOME@` filled in, the last-applied copy in `~/.local/state/dotfiles/applied/`, and the live file), applies repo changes, merges with `git merge-file` when both changed, and reports local changes for copy-back. `retire.ps1` ports Stage 0's retire steps and adds the stow migration. `install.ps1`/`update.ps1` are step-for-step ports of the bash scripts, ending with sync and setup actions. A follow-up task adds herdr-core everywhere and, on WSL, an sshd on `127.0.0.1:2222` so the Windows Herdr app can manage agents in the distro (the herdr TUI stays). Shared code lives in small modules under `lib/`. `bootstrap.sh` installs PowerShell, then runs `install.ps1`.
 
-**Tech Stack:** PowerShell 7 (`pwsh`), Pester 5, git (`merge-file`, `diff --no-index`, `ls-files`), bash (bootstrap and `curl | sh` installers), Debian 13 apt.
+**Tech Stack:** PowerShell 7 (`pwsh`), Pester 6 (tests written in Pester 5 syntax, which Pester 6 runs unchanged; chosen 2026-11-08, replacing Pester 5), git (`merge-file`, `diff --no-index`, `ls-files`), bash (bootstrap and `curl | sh` installers), Debian 13 apt.
 
 **Spec:** `docs/superpowers/specs/2026-11-06-cross-platform-dotfiles-design.md`, section "Stage 1 design" (plus the Decisions and Calls lists).
 
@@ -51,19 +51,19 @@
   - `Invoke-Step [string]$Command` → nothing. Dry-run: `Write-Dry $Command`. Otherwise runs `bash -o pipefail -c $Command`; on non-zero exit, `Write-Warn "Command failed (exit code N): $Command"` and throws.
   - `Test-Command [string]$Name` → `[bool]` (`Get-Command -ErrorAction SilentlyContinue`).
 
-- [ ] **Step 1: Write `bootstrap.sh`**
+- [x] **Step 1: Write `bootstrap.sh`**
 
   If `pwsh` is missing: if no `/etc/apt/sources.list.d/microsoft-prod.*` exists, download `https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb` (`VERSION_ID` from `/etc/os-release`) and `sudo dpkg -i` it, then `sudo apt update`; then `sudo apt install -y powershell`. Then `exec pwsh -NoProfile -File "$(dirname "$0")/install.ps1" "$@"`. `install.ps1` doesn't exist until Task 7, so in this task stop before the `exec` when `install.ps1` is missing and print `pwsh installed — install.ps1 not found yet`.
 
-- [ ] **Step 2: Install PowerShell and Pester on this machine**
+- [x] **Step 2: Install PowerShell and Pester on this machine**
 
   ```bash
   ./bootstrap.sh                                   # expect: installs powershell, prints the "not found yet" line
   pwsh -NoProfile -c '$PSVersionTable.PSVersion.Major'   # expect: 7
-  pwsh -NoProfile -c 'Install-Module Pester -MinimumVersion 5.5 -Scope CurrentUser -Force; (Get-Module Pester -ListAvailable | Sort-Object Version -Desc | Select-Object -First 1).Version.Major'   # expect: 5
+  pwsh -NoProfile -c 'Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force; (Get-Module Pester -ListAvailable | Sort-Object Version -Desc | Select-Object -First 1).Version.Major'   # expect: 6
   ```
 
-- [ ] **Step 3: Write the failing tests** in `tests/Common.Tests.ps1` (Pester 5, `BeforeAll { Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force }`)
+- [x] **Step 3: Write the failing tests** in `tests/Common.Tests.ps1` (Pester 5 syntax, run by Pester 6, `BeforeAll { Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force }`)
 
   | Test | Assert |
   |---|---|
@@ -74,19 +74,19 @@
   | `Invoke-Step runs a succeeding command` | `Invoke-Step "touch $tmp/x"` → `$tmp/x` exists |
   | `Write-Skip uses the bash scripts' prefix` | output (via `6>&1`) contains `  - hello` |
 
-- [ ] **Step 4: Run the tests to verify they fail**
+- [x] **Step 4: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Common.Tests.ps1 -Output Detailed'`
   Expected: all fail (module not found).
 
-- [ ] **Step 5: Implement `lib/Common.psm1`**
+- [x] **Step 5: Implement `lib/Common.psm1`**
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Common.Tests.ps1 -Output Detailed'`
   Expected: 6 passed, 0 failed.
 
-- [ ] **Step 7: Checkpoint: user reviews and commits** (suggested: `add PowerShell bootstrap and common module`)
+- [x] **Step 7: Checkpoint: user reviews and commits** (suggested: `add PowerShell bootstrap and common module`)
 
 ---
 
@@ -98,18 +98,18 @@
 **Interfaces:**
 - Consumes: `Get-HomeDir`, `Resolve-TargetPath` (Task 1).
 - Produces, in `lib/Manifest.psm1`:
-  - `Get-ManagedFiles [string]$RepoDir` → array of `[pscustomobject]@{ Source = 'bash/.bashrc'; Target = '/home/meeg/.bashrc'; DirectoryEntry = $null or the entry object }` for the current OS (`linux` key in Stage 1). File entries map one to one. Directory entries expand to `git -C $RepoDir ls-files -co --exclude-standard -- <source>` (tracked plus untracked-not-ignored, so `.gitignore` applies) minus `exclude` globs, each with `Target` = entry target + the path under the entry. Entries without a key for the OS are skipped.
+  - `Get-ManagedFiles [string]$RepoDir` → array of `[pscustomobject]@{ Source = 'bash/.bashrc'; Target = '/home/meeg/.bashrc'; DirectoryEntry = $null or the entry object }` for the current OS (`linux` key in Stage 1; the module also picks `windows` on Windows and `macos` on macOS, where `macos` is *provisional*: a hook for later, not used in this plan). File entries map one to one. Directory entries expand to `git -C $RepoDir ls-files -co --exclude-standard -- <source>` (tracked plus untracked-not-ignored, so `.gitignore` applies) minus `exclude` globs, each with `Target` = entry target + the path under the entry. Entries without a key for the OS are skipped.
   - `Get-ManagedDirectories [string]$RepoDir` → array of `[pscustomobject]@{ Source; Target; Exclude = [string[]] }`.
   - `Test-ExcludedPath [string]$RelativePath, [string[]]$Patterns` → `[bool]`; `**` matches any depth, `*` within one segment.
   - `Expand-HomePlaceholder [string]$Text, [string]$HomeDir` → `[string]`: every `@HOME@` → `$HomeDir`.
   - `ConvertTo-HomePlaceholder [string]$Text, [string]$HomeDir` → `[string]`: `$HomeDir` → `@HOME@` only where followed by `/`, `"`, `'`, whitespace, `:` or end of text.
 - `dotfiles.json` schema: `{ "entries": [ { "source": "<repo path>", "linux": "<target>", "exclude": ["<glob>"] } ] }`, `exclude` optional and directory entries only.
 
-- [ ] **Step 1: Write `dotfiles.json`**
+- [x] **Step 1: Write `dotfiles.json`**
 
   File entries: `bash/.bash_aliases`, `bash/.bash_logout`, `bash/.bashrc`, `bash/.profile` → `~/<name>`; `git/.gitconfig` → `~/.gitconfig`; `starship/.config/starship.toml`, `superfile/.config/superfile/config.toml`, `herdr/.config/herdr/config.toml`, `opencode/.config/opencode/opencode.jsonc`, `opencode/.config/opencode/cli.json`, `claude/.claude/settings.json`, `claude/.claude/CLAUDE.md` → the same path under `~`. No directory entries: none of today's packages needs one, but `Get-ManagedFiles` still supports them (tested with the fixture repos here and in Task 3). Not listed: READMEs, `.stow-local-ignore`, `claude/.claude/local-plugins` (loaded from the repo by Claude Code via `CLAUDE_CODE_PLUGIN_DIRS` and by opencode via the `skills` list in `opencode.jsonc`).
 
-- [ ] **Step 2: Write the failing tests** in `tests/Manifest.Tests.ps1`. Each test builds a small temp git repo with its own `dotfiles.json`.
+- [x] **Step 2: Write the failing tests** in `tests/Manifest.Tests.ps1`. Each test builds a small temp git repo with its own `dotfiles.json`.
 
   | Test | Assert |
   |---|---|
@@ -123,14 +123,14 @@
   | `ConvertTo-HomePlaceholder leaves a longer username alone` | `/home/u2/x` unchanged with home `/home/u` |
   | `placeholder round-trips` | `ConvertTo-HomePlaceholder (Expand-HomePlaceholder $t)` equals `$t` for a text with three tokens |
 
-- [ ] **Step 3: Run the tests to verify they fail**
+- [x] **Step 3: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Manifest.Tests.ps1 -Output Detailed'`
   Expected: all fail (module not found).
 
-- [ ] **Step 4: Implement `lib/Manifest.psm1`**
+- [x] **Step 4: Implement `lib/Manifest.psm1`**
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: 15 passed (6 + 9), 0 failed.
@@ -357,7 +357,7 @@
 - Produces, in `lib/Tools.psm1` (ports of `lib/gitkraken.sh` and the helpers): `$GitKrakenDebUrl`, `Get-GitKrakenVersionFromUrl [string]$Url` → `[string]`/`$null`, `Get-GitKrakenLatestVersion` → `[string]`/`$null` (`curl -fsSL --max-time 20 -r 0-0 -o /dev/null -w '%{url_effective}'`, stderr discarded), `Test-GitKrakenNeedsUpdate [string]$Installed, [string]$Latest` → `[bool]`, `Get-LatestNodeLts` → `[string]`/`$null`, `Test-AptInstalled [string]$Package` → `[bool]`, `Get-FnmDefault` → `[string]`/`$null`.
 - Produces, in `lib/Setup.psm1`:
   - `Invoke-HerdrIntegration [ValidateSet('claude','opencode')][string]$Agent` — skip with `Write-Skip` if `herdr` is missing, or if the agent itself isn't installed (`claude` / `opencode` not on `PATH`). Otherwise install (`Invoke-Step "herdr integration install $Agent"`) unless `herdr integration status` reports `<agent>: current` **and** the agent's live config still references herdr:
-    - `claude`: `~/.claude/settings.json` contains `herdr-agent-state.sh` (the repo no longer carries this hook, because its path is absolute);
+    - `claude`: `~/.claude/settings.json` contains `herdr-agent-state.sh` (the repo no longer carries this hook: herdr writes it with an absolute path, and the repo's hand-edited `$HOME` version isn't recognised by herdr as its own, which led to duplicate hooks);
     - `opencode`: `~/.config/opencode/cli.json` contains `herdr-opencode` (the repo's `cli.json` keeps its relative `"./herdr-opencode"` entry, which is portable; herdr writes the plugin files under `~/.config/opencode/plugins/` and `~/.config/opencode/herdr-opencode/`, which aren't managed).
   - `Invoke-SetupActions` — `Write-Status "Running setup actions..."`, then `Invoke-HerdrIntegration claude` and `Invoke-HerdrIntegration opencode`.
 - `install.ps1 [-SkipRetire] [-WhatIf]`, `update.ps1 [-SkipRetire] [-WhatIf]`: same steps, order, messages and skip checks as today's bash scripts, with these changes from the spec:
@@ -553,3 +553,4 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 ## Addenda: deferred items
 
 - **Repo location is hard-coded in agent config** (deferred 2026-11-08). `CLAUDE_CODE_PLUGIN_DIRS` in `claude/.claude/settings.json` (`~/.dotfiles/claude/.claude/local-plugins`) and the `skills` list in `opencode/.config/opencode/opencode.jsonc` (`~/.dotfiles/claude/.claude/local-plugins/<plugin>/skills`) assume the repo is at `~/.dotfiles`, while the scripts allow another location through `DOTFILES_REPO`. On a machine with the repo elsewhere, the local plugins and their skills wouldn't load. Possible fixes: a second placeholder (e.g. `@DOTFILES@`, filled in by sync like `@HOME@`), or documenting that the repo must live at `~/.dotfiles`.
+- **Nothing installs Pester on other machines** (raised 2026-11-08, Task 1). Task 1 installed Pester 6 on this machine by hand, but no script or doc does it elsewhere, while Task 9 documents `pwsh -c 'Invoke-Pester tests'` as a key command. Fix: in Task 9's `AGENTS.md` update, add the install command (`Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force`) beside the test command.
