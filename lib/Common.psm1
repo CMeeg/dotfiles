@@ -71,8 +71,15 @@ function Invoke-Step {
   if ($exitCode -ne 0) {
     $message = "Command failed (exit code $exitCode): $Command"
     Write-Warn $message
-    throw $message
+    # The id lets scripts tell this already-reported failure apart (see Write-StopReason).
+    Write-Error -Message $message -ErrorId 'StepFailed' -Category InvalidResult -ErrorAction Stop
   }
+}
+
+# Prints why a script stopped, unless Invoke-Step already did.
+function Write-StopReason {
+  param([Parameter(Mandatory)][Management.Automation.ErrorRecord]$ErrorRecord)
+  if ($ErrorRecord.FullyQualifiedErrorId -notlike 'StepFailed*') { Write-Warn $ErrorRecord.Exception.Message }
 }
 
 $script:Utf8 = [Text.UTF8Encoding]::new($false)
@@ -124,6 +131,20 @@ function ConvertTo-ShellArgument {
   "'" + $Value.Replace("'", "'\''") + "'"
 }
 
+# Asks for the sudo password once, then refreshes the credentials every 60 seconds in the background until
+# this PowerShell process exits. Does nothing in dry-run.
+function Start-SudoKeepAlive {
+  if (Test-DryRun) { return }
+  $PSNativeCommandUseErrorActionPreference = $false
+  sudo -v
+  if ($LASTEXITCODE -ne 0) { throw 'sudo -v failed' }
+  $start = [Diagnostics.ProcessStartInfo]::new('bash')
+  $start.ArgumentList.Add('-c')
+  $start.ArgumentList.Add("while kill -0 $PID 2>/dev/null; do sudo -n true; sleep 60; done >/dev/null 2>&1")
+  $start.UseShellExecute = $false
+  [void][Diagnostics.Process]::Start($start)
+}
+
 function Test-Command {
   [OutputType([bool])]
   param([Parameter(Mandatory)][string]$Name)
@@ -131,5 +152,5 @@ function Test-Command {
 }
 
 Export-ModuleMember -Function Get-HomeDir, Get-RepoDir, Get-StateDir, Resolve-TargetPath, Set-DryRun, Test-DryRun,
-  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Read-TextFile, Write-TextFile, Resolve-LinkTarget,
-  Test-LinkInto, ConvertTo-ShellArgument, Test-Command
+  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Write-StopReason, Read-TextFile, Write-TextFile, Resolve-LinkTarget,
+  Test-LinkInto, ConvertTo-ShellArgument, Start-SudoKeepAlive, Test-Command

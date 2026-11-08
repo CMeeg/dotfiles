@@ -18,7 +18,7 @@ if (Test-DryRun) { Write-Host "`e[0;34mDry-run mode — no changes will be made`
 try {
   Invoke-RetireSteps
 } catch {
-  Write-Warn $_.Exception.Message
+  Write-StopReason $_
   exit 1
 }
 exit 0

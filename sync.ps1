@@ -28,7 +28,7 @@ try {
   $summary = Invoke-Sync -NoPrompt:$NoPrompt -InitialApply:$InitialApply -CopyBack:$CopyBack
   Show-SyncSummary $summary
 } catch {
-  Write-Warn $_.Exception.Message
+  Write-StopReason $_
   exit 1
 }
 exit 0

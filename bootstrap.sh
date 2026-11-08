@@ -18,9 +18,4 @@ if ! command -v pwsh >/dev/null 2>&1; then
   sudo apt install -y powershell
 fi
 
-if [ ! -f "$repo_dir/install.ps1" ]; then
-  echo "pwsh installed — install.ps1 not found yet"
-  exit 0
-fi
-
 exec pwsh -NoProfile -File "$repo_dir/install.ps1" "$@"

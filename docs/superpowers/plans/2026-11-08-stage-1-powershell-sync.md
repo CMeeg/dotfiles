@@ -371,9 +371,11 @@
   - Order: sudo keep-alive → retire (or, with `-SkipRetire`, `Write-Skip` plus `Write-Warn` if `Test-StowLinksPresent`) → tools → sync → setup actions → the closing "Done" lines.
   - `install.ps1`: `stow` dropped from the apt packages; the three stow steps replaced by one `sync.ps1 -NoPull` call, with `-InitialApply` when `Get-StateDir` doesn't exist yet. `update.ps1`: `restow` replaced by `sync.ps1` (with pull); a non-zero exit becomes `Write-Warn "Dotfiles sync stopped — resolve the conflict above, then run ./sync.ps1"`.
   - Sync runs in the same terminal (not redirected) so its prompts work.
+  - In a dry run with stow links still present, the sync step prints `Write-Skip "Can't preview sync while stow links remain — run ./retire.ps1, then ./sync.ps1 -WhatIf"` instead of running sync, which would refuse: retire's dry run leaves the links in place. Added 2026-11-08.
+  - The opencode v2 check matches `(^|\s)v?2\.` against `opencode --version` ("opencode v2.2.6"). The bash version's unanchored `v?2\.` also matched v1 releases such as `v1.12.0`. Fixed 2026-11-08.
   - Sudo keep-alive: `sudo -v`, then a background `bash -c 'while kill -0 <pwsh PID> 2>/dev/null; do sudo -n true; sleep 60; done'` started with `Start-Process` (builder's choice if another approach is simpler); skipped in dry-run.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   `tests/Tools.Tests.ps1`: the five GitKraken cases from `tests/gitkraken.test.sh` (same inputs and expectations), plus `Get-LatestNodeLts returns the last line's version` with a fake `fnm` printing `v24.22.2 (Krypton)` / `v26.13.0 (Lithium)` → `v26.13.0`, and `Get-FnmDefault reads the default alias` with a fake `fnm list` printing `* v24.16.0` / `* v26.13.0 default` → `v26.13.0`.
 
@@ -389,19 +391,19 @@
   | `skips an agent that isn't installed` | no fake `opencode` on `PATH` → `-` line for opencode, no install call |
   | `skips when herdr is missing` | no `herdr` on `PATH` → `-` line |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Tools.Tests.ps1, tests/Setup.Tests.ps1 -Output Detailed'`
   Expected: all fail.
 
-- [ ] **Step 3: Implement the modules, `install.ps1`, `update.ps1`; edit `settings.json` and `bootstrap.sh`**
+- [x] **Step 3: Implement the modules, `install.ps1`, `update.ps1`; edit `settings.json` and `bootstrap.sh`**
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
 
-- [ ] **Step 5: Dry-run both scripts on this machine**
+- [x] **Step 5: Dry-run both scripts on this machine**
 
   ```bash
   pwsh -NoProfile ./install.ps1 -WhatIf   # expect: retire block as Task 6 Step 5; same tool steps as ./install.sh --dry-run (minus stow); "~" lines for sync; setup actions block
