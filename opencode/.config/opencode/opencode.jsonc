@@ -7,7 +7,8 @@
     "~/.dotfiles/claude/.claude/local-plugins/workflow/skills",
     "~/.dotfiles/claude/.claude/local-plugins/writing/skills",
     "~/.dotfiles/claude/.claude/local-plugins/engineering/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/typescript/skills"
+    "~/.dotfiles/claude/.claude/local-plugins/typescript/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/aspire/skills"
   ],
   "mcp": {
     "servers": {
