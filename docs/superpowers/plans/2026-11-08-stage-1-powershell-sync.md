@@ -53,7 +53,7 @@
 
 - [x] **Step 1: Write `bootstrap.sh`**
 
-  If `pwsh` is missing: if no `/etc/apt/sources.list.d/microsoft-prod.*` exists, download `https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb` (`VERSION_ID` from `/etc/os-release`) and `sudo dpkg -i` it, then `sudo apt update`; then `sudo apt install -y powershell`. Then `exec pwsh -NoProfile -File "$(dirname "$0")/install.ps1" "$@"`. `install.ps1` doesn't exist until Task 7, so in this task stop before the `exec` when `install.ps1` is missing and print `pwsh installed — install.ps1 not found yet`.
+  If `pwsh` is missing: if no `/etc/apt/sources.list.d/microsoft-prod.*` exists, install `curl` if it's missing (a fresh Debian image has none; found in Task 10, 2026-11-08), then download `https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb` (`VERSION_ID` from `/etc/os-release`) and `sudo dpkg -i` it, then `sudo apt update`; then `sudo apt install -y powershell`. Then `exec pwsh -NoProfile -File "$(dirname "$0")/install.ps1" "$@"`. `install.ps1` doesn't exist until Task 7, so in this task stop before the `exec` when `install.ps1` is missing and print `pwsh installed — install.ps1 not found yet`.
 
 - [x] **Step 2: Install PowerShell and Pester on this machine**
 

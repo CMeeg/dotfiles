@@ -7,6 +7,11 @@ repo_dir="$(cd "$(dirname "$0")" && pwd)"
 
 if ! command -v pwsh >/dev/null 2>&1; then
   if ! compgen -G '/etc/apt/sources.list.d/microsoft-prod.*' >/dev/null; then
+    # A fresh Debian image has no curl; install.ps1 installs the rest of the base packages
+    if ! command -v curl >/dev/null 2>&1; then
+      sudo apt update
+      sudo apt install -y curl
+    fi
     # shellcheck source=/dev/null
     . /etc/os-release
     deb="$(mktemp --suffix=.deb)"
