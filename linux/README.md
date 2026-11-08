@@ -16,40 +16,68 @@ The automated install script is in this dotfiles repo so must be cloned first:
   * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
   * `cd ~/.dotfiles`
 
-Then run the [`install.sh`](../install.sh) script to automate the full setup:
+Then run [`bootstrap.sh`](../bootstrap.sh), which installs PowerShell 7 from Microsoft's apt repo and then runs [`install.ps1`](../install.ps1) to automate the full setup:
 
 ```bash
-# Preview what will be done
-./install.sh --dry-run
+# Preview what will be done (still installs PowerShell, which the preview needs)
+./bootstrap.sh -WhatIf
 
 # Run the installer (idempotent — safe to run multiple times)
-./install.sh
+./bootstrap.sh
 
 # Reload your shell (using an alias)
 reload
 ```
 
-> The script must be run from within the cloned `~/.dotfiles` directory.
+> Once PowerShell is installed, run the installer directly with `pwsh ./install.ps1` (`-WhatIf` to preview, `-SkipRetire` to skip the retire steps).
 > It is idempotent: completed steps are skipped on re-run.
+> On the first run, files the repo manages that already exist and differ from the repo (e.g. Debian's default `~/.bashrc`) are backed up to `~/.local/state/dotfiles/backup/` and replaced.
 
 ## Automated update
 
-The [`update.sh`](../update.sh) script automates applying updates:
+The [`update.ps1`](../update.ps1) script automates applying updates:
 
 ```bash
 # Preview what will be done
-./update.sh --dry-run
+pwsh ./update.ps1 -WhatIf
 
 # Run the updater (will attempt to update all programs installed by the install script)
-./update.sh
+pwsh ./update.ps1
 
 # Reload your shell (using an alias)
 reload
 ```
 
-> The script must be run from within the cloned `~/.dotfiles` directory.
-> On other machines, run `git pull --autostash` in `~/.dotfiles` first (tools such as GitKraken leave `claude/.claude/settings.json` modified, which a plain `git pull` refuses), then `./update.sh`, so the updater's own changes (e.g. new retire steps) apply in the same run.
+> On other machines, run `git pull --autostash` in `~/.dotfiles` first, then `pwsh ./update.ps1`, so the updater's own changes (e.g. new retire steps) apply in the same run.
 > GitKraken and Node are only reinstalled when a newer version is available; the other programs re-run their installer or update command every time.
+> Both `install.ps1` and `update.ps1` run the retire steps first ([`retire.ps1`](../retire.ps1) runs them on their own): they remove tools this repo no longer installs, and the stow links from before the repo switched to `sync.ps1`.
+
+## Syncing dotfiles
+
+[`dotfiles.json`](../dotfiles.json) lists the files this repo manages and where each one goes. [`sync.ps1`](../sync.ps1) copies them into place as real files, and `install.ps1` and `update.ps1` run it for you. Run it yourself after changing a setting, or to pick up changes from another machine:
+
+```bash
+pwsh ./sync.ps1            # pull the repo, apply it, then go through local changes
+pwsh ./sync.ps1 -NoPull    # apply the repo's working tree as it is, e.g. to try an uncommitted edit
+pwsh ./sync.ps1 -WhatIf    # preview
+```
+
+* A file changed only in the repo is updated on this machine. A file changed in both places is merged, and a conflict opens VS Code's merge editor (when run in a terminal), or is reported and left alone.
+* For each file that differs on this machine (a local change), sync shows the diff with your home path as `@HOME@` and asks: `c` copies it back into the repo, `s` (or Enter) skips it, `d` opens the diff in VS Code. The VS Code diff is for viewing only (left: the repo, right: this machine): edits made there aren't kept, and `c` copies the whole file.
+* After copying back, review with `git diff`, stage what you want (`git add -p`), discard the rest and commit. Sync never commits or pushes.
+* Tools such as herdr and GitKraken write entries for this machine into `~/.claude/settings.json`. They show up as local changes on every sync: skip them, or discard them from the repo after copying back.
+* Run sync from a WSL terminal opened on Windows (e.g. Windows Terminal) when you want the VS Code diff or merge editor. SSH sessions, including the Herdr app's terminals, don't have `code` on `PATH`.
+* `-NoPrompt` reports without asking, and `-CopyBack` copies every local change back without asking.
+
+## Migrating a stow machine
+
+Machines set up before the repo moved to `sync.ps1` have their dotfiles linked into the repo by GNU Stow. To move one over:
+
+* Commit and push any dotfile changes you want to keep, but discard entries tools added for this machine (GitKraken's marketplace and plugin entries and herdr's hook in `claude/.claude/settings.json`). The tools add them back: GitKraken on its own, herdr through the installer's setup actions.
+* `cd ~/.dotfiles && git pull --autostash`
+* `./bootstrap.sh`
+
+The installer's retire steps replace each stow link with a real copy (and record it, so sync treats it as already applied), delete links to files the repo no longer manages, and remove stow.
 
 ## Manual setup
 
@@ -58,7 +86,7 @@ reload
 * Update distro
   * `sudo apt update && sudo apt upgrade -y`
 * Install packages
-  * `sudo apt install build-essential curl fonts-jetbrains-mono git libnss3-tools python-is-python3 python3 stow unzip wget -y`
+  * `sudo apt install build-essential curl fonts-jetbrains-mono git libnss3-tools python-is-python3 python3 unzip wget -y`
 
 ### Starship
 
@@ -76,48 +104,31 @@ reload
 * Install [herdr](https://herdr.dev/tui/docs/install/)
   * `curl -fsSL https://herdr.dev/install.sh | sh`
   * Run `herdr` to start
-  * Config lives at `~/.config/herdr/config.toml` (stowed from `herdr/` below — only `config.toml` is tracked; logs, sockets and sessions in that folder stay local)
+  * Config lives at `~/.config/herdr/config.toml` (copied from `herdr/` by sync, below — only `config.toml` is managed; logs, sockets and sessions in that folder stay local)
 
 ### herdr app (Windows) → WSL
 
-The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents in this distro by connecting to it as an SSH machine. It runs alongside the herdr TUI above; both stay installed for now. These are manual steps until the PowerShell install scripts automate them. The Windows side is in [windows/README.md](../windows/README.md#herdr-app).
+The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents in this distro by connecting to it as an SSH machine. It runs alongside the herdr TUI above; both stay installed for now. The Windows side is in [windows/README.md](../windows/README.md#herdr-app).
 
-* Install [herdr-core](https://herdr.dev/core/) (the app's runtime; installs `~/.local/bin/herdr-core` and an `hc` link, no sudo)
-  * `curl -fsSL https://releases.herdr.dev/core/install.sh | sh`
-  * Or skip this: the app offers to install it when you add the machine
-* Install and configure sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`)
-  * `sudo apt install -y openssh-server`
-  * Create `/etc/ssh/sshd_config.d/herdr-wsl.conf`:
-
-    ```
-    # Lets the Windows Herdr app reach this WSL distro over SSH: key login only, localhost only
-    Port 2222
-    ListenAddress 127.0.0.1
-    PasswordAuthentication no
-    KbdInteractiveAuthentication no
-    PermitRootLogin no
-    ```
-
-  * `sudo sshd -t && sudo systemctl enable ssh && sudo systemctl restart ssh`
+* [herdr-core](https://herdr.dev/core/) (the app's runtime, at `~/.local/bin/herdr-core`): `install.ps1` installs it and `update.ps1` updates it (running terminals keep running), on every Linux machine, since any of them can be added as a machine in the app
+* sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`): `install.ps1` installs `openssh-server`, and the setup actions in `install.ps1` and `update.ps1` install [`linux/sshd_config.d/herdr-wsl.conf`](./sshd_config.d/herdr-wsl.conf) (port 2222 on `127.0.0.1`, key login only) into `/etc/ssh/sshd_config.d/`, check it with `sshd -t`, then enable and restart ssh
   * Check: `ss -ltn | grep 127.0.0.1:2222`
-  * WSL distros share one network, so only one distro per Windows machine can use port 2222
-* Authorise the Windows key (created in the Windows steps)
+  * WSL distros share one network, so only one distro per Windows machine can use port 2222. On a second distro the setup action warns that sshd setup failed and the install carries on.
+* Authorise the Windows key (created in the Windows steps); the setup action warns until there's a key
   * `mkdir -p ~/.ssh && chmod 700 ~/.ssh`
   * `cat /mnt/c/Users/<windows user>/.ssh/id_ed25519_wsl.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
-* Update herdr-core
-  * `hc update` (running terminals keep running)
 
 ### Dotfiles (base)
 
 * Clone the repo
   * `git clone https://github.com/CMeeg/dotfiles.git ~/.dotfiles`
-* Link dotfiles
+* Install PowerShell 7, which the dotfiles scripts run on (`bootstrap.sh` does this)
+  * Add Microsoft's apt repo: download `https://packages.microsoft.com/config/debian/<version>/packages-microsoft-prod.deb` (`<version>` is `VERSION_ID` in `/etc/os-release`, e.g. `13`) and `sudo dpkg -i` it
+  * `sudo apt update && sudo apt install -y powershell`
+* Apply the dotfiles (all of them, including the opencode and Claude Code config below)
   * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v bash git starship superfile herdr`
-  * Accept or reject changes to dotfiles (if any)
-    * View the diff of the dotfiles repo
-    * Accept/merge/reject changes
-    * Commit and push, if needed
+  * `pwsh ./sync.ps1 -NoPull -InitialApply` - `-InitialApply` backs up files that already exist and differ (e.g. Debian's default `~/.bashrc`) to `~/.local/state/dotfiles/backup/` and replaces them
+  * See [Syncing dotfiles](#syncing-dotfiles) for what sync reports
 * Reload bash profile
   * `source ~/.bashrc`
 * Create `projects` directory
@@ -174,10 +185,10 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
 
 * Install the [Aspire CLI](https://aspire.dev/get-started/install-cli/)
   * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - installs to `~/.aspire/bin`
-  * `--skip-path` stops the installer appending to `~/.bashrc` (which is stowed) — `bash/.bashrc` already adds `~/.aspire/bin` to `PATH`
+  * `--skip-path` stops the installer appending to `~/.bashrc` (which sync manages) — `bash/.bashrc` already adds `~/.aspire/bin` to `PATH`
   * `reload` - reload bash (using alias)
   * `aspire --version` - verify the CLI is installed
-* Use the install script on every machine, not the .NET global tool (`dotnet tool install -g aspire.cli`) — `install.sh` and `update.sh` remove the global tool if they find it; run `./install.sh` to reinstall Aspire with the script
+* Use the install script on every machine, not the .NET global tool (`dotnet tool install -g aspire.cli`) — the retire steps in `install.ps1` and `update.ps1` remove the global tool if they find it; run `pwsh ./install.ps1` to reinstall Aspire with the script
 * Running Aspire apps also needs the [.NET SDK](https://aspire.dev/get-started/prerequisites/) and a container runtime
 
 ### OpenCode
@@ -185,14 +196,8 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
 * Install [opencode](https://opencode.ai/docs/windows-wsl)
   * `curl -fsSL https://opencode.ai/install | bash`
   * `reload` - reload bash (using alias)
-* Link dotfiles
-  * `cd ~/.dotfiles`
-  * `stow --adopt --no-folding -v opencode`
-  * Accept or reject changes to dotfiles (if any)
-    * View the diff of the dotfiles repo
-    * Accept/merge/reject changes
-    * Commit and push, if needed
-* [Superpowers](https://github.com/obra/superpowers) is installed as an opencode plugin — the stowed `opencode.jsonc` already has the entry (V2 shape; needs OpenCode 2.0.4+):
+* The config (`opencode.jsonc`, `cli.json`) is applied by sync with the other dotfiles — see [Dotfiles (base)](#dotfiles-base)
+* [Superpowers](https://github.com/obra/superpowers) is installed as an opencode plugin — the repo's `opencode.jsonc` already has the entry (V2 shape; needs OpenCode 2.0.4+):
   * `"plugins": ["superpowers@git+https://github.com/obra/superpowers.git"]`
   * opencode fetches and caches it on start — there's nothing to clone
 * Run `opencode`
@@ -210,7 +215,7 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * The `.deb` adds no apt repo, so `apt upgrade` doesn't update it — download and install the latest `.deb` again
   * `wget -O /tmp/gitkraken-amd64.deb https://release.gitkraken.com/linux/gitkraken-amd64.deb`
   * `sudo apt install -y /tmp/gitkraken-amd64.deb`
-  * `update.sh` does this only when a newer version is available
+  * `update.ps1` does this only when a newer version is available
 * Update fnm and Node
   * `curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell` - fnm has no self-update, so re-run the installer
   * `fnm install --lts` then `fnm default <version>` - move to the latest LTS
@@ -221,6 +226,8 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * `bash -c "$(curl -sLo- https://superfile.dev/install.sh)"` - re-running the installer fetches the latest release
 * Update herdr
   * `herdr update`
+* Update herdr-core
+  * `~/.local/bin/herdr-core update` (running terminals keep running)
 * Update Aspire CLI
   * `curl -sSL https://aspire.dev/install.sh | bash -s -- --skip-path` - re-running the installer fetches the latest release
 * Update OpenCode
@@ -231,16 +238,8 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * See `opencode/.config/opencode/README.md` in this repo
 * Update Claude Code
   * `claude update`
-* Restow
-  * `cd ~/.dotfiles`
-  * `git stash`
-  * `git pull`
-  * `git stash pop` - before stowing, so packages that only exist locally are present
-  * `stow --adopt --no-folding -v bash git opencode starship superfile herdr claude`
-  * Accept or reject changes to dotfiles (if any)
-    * View the diff of the dotfiles repo
-    * Accept/merge/reject changes
-    * Commit and push, if needed
+* Sync dotfiles
+  * `cd ~/.dotfiles && pwsh ./sync.ps1` - pulls the repo (stashing uncommitted changes and restoring them), applies it and goes through local changes; see [Syncing dotfiles](#syncing-dotfiles)
 * Reload bash profile
   * `reload` - using alias
 

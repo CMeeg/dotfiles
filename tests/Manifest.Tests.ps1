@@ -77,7 +77,7 @@ Describe 'Get-ManagedFiles' {
   It 'real manifest covers every stow package file' {
     $repo = Resolve-Path "$PSScriptRoot/.."
     $expected = git -C $repo ls-files bash git starship superfile herdr opencode claude |
-      Where-Object { (Split-Path $_ -Leaf) -notin 'README.md', '.stow-local-ignore' -and $_ -notlike 'claude/.claude/local-plugins/*' } |
+      Where-Object { (Test-Path -LiteralPath (Join-Path $repo $_)) -and (Split-Path $_ -Leaf) -ne 'README.md' -and $_ -notlike 'claude/.claude/local-plugins/*' } |
       Sort-Object
     @(Get-ManagedFiles $repo).Source | Sort-Object | Should -Be $expected
   }

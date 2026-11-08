@@ -223,7 +223,8 @@ function Read-CopyBackChoice {
   [OutputType([bool])]
   param([pscustomobject]$File)
   while ($true) {
-    $answer = (Read-Host '  [c]opy back, [s]kip, [d]iff in VS Code').Trim().ToLowerInvariant()
+    # The VS Code diff shows temp copies, so edits made there don't reach the repo.
+    $answer = (Read-Host '  [c]opy back, [s]kip, [d]iff in VS Code (left: repo, right: this machine; view only)').Trim().ToLowerInvariant()
     switch ($answer) {
       'c' { return $true }
       { $_ -in 's', '' } { return $false }

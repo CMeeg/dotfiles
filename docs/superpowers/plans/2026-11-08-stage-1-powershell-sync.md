@@ -271,7 +271,7 @@
 - Produces, in `lib/Sync.psm1`:
   - `Show-LocalChange [pscustomobject]$File` → prints `git diff --no-index --color <repo tmp> <live tmp>` where both temp copies have the home path converted to `@HOME@`. For a new file, diffs against an empty file.
   - `Invoke-CopyBack [pscustomobject]$File` → writes `ConvertTo-HomePlaceholder (live content)` to `<repo>/<Source>` (creating folders for new files under a directory entry). Never touches state. Dry-run: `Write-Dry "Copy back <target> → <source>"`.
-  - In `Invoke-Sync`, after applying: for each local change and new local file, show the diff; when prompting is allowed, ask `[c]opy back, [s]kip, [d]iff in VS Code` (VS Code: `code --diff <repo tmp> <live tmp>`, then ask again). `-NoPrompt` only shows the diffs.
+  - In `Invoke-Sync`, after applying: for each local change and new local file, show the diff; when prompting is allowed, ask `[c]opy back, [s]kip, [d]iff in VS Code (left: repo, right: this machine; view only)` (VS Code: `code --wait --diff <repo tmp> <live tmp>`, then ask again; the diff shows temp copies, so edits there are discarded and copy-back always writes the whole live file — decided 2026-11-08). `-NoPrompt` only shows the diffs.
   - Summary lines at the end: counts for written, merged, conflicts, local changes, new local files, deleted, copied back; when anything was copied back, `Write-Warn "Review with 'git diff' in <repo>, stage what you want, then commit and push"`.
 - `sync.ps1` gains `-CopyBack` (non-interactive: copy back every local change and new local file without asking). Used by the tests and available to the user.
 
@@ -495,12 +495,12 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 
 **Interfaces:** none.
 
-- [ ] **Step 1: Migrate this machine (user)**
+- [x] **Step 1: Migrate this machine (user)**
 
   Commit and push pending dotfile changes first, discarding tool-injected entries (GitKraken's in `claude/.claude/settings.json`). Delete the trial's sshd file, which the repo's `herdr-wsl.conf` replaces with the same settings: `sudo rm /etc/ssh/sshd_config.d/herdr-trial.conf` (sshd keeps running on the old settings until the setup action restarts it). Then run `pwsh ./install.ps1`.
   Expected: retire replaces every stow link with a real file and removes stow; tools skip as installed; sync records state; setup actions reinstall herdr's Claude hook into the live `~/.claude/settings.json`, report opencode's integration as current, and install `herdr-wsl.conf` and restart sshd; GitKraken re-adds its entries when next started.
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
   ```bash
   find ~ -maxdepth 1 -lname '*.dotfiles/*'; find ~/.config ~/.claude -lname '*.dotfiles/*'   # expect: no output
@@ -515,17 +515,17 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 
   Then, in the Windows Herdr app: the `wsl` machine shows as connected and an agent started on it reports working and done.
 
-- [ ] **Step 3: Try copy-back interactively (user)**
+- [x] **Step 3: Try copy-back interactively (user)**
 
   Change a setting in Claude Code (e.g. toggle a plugin), run `pwsh ./sync.ps1 -NoPull`, choose `c` for `settings.json`, then `git diff` in the repo: the change is there, the herdr/GitKraken lines are too (as `@HOME@` paths) — stage only the change with `git add -p` and discard the rest. (The interactive prompt and the VS Code merge/diff paths aren't covered by the automated tests; this step is their check.)
 
-- [ ] **Step 4: Remove the bash scripts and stow files; update docs**
+- [x] **Step 4: Remove the bash scripts and stow files; update docs**
 
   Docs per the spec's "Docs" section: `AGENTS.md` (conventions: dotfile management via `dotfiles.json` + `sync.ps1`; key commands: `./bootstrap.sh`, `pwsh ./install.ps1`, `pwsh ./update.ps1`, `pwsh ./sync.ps1 [-NoPull] [-NoPrompt] [-CopyBack] [-WhatIf]`, `pwsh ./retire.ps1 -WhatIf`, `pwsh -c 'Invoke-Pester tests'`; "Working on This Repo": add a file by adding a manifest entry; how to remove a tool; `@HOME@` and "quote it in YAML"); `linux/README.md` (bootstrap instead of stow; "Migrating a stow machine" section: commit/push, discard tool-injected entries, `git pull --autostash`, `./bootstrap.sh`); `claude/README.md` and the opencode README (sync and copy-back instead of stow/adopt; in `claude/README.md`, the "Local plugins" section's "Stow skips the folder (`claude/.stow-local-ignore`)" sentence becomes "the manifest doesn't list the folder", and the "Dotfiles" and "Global instructions" sections say the files are copied by sync rather than linked). Mark the chezmoi plan superseded by the design doc.
 
   Herdr app docs (Task 8): the manual steps were written on 2026-11-08 in `linux/README.md` ("herdr app (Windows) → WSL") and `windows/README.md` ("herdr app"). In the Linux section, replace the herdr-core and sshd steps with "install.ps1 and update.ps1 do this on WSL" and point at `linux/sshd_config.d/herdr-wsl.conf` instead of the inline copy; keep the authorised-key step manual, and keep the port-2222 and "TUI stays alongside" notes. Leave the Windows section as it is: it stays manual until Stage 3.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
   ```bash
   grep -rn -i -E '\bstow\b|install\.sh|update\.sh' --include=*.md . | grep -v docs/superpowers   # expect: only the "Migrating a stow machine" section
@@ -562,4 +562,4 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 ## Addenda: deferred items
 
 - **Repo location is hard-coded in agent config** (deferred 2026-11-08). `CLAUDE_CODE_PLUGIN_DIRS` in `claude/.claude/settings.json` (`~/.dotfiles/claude/.claude/local-plugins`) and the `skills` list in `opencode/.config/opencode/opencode.jsonc` (`~/.dotfiles/claude/.claude/local-plugins/<plugin>/skills`) assume the repo is at `~/.dotfiles`, while the scripts allow another location through `DOTFILES_REPO`. On a machine with the repo elsewhere, the local plugins and their skills wouldn't load. Possible fixes: a second placeholder (e.g. `@DOTFILES@`, filled in by sync like `@HOME@`), or documenting that the repo must live at `~/.dotfiles`.
-- **Nothing installs Pester on other machines** (raised 2026-11-08, Task 1). Task 1 installed Pester 6 on this machine by hand, but no script or doc does it elsewhere, while Task 9 documents `pwsh -c 'Invoke-Pester tests'` as a key command. Fix: in Task 9's `AGENTS.md` update, add the install command (`Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force`) beside the test command.
+- **Nothing installs Pester on other machines** (raised 2026-11-08, Task 1). Task 1 installed Pester 6 on this machine by hand, but no script or doc does it elsewhere, while Task 9 documents `pwsh -c 'Invoke-Pester tests'` as a key command. Fix: in Task 9's `AGENTS.md` update, add the install command (`Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force`) beside the test command. **Done 2026-11-08** in Task 9: `AGENTS.md`'s Key Commands table has it beside the test command.

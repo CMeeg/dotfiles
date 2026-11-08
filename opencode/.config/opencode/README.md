@@ -4,17 +4,17 @@
 
 Applies when upgrading any machine that runs OpenCode v1 (e.g. 1.18.x). V2 keeps the `opencode` command and shares config locations, but has intentional breaking changes for plugins, the server API, and terminal client config.
 
-This repo's stowed config is already in native V2 shape, so on other machines the migration is mostly: upgrade the binary, restart, restow.
+This repo's config (applied by `sync.ps1`) is already in native V2 shape, so on other machines the migration is mostly: upgrade the binary, restart, sync.
 
 ### Steps
 
-1. **Pull this repo** so the stowed config is up to date:
+1. **Pull and apply this repo's config:**
 
    ```bash
-   cd ~/.dotfiles && git pull
+   cd ~/.dotfiles && pwsh ./sync.ps1
    ```
 
-2. **Superpowers** is installed as a plugin from the stowed `opencode.jsonc` (`"plugins": ["superpowers@git+https://github.com/obra/superpowers.git"]`), so there's nothing to update by hand. It needs OpenCode 2.0.4+ and superpowers v6.4.1+ (earlier releases load only on V1). If you still have the old clone at `~/.local/share/opencode/packages/superpowers`, `update.sh` removes it.
+2. **Superpowers** is installed as a plugin from the repo's `opencode.jsonc` (`"plugins": ["superpowers@git+https://github.com/obra/superpowers.git"]`), so there's nothing to update by hand. It needs OpenCode 2.0.4+ and superpowers v6.4.1+ (earlier releases load only on V1). If you still have the old clone at `~/.local/share/opencode/packages/superpowers`, the retire steps in `update.ps1` remove it.
 
 3. **Upgrade OpenCode.** V2 installs as `opencode` via the V2 installer and replaces the v1 binary in place (`opencode upgrade` only updates within your current major version, so it won't cross v1→v2):
 
@@ -24,13 +24,13 @@ This repo's stowed config is already in native V2 shape, so on other machines th
 
    If v1 was installed via a package manager (apt/npm/brew), remove that installation first so the v2 binary isn't shadowed.
 
-4. **Restart OpenCode.** The v2 terminal client migrates supported global `tui.json` settings to `~/.config/opencode/cli.json` on first start. This repo stows `cli.json` (Dracula) instead of the old `tui.jsonc`:
+4. **Restart OpenCode.** The v2 terminal client migrates supported global `tui.json` settings to `~/.config/opencode/cli.json` on first start. This repo manages `cli.json` (Dracula) instead of the old `tui.jsonc`:
 
    ```bash
-   cd ~/.dotfiles && stow --adopt --no-folding -v opencode
+   cd ~/.dotfiles && pwsh ./sync.ps1 -NoPull
    ```
 
-   `--adopt` imports the local `cli.json` over the repo file; see `git diff` and commit if V2 wrote anything different.
+   If V2 wrote anything different into `~/.config/opencode/cli.json`, sync reports it as a local change and offers to copy it back; review with `git diff` and commit what every machine needs.
 
 5. **Verify:**
 
@@ -61,7 +61,7 @@ herdr's OpenCode integration supports V1 (≥ 1.18.29) and V2. Older herdr build
 
    This installs `~/.config/opencode/plugins/herdr-agent-state.js`, the shared TUI plugin `herdr-tui-session.js`, and the V2 TUI entrypoint `herdr-opencode/tui.js`, and registers the V2 TUI plugin in `cli.json` while preserving existing preferences and plugins.
 
-4. **Review the `cli.json` diff.** `cli.json` is stowed from this repo, so herdr's registration lands in `opencode/.config/opencode/cli.json`. Commit it if herdr is expected on a machine — that makes herdr part of what the stowed `cli.json` requires.
+4. **Check `cli.json`.** herdr writes its registration into the live `~/.config/opencode/cli.json`. The repo's `cli.json` already lists the `./herdr-opencode` plugin, so the next sync normally reports nothing; if it reports other herdr changes, copy back only what every machine needs. The installer's setup actions reinstall the integration when `cli.json` no longer lists it.
 
 5. **Restart the OpenCode TUI** and verify:
 
