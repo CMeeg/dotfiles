@@ -4,7 +4,7 @@
 
 Applies when upgrading any machine that runs OpenCode v1 (e.g. 1.18.x). V2 keeps the `opencode` command and shares config locations, but has intentional breaking changes for plugins, the server API, and terminal client config.
 
-This repo's stowed config is already in native V2 shape, so on other machines the migration is mostly: update superpowers, upgrade the binary, restart, restow.
+This repo's stowed config is already in native V2 shape, so on other machines the migration is mostly: upgrade the binary, restart, restow.
 
 ### Steps
 
@@ -14,13 +14,7 @@ This repo's stowed config is already in native V2 shape, so on other machines th
    cd ~/.dotfiles && git pull
    ```
 
-2. **Update Superpowers** to a V2-compatible release (v6.4.1+; earlier releases load only on V1, and v6.4.1 requires OpenCode 2.0.4+):
-
-   ```bash
-   cd ~/.local/share/opencode/packages/superpowers && git pull
-   ```
-
-   v6.4.1 registers through the repo directory containing `index.js` — the existing `plugins` entry in `opencode.jsonc` already points there.
+2. **Superpowers** is installed as a plugin from the stowed `opencode.jsonc` (`"plugins": ["superpowers@git+https://github.com/obra/superpowers.git"]`), so there's nothing to update by hand. It needs OpenCode 2.0.4+ and superpowers v6.4.1+ (earlier releases load only on V1). If you still have the old clone at `~/.local/share/opencode/packages/superpowers`, `update.sh` removes it.
 
 3. **Upgrade OpenCode.** V2 installs as `opencode` via the V2 installer and replaces the v1 binary in place (`opencode upgrade` only updates within your current major version, so it won't cross v1→v2):
 
@@ -42,7 +36,8 @@ This repo's stowed config is already in native V2 shape, so on other machines th
 
    - `opencode --version` → 2.x
    - Models and credentials still load (same auth)
-   - MCP servers connect: chrome-devtools, microsoft-learn, open-design
+   - MCP servers connect: chrome-devtools, microsoft-learn
+   - superpowers' skills resolve
    - the local plugins' skills resolve (each plugin's `skills/` folder is listed under `skills` in `opencode.jsonc`)
    - Ask superpowers: "Tell me about your superpowers"
 
@@ -92,17 +87,12 @@ V1 and V2 share config locations, so only point V1 at pre-conversion config. Bac
 
 ## Known issues
 
-### Git spec plugin install silently fails (V1)
+### Superpowers updates don't appear
 
-OpenCode 1.17.7's auto-installer for `git+https://` plugin specs silently fails — it creates a cache directory skeleton but never runs bun install. The plugin never loads. Additionally, if you add the git dependency to `~/.config/opencode/package.json`, OpenCode runs a background `npm install` that also fails on the git URL, compounding the issue.
+opencode caches git plugin specs, so a restart may keep serving an older superpowers commit. If an update doesn't show up, clear opencode's package cache or reinstall the plugin (from superpowers' own opencode install notes).
 
-Solution
-Install superpowers outside npm's managed tree and point the config at the path directly:
+### Git spec plugin install silently fails (V1 only)
 
-1. Clone superpowers into a standalone location
-   - `git clone https://github.com/obra/superpowers.git ~/.local/share/opencode/packages/superpowers`
-2. In opencode.jsonc, use a local path instead of the git URL:
-   - `"plugins": ["~/.local/share/opencode/packages/superpowers"]`
-3. Don't add superpowers to `~/.config/opencode/package.json`!
-   - That would trigger a background npm install that fails.
-4. Restart opencode
+This only affected OpenCode 1.17.7, and is why this repo used to clone superpowers instead of using a plugin entry. OpenCode v2 (2.0.4+) installs `git+https://` plugin specs, so the clone is no longer needed.
+
+On 1.17.7, the auto-installer for `git+https://` plugin specs silently failed: it created a cache directory skeleton but never ran its install step, so the plugin never loaded. Adding the git dependency to `~/.config/opencode/package.json` made it worse, because OpenCode then ran a background `npm install` that also failed on the git URL. The workaround was to clone superpowers to `~/.local/share/opencode/packages/superpowers` and point `plugins` at that path, without adding it to `package.json`.

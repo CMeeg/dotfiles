@@ -2,8 +2,13 @@
 set -euo pipefail
 
 DOTFILES_REPO="${HOME}/.dotfiles"
-NODE_VERSION="24"
 DRY_RUN=false
+SKIP_RETIRE=false
+
+# shellcheck source=lib/retire.sh
+source "$DOTFILES_REPO/lib/retire.sh"
+# shellcheck source=lib/gitkraken.sh
+source "$DOTFILES_REPO/lib/gitkraken.sh"
 
 # Colors
 RESET='\033[0m'
@@ -27,7 +32,8 @@ run() {
         return 0
     fi
     local ec=0
-    bash -c "$1" || ec=$?
+    # pipefail: a failed download in 'curl … | bash' must fail the step, not pass it
+    bash -o pipefail -c "$1" || ec=$?
     if [ "$ec" -ne 0 ]; then
         print_warn "Command failed (exit code $ec): $1"
         exit "$ec"
@@ -38,6 +44,14 @@ run() {
 
 is_cmd() { command -v "$1" &>/dev/null; }
 
+# Prints the newest Node LTS version known to fnm (e.g. v26.13.0); returns 1 if none
+latest_node_lts() {
+    local v
+    v=$(fnm list-remote --lts 2>/dev/null | tail -n1 | awk '{print $1}')
+    [ -n "$v" ] || return 1
+    echo "$v"
+}
+
 is_apt_installed() {
     dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "ok installed"
 }
@@ -45,17 +59,6 @@ is_apt_installed() {
 is_symlinked() {
     local target="$1" expected_source="$2"
     [ -L "$target" ] && [ "$(readlink -f "$target")" = "$(readlink -f "$expected_source")" ]
-}
-
-is_repo_behind() {
-    local repo_dir="$1"
-    if [ "$DRY_RUN" = true ]; then
-        return 0
-    fi
-    (cd "$repo_dir" && git fetch origin) 2>/dev/null || return 1
-    local behind
-    behind=$(cd "$repo_dir" && git rev-list --count HEAD..@{u} 2>/dev/null) || return 1
-    [ "$behind" -gt 0 ]
 }
 
 is_opencode_v2() {
@@ -157,45 +160,37 @@ install_gitkraken() {
         print_skip "GitKraken is already installed"
         return
     fi
-    run "wget -O /tmp/gitkraken-amd64.deb https://release.gitkraken.com/linux/gitkraken-amd64.deb && sudo apt install -y /tmp/gitkraken-amd64.deb"
+    run "wget -O /tmp/gitkraken-amd64.deb $GITKRAKEN_DEB_URL && sudo apt install -y /tmp/gitkraken-amd64.deb"
     print_ok "GitKraken installed"
     print_warn "Run 'gitkraken' and follow setup steps in gitkraken/README.md"
 }
 
 install_node() {
-    print_status "Installing fnm and Node $NODE_VERSION..."
+    print_status "Installing fnm and Node (latest LTS)..."
     if is_cmd fnm; then
         print_skip "fnm is already installed"
         return
     fi
-    run "curl -o- https://fnm.vercel.app/install | bash"
-    # fnm install script writes to .bashrc, but sourcing .bashrc in a
-    # non-interactive script is a no-op — add fnm to PATH directly
+    # --skip-shell: bash/.bashrc (stowed) already sets up fnm, so the installer must not append to it
+    run "curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell"
+    # Sourcing .bashrc in a non-interactive script is a no-op — add fnm to PATH directly
     if [ "$DRY_RUN" = true ]; then
         print_dry "Add fnm to PATH"
-    else
-        export FNM_PATH="$HOME/.local/share/fnm"
-        if [ -d "$FNM_PATH" ]; then
-            export PATH="$FNM_PATH:$PATH"
-        fi
-    fi
-    run "fnm install $NODE_VERSION"
-    print_ok "fnm and Node $NODE_VERSION installed"
-}
-
-install_bun() {
-    print_status "Installing Bun..."
-    if is_cmd bun; then
-        print_skip "Bun is already installed"
+        print_dry "fnm install <latest LTS> && fnm default <latest LTS>"
+        print_ok "fnm and Node (latest LTS) installed"
         return
     fi
-    run "curl -fsSL https://bun.sh/install | bash"
-    if [ "$DRY_RUN" = true ]; then
-        print_dry "source $HOME/.bashrc"
-    else
-        source "$HOME/.bashrc" 2>/dev/null || true
+    export FNM_PATH="$HOME/.local/share/fnm"
+    if [ -d "$FNM_PATH" ]; then
+        export PATH="$FNM_PATH:$PATH"
     fi
-    print_ok "Bun installed"
+    local lts
+    if ! lts=$(latest_node_lts); then
+        print_warn "Couldn't find the latest Node LTS — run 'fnm install --lts' later"
+        return
+    fi
+    run "fnm install $lts && fnm default $lts"
+    print_ok "fnm and Node $lts installed"
 }
 
 install_chrome() {
@@ -254,7 +249,9 @@ allow_unprivileged_low_ports() {
 
 install_aspire() {
     print_status "Installing Aspire CLI..."
-    if is_cmd aspire || [ -x "$HOME/.aspire/bin/aspire" ]; then
+    # Only the install script's location counts, so every machine installs Aspire the same way
+    # (a .NET global tool install is removed by the retire steps)
+    if [ -x "$HOME/.aspire/bin/aspire" ]; then
         print_skip "Aspire CLI is already installed"
         return
     fi
@@ -274,98 +271,6 @@ install_opencode() {
     fi
     run "curl -fsSL https://opencode.ai/v2/install | bash"
     print_ok "opencode installed"
-}
-
-install_superpowers() {
-    print_status "Installing Superpowers for opencode..."
-
-    local superpowers_dir="$HOME/.local/share/opencode/packages/superpowers"
-    local config_file="$HOME/.config/opencode/opencode.jsonc"
-
-    # Clone if not already present
-    if [ -d "$superpowers_dir/.git" ]; then
-        print_skip "Superpowers is already cloned"
-        if is_repo_behind "$superpowers_dir"; then
-            run "cd $superpowers_dir && git pull"
-            print_ok "Superpowers updated"
-        else
-            print_skip "Superpowers is already up to date"
-        fi
-    else
-        run "git clone https://github.com/obra/superpowers.git $superpowers_dir"
-        print_ok "Superpowers cloned"
-    fi
-
-    # Add superpowers to opencode.jsonc plugin array if needed
-    if [ ! -f "$config_file" ]; then
-        print_skip "opencode.jsonc not found — stow will create it with superpowers configured"
-        return
-    fi
-
-    if [ -L "$config_file" ]; then
-        # Symlinked — already managed by stow
-        if grep -q "superpowers" "$config_file" 2>/dev/null; then
-            print_skip "Superpowers already configured in opencode.jsonc"
-        else
-            print_warn "opencode.jsonc symlink is missing superpowers — update the repo file"
-        fi
-        return
-    fi
-
-    # Regular file (not stowed) — patch before stow --adopt replaces it
-    if grep -q "superpowers" "$config_file" 2>/dev/null; then
-        print_skip "Superpowers already configured in opencode.jsonc"
-        return
-    fi
-
-    if [ "$DRY_RUN" = true ]; then
-        print_dry "Add superpowers to plugin array in $config_file"
-        return
-    fi
-
-    if ! is_cmd node; then
-        print_warn "Node.js not found — cannot patch opencode.jsonc automatically"
-        print_warn "Manually add superpowers to $config_file"
-        return
-    fi
-
-    node -e '
-        const fs = require("fs");
-        const p = process.argv[1];
-        let c = fs.readFileSync(p, "utf8");
-        let j = JSON.parse(c);
-        if (!Array.isArray(j.plugin)) j.plugin = [];
-        const pkg = "~/.local/share/opencode/packages/superpowers";
-        if (!j.plugin.includes(pkg)) {
-            j.plugin.push(pkg);
-            fs.writeFileSync(p, JSON.stringify(j, null, 2) + "\n");
-        }
-    ' "$config_file"
-
-    print_ok "Superpowers added to opencode.jsonc"
-}
-
-install_opendesign() {
-    print_status "Installing OpenDesign..."
-
-    local opendesign_dir="$HOME/.opendesign"
-    local od_binary="$opendesign_dir/node_modules/.bin/od"
-
-    if [ -x "$od_binary" ]; then
-        print_skip "OpenDesign is already installed"
-        return
-    fi
-
-    run "mkdir -p $opendesign_dir"
-    if [ -d "$opendesign_dir/.git" ]; then
-        print_skip "OpenDesign repo already cloned"
-    else
-        run "git clone https://github.com/nexu-io/open-design.git $opendesign_dir"
-        print_ok "OpenDesign repo cloned"
-    fi
-
-    run "cd $opendesign_dir && corepack enable && yes | pnpm install && pnpm --filter @open-design/web build"
-    print_ok "OpenDesign installed"
 }
 
 install_claude_code() {
@@ -408,8 +313,9 @@ main() {
     for arg in "$@"; do
         case "$arg" in
             --dry-run) DRY_RUN=true ;;
+            --skip-retire) SKIP_RETIRE=true ;;
             -h|--help)
-                echo "Usage: $0 [--dry-run]"
+                echo "Usage: $0 [--dry-run] [--skip-retire]"
                 echo ""
                 echo "Automates the Debian setup described in linux/README.md."
                 echo "Idempotent — safe to run multiple times."
@@ -430,6 +336,11 @@ main() {
         while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
     fi
 
+    if [ "$SKIP_RETIRE" = true ]; then
+        print_skip "Skipping retire steps (--skip-retire)"
+    else
+        run_retire_steps
+    fi
     update_system
     install_packages
     install_starship
@@ -439,15 +350,12 @@ main() {
     create_projects_dir
     install_gitkraken
     install_node
-    install_bun
     install_chrome
     install_caddy
     allow_unprivileged_low_ports
     install_aspire
     install_opencode
     install_claude_code
-    install_superpowers
-    install_opendesign
     stow_opencode_dotfiles
     stow_claude_dotfiles
 

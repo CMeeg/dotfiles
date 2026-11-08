@@ -2,9 +2,13 @@
 set -euo pipefail
 
 DOTFILES_REPO="${HOME}/.dotfiles"
-SUPERPOWERS_DIR="${HOME}/.local/share/opencode/packages/superpowers"
-OPENDESIGN_DIR="${HOME}/.opendesign"
 DRY_RUN=false
+SKIP_RETIRE=false
+
+# shellcheck source=lib/retire.sh
+source "$DOTFILES_REPO/lib/retire.sh"
+# shellcheck source=lib/gitkraken.sh
+source "$DOTFILES_REPO/lib/gitkraken.sh"
 
 # Colors
 RESET='\033[0m'
@@ -28,7 +32,8 @@ run() {
         return 0
     fi
     local ec=0
-    bash -c "$1" || ec=$?
+    # pipefail: a failed download in 'curl … | bash' must fail the step, not pass it
+    bash -o pipefail -c "$1" || ec=$?
     if [ "$ec" -ne 0 ]; then
         print_warn "Command failed (exit code $ec): $1"
         exit "$ec"
@@ -39,15 +44,16 @@ run() {
 
 is_cmd() { command -v "$1" &>/dev/null; }
 
-is_repo_behind() {
-    local repo_dir="$1"
-    if [ "$DRY_RUN" = true ]; then
-        return 0
-    fi
-    (cd "$repo_dir" && git fetch origin) 2>/dev/null || return 1
-    local behind
-    behind=$(cd "$repo_dir" && git rev-list --count HEAD..@{u} 2>/dev/null) || return 1
-    [ "$behind" -gt 0 ]
+# Prints the newest Node LTS version known to fnm (e.g. v26.13.0); returns 1 if none
+latest_node_lts() {
+    local v
+    v=$(fnm list-remote --lts 2>/dev/null | tail -n1 | awk '{print $1}')
+    [ -n "$v" ] || return 1
+    echo "$v"
+}
+
+is_apt_installed() {
+    dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "ok installed"
 }
 
 # ---------- Sections ----------
@@ -59,14 +65,52 @@ update_system() {
     print_ok "System packages updated"
 }
 
-update_bun() {
-    print_status "Updating Bun..."
-    if ! is_cmd bun; then
-        print_skip "Bun is not installed — skipping"
+update_gitkraken() {
+    print_status "Updating GitKraken..."
+    if ! is_apt_installed gitkraken; then
+        print_skip "GitKraken is not installed — skipping"
         return
     fi
-    run "bun upgrade"
-    print_ok "Bun updated"
+    # Read-only lookup (one small request), so it runs in dry-run too
+    local installed latest
+    installed=$(dpkg-query -W -f='${Version}' gitkraken)
+    if ! latest=$(gitkraken_latest_version); then
+        print_warn "Couldn't work out the latest GitKraken version — skipping"
+        return
+    fi
+    if ! gitkraken_needs_update "$installed" "$latest"; then
+        print_skip "GitKraken is already up to date ($latest)"
+        return
+    fi
+    run "wget -O /tmp/gitkraken-amd64.deb $GITKRAKEN_DEB_URL && sudo apt install -y /tmp/gitkraken-amd64.deb"
+    print_ok "GitKraken updated to $latest"
+}
+
+update_node() {
+    print_status "Updating fnm and Node (latest LTS)..."
+    if ! is_cmd fnm; then
+        print_skip "fnm is not installed — skipping"
+        return
+    fi
+    # fnm has no self-update command; re-running the installer updates the binary.
+    # --skip-shell: bash/.bashrc (stowed) already sets up fnm
+    run "curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell"
+    print_ok "fnm updated"
+
+    # Read-only lookup, so it runs in dry-run too
+    local lts default
+    if ! lts=$(latest_node_lts); then
+        print_warn "Couldn't find the latest Node LTS — skipping"
+        return
+    fi
+    # Compare against the default alias, not 'fnm current', which follows .node-version files
+    default=$(fnm list 2>/dev/null | awk '/ default/{print $2}')
+    if [ "$default" = "$lts" ]; then
+        print_skip "Node $lts (latest LTS) is already the default"
+        return
+    fi
+    run "fnm install $lts && fnm default $lts"
+    print_ok "Node $lts (latest LTS) is now the default — older versions are still installed"
 }
 
 update_starship() {
@@ -107,7 +151,7 @@ update_herdr() {
 update_aspire() {
     print_status "Updating Aspire CLI..."
     if [ ! -x "$HOME/.aspire/bin/aspire" ]; then
-        print_skip "Aspire CLI is not installed — skipping"
+        print_skip "Aspire CLI is not installed — skipping (run ./install.sh to install it)"
         return
     fi
     # Re-running the installer fetches the latest stable release
@@ -135,49 +179,17 @@ update_claude_code() {
     print_ok "Claude Code updated"
 }
 
-update_superpowers() {
-    print_status "Updating Superpowers..."
-    if [ ! -d "$SUPERPOWERS_DIR/.git" ]; then
-        print_skip "Superpowers is not installed — skipping"
-        return
-    fi
-    if ! is_repo_behind "$SUPERPOWERS_DIR"; then
-        print_skip "Superpowers is already up to date"
-        return
-    fi
-    run "cd $SUPERPOWERS_DIR && git pull"
-    print_ok "Superpowers updated"
-}
-
-update_opendesign() {
-    print_status "Updating OpenDesign..."
-    if [ ! -d "$OPENDESIGN_DIR/.git" ]; then
-        print_skip "OpenDesign is not installed — skipping"
-        return
-    fi
-    if ! is_repo_behind "$OPENDESIGN_DIR"; then
-        print_skip "OpenDesign is already up to date"
-        return
-    fi
-    if pgrep -f "open-design" > /dev/null 2>&1; then
-        run "pkill -f open-design"
-    fi
-    run "cd $OPENDESIGN_DIR && git stash && git pull --ff-only && yes | pnpm install && pnpm --filter @open-design/web build"
-    run "nohup $OPENDESIGN_DIR/node_modules/.bin/od --port 7456 --no-open >/dev/null 2>&1 & disown"
-    print_ok "OpenDesign updated"
-    print_ok "OpenDesign daemon restarted (http://127.0.0.1:7456)"
-}
-
 restow() {
     print_status "Restowing dotfiles..."
     if [ ! -d "$DOTFILES_REPO/.git" ]; then
         print_warn "Dotfiles repo not found at $DOTFILES_REPO — skipping restow"
         return
     fi
-    local packages="bash git opencode starship superfile herdr"
+    local packages="bash git opencode starship superfile herdr claude"
     if [ "$DRY_RUN" = true ]; then
         print_dry "cd $DOTFILES_REPO && git stash (if needed) && git pull && git stash pop"
         print_dry "stow --adopt --no-folding -v $packages"
+        retire_dangling_stow_links
         return
     fi
 
@@ -205,6 +217,8 @@ restow() {
         return
     fi
     print_ok "Dotfiles restowed"
+    # A pull can move or delete files that existing links point at
+    retire_dangling_stow_links
     print_warn "Review any changes with 'git diff' in $DOTFILES_REPO"
     print_warn "If changes look good, commit and push them"
 }
@@ -215,8 +229,9 @@ main() {
     for arg in "$@"; do
         case "$arg" in
             --dry-run) DRY_RUN=true ;;
+            --skip-retire) SKIP_RETIRE=true ;;
             -h|--help)
-                echo "Usage: $0 [--dry-run]"
+                echo "Usage: $0 [--dry-run] [--skip-retire]"
                 echo ""
                 echo "Automates the update steps described in linux/README.md."
                 echo "Idempotent — safe to run multiple times."
@@ -236,16 +251,20 @@ main() {
         while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
     fi
 
+    if [ "$SKIP_RETIRE" = true ]; then
+        print_skip "Skipping retire steps (--skip-retire)"
+    else
+        run_retire_steps
+    fi
     update_system
-    update_bun
+    update_gitkraken
+    update_node
     update_starship
     update_superfile
     update_herdr
     update_aspire
     update_opencode
     update_claude_code
-    update_superpowers
-    update_opendesign
     restow
 
     echo ""

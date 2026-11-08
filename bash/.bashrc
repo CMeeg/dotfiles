@@ -127,10 +127,6 @@ if [ -d "$FNM_PATH" ]; then
   eval "$(fnm env --use-on-cd --shell bash)"
 fi
 
-# bun
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
 # opencode
 export PATH="$HOME/.opencode/bin:$PATH"
 
@@ -143,35 +139,6 @@ fi
 if [ -d "$HOME/.local/bin" ]; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
-
-# opendesign
-od() {
-  local _od_bin="$HOME/.opendesign/node_modules/.bin/od"
-  if [ ! -x "$_od_bin" ]; then
-    echo "Open Design not found at $_od_bin" >&2
-    echo "Install it first or check ~/.opendesign" >&2
-    return 1
-  fi
-  case "${1:-}" in
-    stop)     "$_od_bin" daemon stop ;;
-    restart)  "$_od_bin" daemon stop 2>/dev/null; sleep 1; "$_od_bin" ;;
-    status)   "$_od_bin" status --json ;;
-    headless) "$_od_bin" --no-open ;;
-    start|"") "$_od_bin" ;;
-    *)        "$_od_bin" "$@" ;;
-  esac
-}
-
-_od_bin="$HOME/.opendesign/node_modules/.bin/od"
-if [ -x "$_od_bin" ] && ! "$_od_bin" status --json >/dev/null 2>&1; then
-  # Only start if nothing is already listening on the port, so we don't race
-  # another shell's daemon and exit 1. `disown` keeps bash from printing a
-  # "[1]+ Exit 1 ..." job notification at the next prompt.
-  if ! (exec 3<>/dev/tcp/127.0.0.1/7456) 2>/dev/null; then
-    "$_od_bin" --port 7456 --no-open >/dev/null 2>&1 & disown
-  fi
-fi
-unset _od_bin
 
 # starship (this should be placed at the end of this file)
 eval "$(starship init bash)"
