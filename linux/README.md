@@ -78,6 +78,35 @@ reload
   * Run `herdr` to start
   * Config lives at `~/.config/herdr/config.toml` (stowed from `herdr/` below — only `config.toml` is tracked; logs, sockets and sessions in that folder stay local)
 
+### herdr app (Windows) → WSL
+
+The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents in this distro by connecting to it as an SSH machine. It runs alongside the herdr TUI above; both stay installed for now. These are manual steps until the PowerShell install scripts automate them. The Windows side is in [windows/README.md](../windows/README.md#herdr-app).
+
+* Install [herdr-core](https://herdr.dev/core/) (the app's runtime; installs `~/.local/bin/herdr-core` and an `hc` link, no sudo)
+  * `curl -fsSL https://releases.herdr.dev/core/install.sh | sh`
+  * Or skip this: the app offers to install it when you add the machine
+* Install and configure sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`)
+  * `sudo apt install -y openssh-server`
+  * Create `/etc/ssh/sshd_config.d/herdr-wsl.conf`:
+
+    ```
+    # Lets the Windows Herdr app reach this WSL distro over SSH: key login only, localhost only
+    Port 2222
+    ListenAddress 127.0.0.1
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    PermitRootLogin no
+    ```
+
+  * `sudo sshd -t && sudo systemctl enable ssh && sudo systemctl restart ssh`
+  * Check: `ss -ltn | grep 127.0.0.1:2222`
+  * WSL distros share one network, so only one distro per Windows machine can use port 2222
+* Authorise the Windows key (created in the Windows steps)
+  * `mkdir -p ~/.ssh && chmod 700 ~/.ssh`
+  * `cat /mnt/c/Users/<windows user>/.ssh/id_ed25519_wsl.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
+* Update herdr-core
+  * `hc update` (running terminals keep running)
+
 ### Dotfiles (base)
 
 * Clone the repo
