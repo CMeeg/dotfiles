@@ -93,19 +93,35 @@ function Write-TextFile {
   [IO.File]::WriteAllBytes($Path, $script:Utf8.GetBytes($Content))
 }
 
-# True if $Path is a symlink whose target, resolved against the link's folder, is inside $Directory.
-function Test-LinkInto {
-  [OutputType([bool])]
-  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Directory)
+# The absolute path a symlink points to, resolved against the link's folder (it may not exist), or $null
+# if $Path isn't a symlink.
+function Resolve-LinkTarget {
+  [OutputType([string])]
+  param([Parameter(Mandatory)][string]$Path)
   $item = Get-Item -Force -LiteralPath $Path -ErrorAction SilentlyContinue
-  if (-not $item -or -not $item.LinkTarget) { return $false }
+  if (-not $item -or -not $item.LinkTarget) { return $null }
   $destination = $item.LinkTarget
   if (-not [IO.Path]::IsPathRooted($destination)) {
     $destination = Join-Path ([IO.Path]::GetDirectoryName($Path)) $destination
   }
-  $destination = [IO.Path]::GetFullPath($destination)
+  [IO.Path]::GetFullPath($destination)
+}
+
+# True if $Path is a symlink that points inside $Directory.
+function Test-LinkInto {
+  [OutputType([bool])]
+  param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Directory)
+  $destination = Resolve-LinkTarget $Path
+  if (-not $destination) { return $false }
   $prefix = [IO.Path]::GetFullPath($Directory).TrimEnd('/') + '/'
   $destination.StartsWith($prefix, [StringComparison]::Ordinal)
+}
+
+# Quotes a value for a bash command line run by Invoke-Step.
+function ConvertTo-ShellArgument {
+  [OutputType([string])]
+  param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
+  "'" + $Value.Replace("'", "'\''") + "'"
 }
 
 function Test-Command {
@@ -115,5 +131,5 @@ function Test-Command {
 }
 
 Export-ModuleMember -Function Get-HomeDir, Get-RepoDir, Get-StateDir, Resolve-TargetPath, Set-DryRun, Test-DryRun,
-  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Read-TextFile, Write-TextFile, Test-LinkInto,
-  Test-Command
+  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Read-TextFile, Write-TextFile, Resolve-LinkTarget,
+  Test-LinkInto, ConvertTo-ShellArgument, Test-Command

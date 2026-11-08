@@ -315,7 +315,7 @@
   - `Test-StowLinksPresent` → `[bool]`, any symlink into the repo in those folders.
 - `retire.ps1 [-WhatIf]`: imports modules, `Set-DryRun`, `Invoke-RetireSteps`.
 
-- [ ] **Step 1: Write the failing tests** in `tests/Retire.Tests.ps1` (temp `HOME`, a temp repo with a small `dotfiles.json`; fake `dpkg-query`, `pgrep`, `pkill`, `dotnet` scripts on `PATH` where needed)
+- [x] **Step 1: Write the failing tests** in `tests/Retire.Tests.ps1` (temp `HOME`, a temp repo with a small `dotfiles.json`; fake `dpkg-query`, `pgrep`, `pkill`, `dotnet` scripts on `PATH` where needed)
 
   | Test | Assert |
   |---|---|
@@ -332,19 +332,19 @@
   | `Bun, superpowers clone, Aspire tool` | one test each, mirroring the Stage 0 bash tests (removed; skip when absent; Aspire uninstall call logged, nothing installed) |
   | `Test-StowLinksPresent` | true with a repo link present; false after `Invoke-RetireStow` |
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests/Retire.Tests.ps1 -Output Detailed'`
   Expected: all fail.
 
-- [ ] **Step 3: Implement `lib/Retire.psm1` and `retire.ps1`**
+- [x] **Step 3: Implement `lib/Retire.psm1` and `retire.ps1`**
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
 
-- [ ] **Step 5: Dry-run on this machine**
+- [x] **Step 5: Dry-run on this machine**
 
   Run: `pwsh -NoProfile ./retire.ps1 -WhatIf`
   Expected: `~` lines replacing each link into the repo under `~`, `~/.config`, `~/.claude` (bash, git, starship, superfile, herdr, opencode, claude files, including `~/.claude/CLAUDE.md`), deleting any links whose target is gone or not in the manifest (none expected once this machine's dangling links are cleaned up), and `~ sudo apt remove -y stow`; the other steps print `-`. Nothing changes.
