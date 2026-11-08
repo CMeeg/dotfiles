@@ -1,0 +1,6 @@
+{
+  "name": "writing",
+  "version": "0.1.0",
+  "description": "Writing documents for people and for agents: audience-first writing and structuring agent instructions",
+  "author": { "name": "Chris Meagher" }
+}

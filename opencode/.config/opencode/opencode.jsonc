@@ -3,6 +3,14 @@
   "plugins": [
     "superpowers@git+https://github.com/obra/superpowers.git"
   ],
+  "skills": [
+    "~/.dotfiles/claude/.claude/local-plugins/workflow/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/writing/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/engineering/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/typescript/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/aspire/skills",
+    "~/.dotfiles/claude/.claude/local-plugins/nextjs/skills"
+  ],
   "mcp": {
     "servers": {
       "chrome-devtools": {

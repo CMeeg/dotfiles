@@ -9,6 +9,8 @@ These setup instructions are for Windows 11.
   * `winget install --id Starship.Starship`
 * Copy Starship config
   * `starship/.config/starship.toml` -> `~/.config/starship.toml`
+* Install [jq](https://jqlang.org/) (coding agents use it to read JSON)
+  * `winget install --id jqlang.jq`
 
 ### herdr
 

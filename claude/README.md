@@ -52,33 +52,39 @@ Stow isn't available on Windows, so set up the config by hand.
 * Don't copy `claude/.claude/settings.json` as it is. Some of its settings are specific to one OS or one project:
   * `hooks`: hooks often run OS-specific commands, so set them up on each OS instead of copying them. For example, the `SessionStart` hook comes from [herdr](https://herdr.dev). Run `herdr integration install claude` and it adds a hook that suits the OS (a bash script in WSL, a PowerShell script on Windows).
   * `extraKnownMarketplaces` and `enabledPlugins`: some marketplaces and plugins are only there because one project needed them. Add those when you work on that project.
-* Instead, create `%USERPROFILE%\.claude\settings.json` with the settings that work on both:
-
-  ```json
-  {
-    "permissions": {
-      "defaultMode": "auto"
-    },
-    "respectGitignore": false,
-    "awaySummaryEnabled": false,
-    "askUserQuestionTimeout": "never",
-    "env": {
-      "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/mods"
-    }
-  }
-  ```
-
+* Instead, create `%USERPROFILE%\.claude\settings.json` with the [settings](#config) that work on both:
+* Add `permissions.deny` from `claude/.claude/settings.json` as well (see [Secrets](#secrets)).
 * Leave out `theme`, `extraKnownMarketplaces`, `enabledPlugins` and `pluginConfigs` for now. Installing the theme and plugins below adds those settings for you.
-* Copy the skills you want from `claude/.claude/skills/` into `%USERPROFILE%\.claude\skills\`
-  * These are copies, so re-copy them after you change a skill in the repo
-* Local mods need no copying, because `CLAUDE_CODE_PLUGIN_DIRS` loads them straight from the repo clone. `git pull` picks up changes.
-* Then follow the [Theme](#theme), [Config](#config), [Plugins](#plugins) and [Mods](#mods) steps below, the same as on Linux.
+* Copy `claude/.claude/CLAUDE.md` (the global instructions, see [Global instructions](#global-instructions)) to `%USERPROFILE%\.claude\CLAUDE.md`
+  * It's a copy, so re-copy it after you change `CLAUDE.md` in the repo
+* Skills need no copying: they're all in local plugins, which `CLAUDE_CODE_PLUGIN_DIRS` loads straight from the repo clone. `git pull` picks up changes.
+* Then follow the [Theme](#theme), [Config](#config), [Plugins](#plugins) and [Local plugins](#local-plugins) steps below, the same as on Linux.
 
 ### Dotfiles
 
 `claude/` is a stow package — `claude/.claude/` is linked into `~/.claude`:
 
 * Claude Code rewrites `settings.json` when you change settings or install plugins — if `ls -l ~/.claude/settings.json` shows it's no longer a symlink, re-run the stow command to adopt the changes back into the repo
+
+### Global instructions
+
+`claude/.claude/CLAUDE.md` is linked to `~/.claude/CLAUDE.md`: my working preferences for every repository (git, processes, scope and follow-ups, writing code, verifying, communicating, secrets), which a repository's own `AGENTS.md` or `CLAUDE.md` adds to. opencode reads it too when it has no `~/.config/opencode/AGENTS.md`.
+
+### Secrets
+
+`permissions.deny` in `settings.json` stops Claude Code reading files that hold secrets in any project:
+
+* `.env.local` and `.env.*.local`
+* `.secrets`
+* `local.settings.json`
+* keys and certificates (`*.pem`, `*.key`, `*.pfx`, `*.p12`, `~/.ssh/id_*`)
+* the credential files in the home folder (`.netrc`, `.git-credentials`, `.pgpass`, AWS, Docker, GitHub CLI, Claude Code's own)
+
+The rules cover the Read and Grep tools and Bash commands that name the file (`cat`, `head`, `grep`), subagents included; checking a variable is set (`[ -n "$(grep '^NAME=' .env.local)" ] && echo set`) still works.
+
+They don't cover a script that opens the file itself (e.g. `node -e "…readFileSync('.env.local')"`), which only [sandboxing](https://code.claude.com/docs/en/sandboxing) would.
+
+A committed `.env` stays readable, so a project that keeps secrets in an uncommitted `.env` or `.env.production` needs its own rule in its `.claude/settings.local.json`.
 
 ### Theme
 
@@ -90,10 +96,21 @@ Stow isn't available on Windows, so set up the config by hand.
 
 These are config settings I have changed from the default:
 
-* Default permission mode: `Auto`
-* Respect .gitignore in file picker: `false`
-* Session recap: `false`
-* Question auto-continue timeout: `never`
+
+```jsonc
+{
+  "permissions": {
+    "defaultMode": "auto" // This is Claude's recommendation and does seem to work well
+  },
+  "respectGitignore": false, // It's sometimes useful to be able to reference gitignored files
+  "awaySummaryEnabled": false, // The recaps seemed too eager to display for me and you can always ask for a `/recap`
+  "askUserQuestionTimeout": "never", // If a question is asked then I want to see it!
+  "feedbackDrafts": "quiet", // The feedback "notice" can get in the way so this shows there is feedback to give in the footer instead that you can access with `/feedback`
+  "env": {
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins" // My local plugins from this repo
+  }
+}
+```
 
 ### Plugins
 
@@ -107,25 +124,17 @@ If Context7 has been added to your claude.ai account, Claude Code installs it fo
 
 ### Skills
 
-Personal skills live in `claude/.claude/skills/<name>/` and are linked into `~/.claude/skills/`. opencode reads `~/.claude/skills` too, so these skills work in both tools:
+My skills are all in [local plugins](#local-plugins), grouped by when I'd reach for them. To add one, create `claude/.claude/local-plugins/<plugin>/skills/<name>/SKILL.md`; for a new plugin, add its `skills/` folder to `skills` in `opencode/.config/opencode/opencode.jsonc` too. `~/.claude/skills/synced/` holds skills Claude Code syncs down from claude.ai; it's managed by Claude Code and isn't in the repo.
 
-* New skill — create it in `claude/.claude/skills/<name>/SKILL.md`, then run `stow --no-folding -v claude` (from the dotfiles root)
-* Existing skill already in `~/.claude/skills/<name>/` — copy it into `claude/.claude/skills/<name>/`, then run `stow --adopt --no-folding -v claude` to replace the original with a symlink
-* `~/.claude/skills/synced/` holds skills Claude Code syncs down from claude.ai — it's managed by Claude Code, so it's gitignored and not part of the stow package
+### Local plugins
 
-### Mods
+My own plugins live in `claude/.claude/local-plugins/<name>/`, each grouping related skills, hooks and mods (a mod is a plugin that changes Claude Code's interface, e.g. the status line, footer or panels).
 
-Under the hood, mods are plugins too. Here, "mods" means plugins that change Claude Code's interface (status line, footer, panels), and "plugins" means everything else (skills, agents, MCP servers).
+Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/local-plugins`), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). That path is the same on Linux and Windows, so edits land in the repo with no copying.
 
-#### Local mods
+Stow skips the folder (`claude/.stow-local-ignore`), as Claude Code wouldn't load anything linked into `~/.claude/`. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
 
-These are my own mods. They live in `claude/.claude/mods/<name>/`:
-
-* `model-effort-status`: shows the current model and reasoning effort at the bottom right of the prompt footer
-
-Claude Code loads them straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/mods`). That path is the same on Linux and Windows, so edits land in the repo with no copying. Stow also links them into `~/.claude/mods/`, but Claude Code doesn't load them from there.
-
-#### Marketplace mods
+### Marketplace mods
 
 These are installed from the [statuslin.es](https://statuslin.es) marketplace (`statuslines` in `settings.json`):
 

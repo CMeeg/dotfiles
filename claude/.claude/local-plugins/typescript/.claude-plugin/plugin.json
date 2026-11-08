@@ -1,0 +1,6 @@
+{
+  "name": "typescript",
+  "version": "0.1.0",
+  "description": "TypeScript conventions and idioms",
+  "author": { "name": "Chris Meagher" }
+}

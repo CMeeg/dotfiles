@@ -1,0 +1,6 @@
+{
+  "name": "workflow",
+  "version": "0.1.0",
+  "description": "My own way of working with agents: planning, implementing, verifying and reviewing work",
+  "author": { "name": "Chris Meagher" }
+}
