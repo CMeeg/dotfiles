@@ -1,0 +1,6 @@
+{
+  "name": "nextjs",
+  "version": "0.1.0",
+  "description": "Next.js conventions: start-up through instrumentation.ts, and server code that Next bundles more than once",
+  "author": { "name": "Chris Meagher" }
+}

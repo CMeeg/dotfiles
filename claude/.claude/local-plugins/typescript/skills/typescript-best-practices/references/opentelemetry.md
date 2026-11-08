@@ -2,7 +2,11 @@
 
 How to apply the `instrumentation-and-logging` and `writing-tests` skills with OpenTelemetry's Node SDK (`@opentelemetry/sdk-node`). Those skills say what to collect and test; this says how, with the SDK. A framework that starts telemetry through a hook of its own (e.g. an `instrumentation` file) has its own reference, which adds to this one.
 
-Each package named here is a dependency to agree before adding, if the project doesn't have it. Check the installed versions' types before relying on an option or constructor: the JavaScript SDK's packages are mid-migration (the `0.x` packages are still experimental, and `@opentelemetry/sdk-trace-base` 2.x now wraps a new `@opentelemetry/sdk-trace`), and docs from the main branch (e.g. through Context7) can show names the installed version doesn't have. Facts below were checked against `@opentelemetry/sdk-node` 0.223, the 2.12 SDK packages and `@opentelemetry/api` 1.9.
+Each package named here is a dependency to agree before adding, if the project doesn't have it. Check the installed versions' types before relying on an option or constructor: the JavaScript SDK's packages change shape between major versions (the `0.x` packages are still experimental), and docs from the main branch (e.g. through Context7) can show names the installed version doesn't have. Facts below were checked against `@opentelemetry/sdk-node` 0.301, the 3.1 SDK packages and `@opentelemetry/api` 1.10. The 3.x SDK differs from the 2.x SDK (`sdk-node` 0.2xx) in three places:
+
+- **Traces:** `@opentelemetry/sdk-trace` replaces `@opentelemetry/sdk-trace-base` and `@opentelemetry/sdk-trace-node`, which are deprecated. Its provider is `TracerProvider`, which has no `register()`, and its span processors take `{ exporter }` rather than the exporter itself.
+- **Logs API:** it's in `@opentelemetry/api` (`logs`, `SeverityNumber`). `@opentelemetry/api-logs` keeps a global of its own, which the 3.x SDK doesn't set, so a logger provider read from it exports nothing.
+- **Start-up:** `sdk-node` also exports an experimental `startNodeSdk`; `new NodeSDK(…)` and `sdk.start()` are still the documented form.
 
 ## Starting it
 
@@ -14,7 +18,8 @@ The SDK has to start before the application's modules load, or the libraries it 
 
 - **An ES-module app needs the loader hook as well** (`--experimental-loader=@opentelemetry/instrumentation/hook.mjs`, on the command line or in `NODE_OPTIONS`). Without it, instrumentations that patch modules (`http`, web frameworks, database clients) silently do nothing; only those that listen on Node's diagnostics channels (e.g. `undici`, which covers `fetch`) work. The hook is part of the documented set-up, not an optional extra: the command names `@opentelemetry/instrumentation`, so it should be a direct dependency (on the same `0.x` line as `@opentelemetry/sdk-node`) rather than arriving through another package; ask before adding it, as for any dependency. Node prints an `ExperimentalWarning` for the flag, which is expected: the SDK's docs plan to move to `module.register()`, which isn't the documented form yet.
 - **Let the environment configure the exporters.** With no exporters passed, `NodeSDK` exports traces, metrics and logs over OTLP, configured by the standard variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `_PROTOCOL`, `_HEADERS`, `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_SDK_DISABLED`, and `OTEL_TRACES_EXPORTER`, `OTEL_METRICS_EXPORTER` and `OTEL_LOGS_EXPORTER`, which take `none`). Pass exporters only for a backend that isn't OTLP, and then you take over what the environment did: an explicitly created `PeriodicExportingMetricReader` doesn't read `OTEL_METRIC_EXPORT_INTERVAL` (read it yourself), and an exporter's `url` option is used as given, whereas `OTEL_EXPORTER_OTLP_ENDPOINT` has `/v1/traces` (or `/v1/metrics`, `/v1/logs`) appended.
-- **Options are plural and constructors vary.** `metricReaders` and `logRecordProcessors` (the singular `metricReader` is deprecated). `BatchLogRecordProcessor` and `SimpleLogRecordProcessor` (sdk-logs 0.223) take `{ exporter }`, while `sdk-trace-base`'s span processors still take the exporter as their first argument; check the installed types.
+- **Options are plural, and processors take an options object.** `metricReaders` and `logRecordProcessors` (the singular `metricReader` is deprecated). Span and log record processors take `{ exporter }`.
+- **To change only the trace exporter** (e.g. to wrap it in a filter), pass it as `traceExporter`: the SDK batches it with the `OTEL_BSP_*` settings. Passing `spanProcessors` instead takes batching over, and those variables no longer apply. Choosing an exporter also fixes the traces' protocol (e.g. `exporter-trace-otlp-proto` is http/protobuf), so `OTEL_EXPORTER_OTLP_PROTOCOL` then applies only to metrics and logs.
 
 ```ts
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node'
@@ -39,12 +44,12 @@ process.once('SIGTERM', () => {
 | The skill says | With the Node SDK |
 |---|---|
 | Honour the standard variables | prefer the environment to code, as above. A value passed in code wins over its variable: a `sampler` over `OTEL_TRACES_SAMPLER`, and `serviceName` over `OTEL_SERVICE_NAME` |
-| One resource for traces, metrics and logs | let `NodeSDK` create all three providers, rather than building a `LoggerProvider` of your own beside it. Its resource is the `resource` option, overridden by detected attributes (`OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, host, process), overridden by `serviceName`: choose `resource` or `serviceName` by whether the environment may rename the service. A logging library's bridge gets the SDK's provider (`logs.getLoggerProvider()` from `@opentelemetry/api-logs`, after `sdk.start()`), as a view with only `getLogger` if the bridge would otherwise shut it down (LogTape's does: `logtape.md`); left to itself, a bridge may build its own provider with a different resource |
-| The same sampler everywhere, only the ratio differing | pass `new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` (both from `@opentelemetry/sdk-trace-node`) with the ratio for the environment, but only when `OTEL_TRACES_SAMPLER` isn't set, so a deployment that forgets to configure sampling gets the safe ratio and one that sets the standard variables still can. Parent-based, so a trace is kept or dropped whole. Worth a small function of its own, tested without the SDK |
+| One resource for traces, metrics and logs | let `NodeSDK` create all three providers, rather than building a `LoggerProvider` of your own beside it. Its resource is the `resource` option, overridden by detected attributes (`OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`, host, process), overridden by `serviceName`: choose `resource` or `serviceName` by whether the environment may rename the service. A logging library's bridge gets the SDK's provider (`logs.getLoggerProvider()` from `@opentelemetry/api`, after `sdk.start()`), as a view with only `getLogger` if the bridge would otherwise shut it down (LogTape's does: `logtape.md`); left to itself, a bridge may build its own provider with a different resource |
+| The same sampler everywhere, only the ratio differing | pass `new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) })` (both from `@opentelemetry/sdk-trace`) with the ratio for the environment, but only when `OTEL_TRACES_SAMPLER` isn't set, so a deployment that forgets to configure sampling gets the safe ratio and one that sets the standard variables still can. Parent-based, so a trace is kept or dropped whole. Worth a small function of its own, tested without the SDK |
 | Make export failures visible | `NodeSDK` installs a diagnostic logger only when `OTEL_LOG_LEVEL` is set. When it isn't, install one at `warn` yourself, before `new NodeSDK(…)`, as its constructor warns about deprecated options and unsupported exporter values: `diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.WARN)`. When it is set, leave it to the SDK. Keep it apart from the app's own log level |
 | Create meters and counters lazily | the API has proxies for tracers and loggers but not meters: a meter or counter taken before `sdk.start()` stays a no-op for the life of the process. See "Custom metrics" |
-| Flush on shutdown | `sdk.shutdown()` flushes all three signals. Call it from your own `SIGTERM` listener (above); if the app handles `SIGTERM` itself (e.g. to close its server), call it from there after the server closes and drop the listener, as both would run. Flush a logging library first (LogTape's `dispose()`: `logtape.md`), so its last records reach the provider before it shuts down. A framework may ignore a shutdown function returned to it |
-| Filter noise at the source | `getNodeAutoInstrumentations({ '@opentelemetry/instrumentation-dns': { enabled: false } })`, or `OTEL_NODE_DISABLED_INSTRUMENTATIONS=dns,net` (short names; `fs` and `host-metrics` are off by default); health checks through `@opentelemetry/instrumentation-http`'s `ignoreIncomingRequestHook`; a framework's internal spans by wrapping the span exporter in one that drops them by attribute. Disable the `http` instrumentation if the framework already makes a span per request |
+| Flush on shutdown | `sdk.shutdown()` flushes all three signals. Call it from your own `SIGTERM` listener (above); if the app handles `SIGTERM` itself (e.g. to close its server), call it from there after the server closes and drop the listener, as both would run. Flush a logging library first (LogTape's `dispose()`: `logtape.md`), so its last records reach the provider before it shuts down. A framework may ignore a shutdown function returned to it, and one that handles `SIGTERM` itself may exit before your listener's flush finishes: check, and if it can, take the signal over (e.g. Next.js's `NEXT_MANUAL_SIG_HANDLE`, in the `nextjs:nextjs-instrumentation` skill) |
+| Filter noise at the source | `getNodeAutoInstrumentations({ '@opentelemetry/instrumentation-dns': { enabled: false } })`, or `OTEL_NODE_DISABLED_INSTRUMENTATIONS=dns,net` (short names; `fs` and `host-metrics` are off by default); health checks through `@opentelemetry/instrumentation-http`'s `ignoreIncomingRequestHook` (which stops every span in the request, as wanted for a health check), or in the sampler where a framework makes the request's span; a framework's internal spans by wrapping the span exporter in one that drops them by attribute. If the framework already makes a span per incoming request, stop the `http` instrumentation making a second one with `disableIncomingRequestInstrumentation: true`, which keeps its spans for outgoing calls; disable it only if the app makes none. Not `ignoreIncomingRequestHook: () => true`, which runs the request inside `suppressTracing`, so nothing in it is traced |
 
 ## Custom spans and metrics
 
@@ -73,12 +78,13 @@ const ordersPlaced = (): Counter => {
 
 ## Testing
 
-Unit tests don't start the SDK: they install providers that record in memory, through the API's globals, and remove them afterwards. Check the SDK's wiring (exporters, resource, sampling) by running the app against a local collector or dashboard instead.
+Unit tests don't start the SDK: they install providers that record in memory, through the API's globals, and remove them afterwards. The helper needs `@opentelemetry/context-async-hooks` (for the context manager) and `@opentelemetry/sdk-metrics` and `@opentelemetry/sdk-trace` as development dependencies, if the project doesn't have them. Check the SDK's wiring (exporters, resource, sampling) by running the app against a local collector or dashboard instead.
 
 ```ts
 import { context, metrics, propagation, trace } from '@opentelemetry/api'
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks'
 import { MeterProvider, MetricReader } from '@opentelemetry/sdk-metrics'
-import { InMemorySpanExporter, NodeTracerProvider, SimpleSpanProcessor } from '@opentelemetry/sdk-trace-node'
+import { InMemorySpanExporter, SimpleSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace'
 
 // Collects when the test asks, rather than exporting on a timer
 class TestMetricReader extends MetricReader {
@@ -90,8 +96,9 @@ export const recordTelemetry = () => {
   const reader = new TestMetricReader()
   const spans = new InMemorySpanExporter()
   metrics.setGlobalMeterProvider(new MeterProvider({ readers: [reader] }))
-  // `register()` rather than `trace.setGlobalTracerProvider()`: it also installs a context manager, without which `startActiveSpan` makes no span active inside its callback
-  new NodeTracerProvider({ spanProcessors: [new SimpleSpanProcessor(spans)] }).register()
+  // A context manager as well as the provider: without one, `startActiveSpan` makes no span active inside its callback
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable())
+  trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter: spans })] }))
 
   return {
     spans: () => spans.getFinishedSpans(),
@@ -124,4 +131,5 @@ export const stopRecordingTelemetry = (): void => {
 - **Exporters passed in code with nothing to say,** losing what the standard variables configure (the metric interval, the endpoint's signal path).
 - **A second `LoggerProvider`** with a resource of its own, so logs and traces show as different services.
 - **A counter created once at module level,** a no-op if the module loaded before the SDK started, and bound to the first test's provider in tests; a tracer taken once is bound the same way in tests.
-- **`trace.setGlobalTracerProvider()` in a test,** which installs no context manager, so no span is active inside `startActiveSpan`.
+- **A tracer provider without a context manager in a test,** so no span is active inside `startActiveSpan`.
+- **A logger provider read from `@opentelemetry/api-logs` with the 3.x SDK,** which registers its provider on `@opentelemetry/api`, so nothing is exported.

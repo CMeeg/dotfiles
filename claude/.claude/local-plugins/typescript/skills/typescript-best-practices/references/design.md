@@ -94,10 +94,7 @@ Accept an optional `AbortSignal` in anything that waits on I/O, pass it to every
 
 A module is normally evaluated once, so a module-level instance (`export const cache = createCache()`) is shared by everything that imports it: that's the default, and a variable on `globalThis` would only be a global under another name.
 
-Some toolchains evaluate a module more than once, each time with its own instance: Next.js bundles each server route with its own copy of the modules it imports, and development servers that hot-reload re-run a module on each save (recreating a client or connection pool every time). Only where the project's framework or bundler is known to do this, and an instance must be shared (a cache, a client, a registry):
-
-- keep it on `globalThis` under a distinctive name, created on first use: `globalThis.__appCache ??= createCache()`, with a `declare global` for its type;
-- check errors by `name`, not `instanceof`, when they may come from another copy of the class's module (idioms.md §8).
+Some toolchains evaluate a module more than once, each time with its own instance and its own copy of its classes: a framework that bundles server routes separately, or a development server that re-runs a module on each save. Only where the project's framework or bundler is known to do this, and an instance must be shared, follow that framework's guidance; for Next.js, it's the `nextjs:nextjs-module-state` skill (an instance on `globalThis`, and errors checked by `name` rather than `instanceof`, idioms.md §8).
 
 ## Patterns, in TypeScript
 
@@ -108,7 +105,7 @@ The Gang of Four patterns name problems worth recognising; their class-based for
 | Strategy | a function parameter, or a record of functions | the most common one |
 | Factory method, abstract factory | a factory function returning an object | choose the implementation in the composition root |
 | Builder | an options object with defaults | a fluent builder only for genuinely staged construction |
-| Singleton | a module-level instance | on `globalThis` only where the toolchain duplicates or re-runs modules (above) |
+| Singleton | a module-level instance | where the toolchain duplicates or re-runs modules, the framework's guidance (above) |
 | Adapter | a function mapping one shape to another | keep it at the boundary |
 | Decorator | a wrapper function of the same type (above) | |
 | Facade | a module exporting a small API over a larger one | |

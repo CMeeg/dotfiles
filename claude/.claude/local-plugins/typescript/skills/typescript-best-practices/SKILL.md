@@ -24,7 +24,7 @@ Write TypeScript the compiler can protect, in the language's own idiom: function
 | A failure the caller can't handle | throw an `Error` subclass with `name` set, wrapping with `cause` | idioms.md §8, assets/app-error.ts |
 | One part may fail without failing the whole (a page section) | catch it in one place, log once, return the part's empty value | design.md, "Outcomes, failures and partial pages" |
 | Work waits on I/O and may be abandoned | accept an `AbortSignal` and pass it down | design.md, "Cancellation" |
-| An instance must be shared by everything that imports it | a module-level instance; on `globalThis` only where the toolchain duplicates or re-runs modules (e.g. Next.js server routes, hot reload), checking errors by `name` | design.md, "Module state and bundlers" |
+| An instance must be shared by everything that imports it | a module-level instance; where the toolchain duplicates or re-runs modules (e.g. Next.js server routes, hot reload), the framework's guidance | design.md, "Module state and bundlers"; for Next.js, the `nextjs:nextjs-module-state` skill |
 | A Gang of Four pattern comes to mind | its usual TypeScript form | design.md, "Patterns, in TypeScript" |
 | Reaching for `any` | `unknown` and narrow it | idioms.md §1 |
 | `enum` | a string-literal union or an `as const` object | idioms.md §2 |
@@ -41,7 +41,7 @@ Write TypeScript the compiler can protect, in the language's own idiom: function
 | `interface`, `type` or `class`? | `type` by default | idioms.md §14 |
 | Reaching for `as` or `!` | a guard, typed accessor or tighter parameter; a commented cast only at a boundary | idioms.md §15 |
 | Logging with LogTape: set-up, log lines, asserting logs in tests | the `instrumentation-and-logging` and `writing-tests` skills, applied with LogTape | references/logtape.md |
-| Telemetry with OpenTelemetry's Node SDK: starting it, custom spans and metrics, testing them | the `instrumentation-and-logging` and `writing-tests` skills, applied with the Node SDK | references/opentelemetry.md |
+| Telemetry with OpenTelemetry's Node SDK: starting it, custom spans and metrics, testing them | the `instrumentation-and-logging` and `writing-tests` skills, applied with the Node SDK | references/opentelemetry.md; in Next.js, the `nextjs:nextjs-instrumentation` skill as well |
 | Testing with Vitest: configuration, fakes, timers, type tests | the `writing-tests` skill, applied with Vitest | references/vitest.md |
 | Setting up a tsconfig | the template, after the framework's own guidance | assets/tsconfig.template.json |
 
