@@ -25,8 +25,7 @@ Then run [`bootstrap.sh`](../bootstrap.sh), which installs PowerShell 7 from Mic
 # Run the installer (idempotent — safe to run multiple times)
 ./bootstrap.sh
 
-# Reload your shell (using an alias)
-reload
+# Then open a new terminal to reload your shell
 ```
 
 > Once PowerShell is installed, run the installer directly with `pwsh ./install.ps1` (`-WhatIf` to preview, `-SkipRetire` to skip the retire steps).
@@ -44,8 +43,7 @@ pwsh ./update.ps1 -WhatIf
 # Run the updater (will attempt to update all programs installed by the install script)
 pwsh ./update.ps1
 
-# Reload your shell (using an alias)
-reload
+# Then open a new terminal to reload your shell
 ```
 
 > On other machines, run `git pull --autostash` in `~/.dotfiles` first, then `pwsh ./update.ps1`, so the updater's own changes (e.g. new retire steps) apply in the same run.
@@ -66,7 +64,7 @@ pwsh ./sync.ps1 -WhatIf    # preview
 * For each file that differs on this machine (a local change), sync shows the diff with your home path as `@HOME@` (and the repo's path as `@DOTFILES@`) and asks: `c` copies it back into the repo, `s` (or Enter) skips it for this run, `i` ignores it until the file changes again (sync then prints one `-` line instead of the diff, and `-CopyBack` leaves it alone), `d` opens the diff in VS Code. The VS Code diff is for viewing only (left: the repo, right: this machine): edits made there aren't kept, and `c` copies the whole file.
 * After copying back, review with `git diff`, stage what you want (`git add -p`), discard the rest and commit. Sync never commits or pushes.
 * Tools such as herdr and GitKraken write entries for this machine into `~/.claude/settings.json`, so it differs from the repo on every machine. Answer `i` to stop seeing it until the file changes, or discard those entries from the repo after copying back.
-* Run sync from a WSL terminal opened on Windows (e.g. Windows Terminal) when you want the VS Code diff or merge editor. SSH sessions, including the Herdr app's terminals, don't have `code` on `PATH`.
+* The `d` option and the merge editor use VS Code (`code`), which works in any WSL terminal, including SSH sessions and the Herdr app's terminals (see [herdr app (Windows) → WSL](#herdr-app-windows--wsl)).
 * `-NoPrompt` reports without asking, and `-CopyBack` copies every local change back without asking.
 
 ## Migrating a stow machine
@@ -114,6 +112,7 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
 * sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`): `install.ps1` installs `openssh-server`, and the setup actions in `install.ps1` and `update.ps1` install [`linux/sshd_config.d/herdr-wsl.conf`](./sshd_config.d/herdr-wsl.conf) (port 2222 on `127.0.0.1`, key login only) into `/etc/ssh/sshd_config.d/`, check it with `sshd -t` (putting the previous file back if the check fails, since ssh checks its config at every start), then enable and restart ssh
   * Check: `ss -ltn | grep 127.0.0.1:2222`
   * WSL distros share one network, so only one distro per Windows machine can use port 2222. On a second distro the setup action warns that sshd setup failed and the install carries on.
+* Interactive shells that `wsl.exe` didn't start (SSH sessions and the Herdr app's terminals, whose server runs as a systemd user service) miss the environment a Windows Terminal WSL tab gets: the Windows `PATH` (so `code`, `explorer.exe`), `WSL_DISTRO_NAME`, and WSLg's `DISPLAY`, `WAYLAND_DISPLAY` and `PULSE_SERVER`. `bash/.bashrc` copies them from a short-lived `wsl.exe` session, adding about 0.3s to each new shell there (Windows Terminal tabs skip it, as `WSL_DISTRO_NAME` is already set). It leaves out `WSL_INTEROP`, as Windows programs run without it.
 * Authorise the Windows key (created in the Windows steps); the setup action warns until there's a key
   * `mkdir -p ~/.ssh && chmod 700 ~/.ssh`
   * `cat /mnt/c/Users/<windows user>/.ssh/id_ed25519_wsl.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
@@ -130,7 +129,7 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * `pwsh ./sync.ps1 -NoPull -InitialApply` - `-InitialApply` backs up files that already exist and differ (e.g. Debian's default `~/.bashrc`) to `~/.local/state/dotfiles/backup/` and replaces them
   * See [Syncing dotfiles](#syncing-dotfiles) for what sync reports
 * Reload bash profile
-  * `source ~/.bashrc`
+  * Open a new terminal
 * Create `projects` directory
   * `mkdir ~/projects`
 

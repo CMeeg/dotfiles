@@ -219,5 +219,5 @@ try {
 
 Write-Host ''
 Write-Host "`e[0;32m✨ `e[1mDone.`e[0m"
-Write-Host "`e[1m  → Run 'source ~/.bashrc' to reload your shell.`e[0m"
+Write-Host "`e[1m  → Open a new terminal to reload your shell.`e[0m"
 exit 0

@@ -112,6 +112,46 @@ if ! shopt -oq posix; then
   fi
 fi
 
+# WSL: shells that wsl.exe didn't start (sshd, or a systemd service such as the
+# Herdr app's terminal server) miss the environment a wsl.exe session gets: the
+# Windows PATH (code, explorer.exe, ...), WSL_DISTRO_NAME, and WSLg's DISPLAY,
+# WAYLAND_DISPLAY and PULSE_SERVER. Copy it from a short-lived wsl.exe session.
+# WSL_INTEROP is left out: that session's socket closes when it exits, and
+# Windows programs run without it.
+wsl_exe=/mnt/c/Windows/System32/wsl.exe
+# (Some WSL versions register the interop handler as WSLInterop-late.)
+if [ -z "${WSL_DISTRO_NAME:-}" ] && compgen -G '/proc/sys/fs/binfmt_misc/WSLInterop*' >/dev/null && [ -x "$wsl_exe" ]; then
+  wsl_distro=$(wslpath -w / 2>/dev/null | cut -d '\' -f 4)
+  [ -n "$wsl_distro" ] && while IFS= read -r -d '' wsl_var; do
+    wsl_name=${wsl_var%%=*}
+    wsl_value=${wsl_var#*=}
+    case $wsl_name in
+      PATH)
+        # keep this shell's order, then add wsl.exe's entries it lacks (Windows' last)
+        IFS=: read -ra wsl_dirs <<< "$wsl_value"
+        for wsl_dir in "${wsl_dirs[@]}"; do
+          # an empty entry would put the current folder on PATH
+          [ -n "$wsl_dir" ] || continue
+          case ":$PATH:" in
+            *":$wsl_dir:"*) ;;
+            *) PATH="$PATH:$wsl_dir" ;;
+          esac
+        done
+        export PATH
+        ;;
+      WSL_INTEROP|PWD|OLDPWD|SHLVL|_) ;;
+      *)
+        if [[ $wsl_name =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && [ -z "${!wsl_name+set}" ]; then
+          export "$wsl_name=$wsl_value"
+        fi
+        ;;
+    esac
+  # </dev/null: wsl.exe would otherwise read and discard input typed or sent to the terminal meanwhile
+  done < <(timeout 5 "$wsl_exe" -d "$wsl_distro" -- env -0 </dev/null 2>/dev/null)
+  unset wsl_distro wsl_var wsl_name wsl_value wsl_dirs wsl_dir
+fi
+unset wsl_exe
+
 # non-private env vars
 export EDITOR="code --wait"
 

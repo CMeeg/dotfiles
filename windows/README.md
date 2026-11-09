@@ -33,10 +33,10 @@ The [Herdr desktop app](https://herdr.dev/guide/) manages agents locally and in 
   * From PowerShell 7: `ssh-keygen -t ed25519 -N '' -C windows-to-wsl-herdr -f $env:USERPROFILE\.ssh\id_ed25519_wsl`
   * Windows PowerShell 5 drops the empty `-N` argument and ssh-keygen waits for a passphrase, so use PowerShell 7 (or run `ssh-keygen.exe` from WSL)
   * Add `id_ed25519_wsl.pub` to WSL's `~/.ssh/authorized_keys` (see the linux steps)
-* Add a `wsl` host to `%USERPROFILE%\.ssh\config`
+* Add a host for the distro to `%USERPROFILE%\.ssh\config`, named `<distro>-wsl` in lowercase (herdr names a machine after its host, and its names allow only `a-z 0-9 - _ .`)
 
   ```
-  Host wsl
+  Host debian-wsl
     HostName 127.0.0.1
     Port 2222
     User <WSL user>
@@ -45,8 +45,8 @@ The [Herdr desktop app](https://herdr.dev/guide/) manages agents locally and in 
   ```
 
   * Use `127.0.0.1`, not `localhost`: Windows tries `::1` first and WSL only forwards IPv4, so herdr-core fails with `banner exchange: Connection to UNKNOWN port -1: Connection refused`
-* Check `ssh wsl` logs in without a prompt (the first run trusts the host key)
-* In the app, add a machine and pick `wsl` from the SSH config list
+* Check `ssh debian-wsl` logs in without a prompt (the first run trusts the host key)
+* In the app, add a machine and pick `debian-wsl` from the SSH config list
 * After `wsl --shutdown`, the machine shows as unreachable and reconnects on its own once WSL is running again
 
 ### claude code
