@@ -9,7 +9,8 @@
     "@DOTFILES@/claude/.claude/local-plugins/engineering/skills",
     "@DOTFILES@/claude/.claude/local-plugins/typescript/skills",
     "@DOTFILES@/claude/.claude/local-plugins/aspire/skills",
-    "@DOTFILES@/claude/.claude/local-plugins/nextjs/skills"
+    "@DOTFILES@/claude/.claude/local-plugins/nextjs/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/herdr/skills"
   ],
   "mcp": {
     "servers": {
