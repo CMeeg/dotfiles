@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
 }
 
@@ -68,6 +72,14 @@ Describe 'Common' {
     } finally {
       $env:PATH = $savedPath
     }
+  }
+
+  It 'Resolve-PhysicalPath follows links anywhere in the path' {
+    New-Item -ItemType Directory -Path "$tmp/real/sub" | Out-Null
+    New-Item -ItemType SymbolicLink -Path "$tmp/link" -Target "$tmp/real" | Out-Null
+    Resolve-PhysicalPath "$tmp/link/sub/file.txt" | Should -Be "$tmp/real/sub/file.txt"
+    Resolve-PhysicalPath "$tmp/link/" | Should -Be "$tmp/real"
+    Resolve-PhysicalPath "$tmp/real/missing/x" | Should -Be "$tmp/real/missing/x"
   }
 
   It "Write-Skip uses the bash scripts' prefix" {

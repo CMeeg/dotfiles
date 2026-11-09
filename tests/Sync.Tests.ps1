@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/Sync.psm1" -Force
   Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
@@ -49,6 +53,12 @@ Describe 'Get-SyncAction' {
     @{ InRepo = $false; Repo = $null; Base = 'b'; Live = 'l'; Expected = 'RemovedButChanged' }
   ) {
     Get-SyncAction -Repo $Repo -Base $Base -Live $Live -InRepo $InRepo | Should -Be $Expected
+  }
+
+  It 'records a committed repo version that live already matches' {
+    Get-SyncAction -Repo 'r' -Base 'b' -Live 'r' -InRepo $true -RepoCommitted $true | Should -Be 'RecordBase'
+    Get-SyncAction -Repo 'r' -Base 'b' -Live 'r' -InRepo $true -RepoCommitted $false | Should -Be 'None'
+    Get-SyncAction -Repo 'r' -Base 'r' -Live 'r' -InRepo $true -RepoCommitted $true | Should -Be 'None'
   }
 
   It 'treats a change of case as a change' {
@@ -198,6 +208,25 @@ Describe 'sync.ps1 apply' {
     "$h/.otherrc" | Should -Not -Exist
   }
 
+  It 'refuses to write through a stow-linked parent folder' {
+    New-Item -ItemType Directory -Path "$h/.config" | Out-Null
+    New-Item -ItemType SymbolicLink -Path "$h/.config/app" -Target "$r/cfg" | Out-Null
+    $before = Read-FixtureFile "$r/cfg/app.json"
+    $result = Invoke-TestSync '-InitialApply'
+    $result.ExitCode | Should -Be 1
+    $result.Output | Should -Match 'retire\.ps1'
+    Read-FixtureFile "$r/cfg/app.json" | Should -BeExactly $before
+  }
+
+  It 'refuses a link into the repo when the repo path is itself a link' {
+    New-Item -ItemType SymbolicLink -Path "$($f.Root)/repo-link" -Target $r | Out-Null
+    $env:DOTFILES_REPO = "$($f.Root)/repo-link"
+    New-Item -ItemType SymbolicLink -Path "$h/.plainrc" -Target "$r/plainrc" | Out-Null
+    $result = Invoke-TestSync
+    $result.ExitCode | Should -Be 1
+    $result.Output | Should -Match 'retire\.ps1'
+  }
+
   It 'keeps unicode and a missing final newline byte-exact' {
     Write-FixtureFile "$r/plainrc" "glyph  ✓ é"
     (Invoke-TestSync).ExitCode | Should -Be 0
@@ -215,6 +244,12 @@ Describe 'sync.ps1 apply' {
     git -C $r rev-parse HEAD | Should -Be $head
     $result.Output | Should -Match '~ '
     $result.Output | Should -Not -Match 'What if:'
+  }
+
+  It 'fills @DOTFILES@ with the repo path on apply' {
+    Write-FixtureFile "$r/cfg/app.json" '{"p":"@DOTFILES@/plugins"}'
+    (Invoke-TestSync).ExitCode | Should -Be 0
+    Read-FixtureFile "$h/.config/app/app.json" | Should -BeExactly "{`"p`":`"$r/plugins`"}"
   }
 
   It 'fills @HOME@ on apply' {
@@ -256,6 +291,19 @@ Describe 'sync.ps1 pull and merge' {
     Read-FixtureFile "$applied/.plainrc" | Should -BeExactly "1`n2`n3`n4`n5 upstream`n"
   }
 
+  It 'a merge that keeps a local edit reports it in the same run' {
+    Set-Upstream 'plainrc' "1`n2`n3`n4`n5`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.plainrc" "1 local`n2`n3`n4`n5`n"
+    Set-Upstream 'plainrc' "1`n2`n3`n4`n5 upstream`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    $result.Output | Should -Match 'Merged .*/\.plainrc'
+    $result.Output | Should -Match '  ! Local change: .*/\.plainrc'
+    # git colours the + marker separately from the line, so strip colour codes first.
+    ($result.Output -replace "`e\[[0-9;]*m", '') | Should -Match '\+1 local'
+  }
+
   It 'overlapping edits are a conflict and live is kept' {
     Set-Upstream 'plainrc' "1`n2`n3`n"
     Invoke-SyncScript '-NoPrompt' | Out-Null
@@ -293,6 +341,33 @@ Describe 'sync.ps1 pull and merge' {
     $result.Output | Should -Match 'Merged .*/app\.json'
   }
 
+  It 'a committed copy-back is the base for the next upstream change' {
+    Set-Upstream 'plainrc' "theme = a`nother`n"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.plainrc" "theme = b`nother`n"
+    Invoke-SyncScript '-NoPull', '-CopyBack' | Out-Null
+    git -C $r commit -q -am 'copy back'
+    git -C $r push -q 2>&1 | Out-Null
+    git -C $f.Other pull -q 2>&1 | Out-Null
+    Set-Upstream 'plainrc' "theme = c`nother`n"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    $result.Output | Should -Not -MatchExactly 'Conflict:'
+    Read-FixtureFile "$h/.plainrc" | Should -BeExactly "theme = c`nother`n"
+    Read-FixtureFile "$applied/.plainrc" | Should -BeExactly "theme = c`nother`n"
+  }
+
+  It 'keeps unicode and a missing final newline byte-exact through a merge' {
+    Set-Upstream 'plainrc' "glyph  ✓ é`nmiddle`nlast é"
+    Invoke-SyncScript '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.plainrc" "glyph  ✓ é local`nmiddle`nlast é"
+    Set-Upstream 'plainrc' "glyph  ✓ é`nmiddle`nlast é upstream"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    $expected = [Text.UTF8Encoding]::new($false).GetBytes("glyph  ✓ é local`nmiddle`nlast é upstream")
+    [IO.File]::ReadAllBytes("$h/.plainrc") | Should -Be $expected
+  }
+
   It 'a pull conflict stops before any write' {
     Invoke-SyncScript '-NoPrompt' | Out-Null
     Write-FixtureFile "$r/plainrc" "plain`nmine`n"
@@ -316,6 +391,53 @@ Describe 'sync.ps1 pull and merge' {
     $result.ExitCode | Should -Be 1
     $result.Output | Should -Match 'unresolved git conflicts.*plainrc'
     Read-FixtureFile "$h/.plainrc" | Should -BeExactly "plain`n"
+  }
+
+  It 'says git failed, not that the repo is missing, when git status fails' {
+    Rename-Item "$r/.git" "$r/.git-real"
+    Write-FixtureFile "$r/.git" "gitdir: $($f.Root)/nonexistent`n"
+    $records = @(Invoke-RepoPull $r 6>&1 2>&1)
+    @($records | Where-Object { $_ -is [bool] }) | Should -Be @($false)
+    $out = $records | Where-Object { $_ -isnot [bool] } | Out-String
+    $out | Should -Match 'git status failed'
+    $out | Should -Not -Match 'not found at'
+  }
+
+  It "stops when git can't list unmerged files" {
+    Rename-Item "$r/.git" "$r/.git-real"
+    Write-FixtureFile "$r/.git" "gitdir: $($f.Root)/nonexistent`n"
+    $result = Invoke-SyncScript '-NoPull', '-NoPrompt'
+    $result.ExitCode | Should -Be 1
+    $result.Output | Should -Match 'git diff failed'
+  }
+
+  It 'uses its own folder as the repo when DOTFILES_REPO is unset' {
+    Copy-Item "$PSScriptRoot/../sync.ps1" $r
+    Copy-Item -Recurse "$PSScriptRoot/../lib" "$r/lib"
+    $env:DOTFILES_REPO = $null
+    $output = & pwsh -NoProfile -File "$r/sync.ps1" -NoPull -NoPrompt 2>&1 | Out-String
+    $LASTEXITCODE | Should -Be 0 -Because $output
+    Read-FixtureFile "$h/.plainrc" | Should -BeExactly "plain`n"
+  }
+
+  It 'says the repo is missing when DOTFILES_REPO points nowhere' {
+    $env:DOTFILES_REPO = "$($f.Root)/nowhere"
+    $result = Invoke-SyncScript '-NoPrompt'
+    $result.ExitCode | Should -Be 1
+    $result.Output | Should -Match 'Dotfiles repo not found at'
+  }
+
+  It "an untracked repo file that git status doesn't list isn't treated as committed" {
+    $manifest = Get-Content -Raw "$r/dotfiles.json" | ConvertFrom-Json
+    $manifest.entries += [pscustomobject]@{ source = 'newrc'; linux = '~/.newrc' }
+    Write-FixtureFile "$r/dotfiles.json" ($manifest | ConvertTo-Json -Depth 5)
+    Write-FixtureFile "$r/newrc" "a`n"
+    git -C $r config status.showUntrackedFiles no
+    Invoke-SyncScript '-NoPull', '-NoPrompt' | Out-Null
+    Write-FixtureFile "$h/.newrc" "b`n"
+    Invoke-SyncScript '-NoPull', '-CopyBack' | Out-Null
+    Invoke-SyncScript '-NoPull', '-NoPrompt' | Out-Null
+    Read-FixtureFile "$($f.State)/applied/.newrc" | Should -BeExactly "a`n"
   }
 
   It "-NoPull doesn't touch git" {
@@ -362,6 +484,20 @@ Describe 'sync.ps1 local changes and copy-back' {
     Read-FixtureFile "$applied/.config/app/app.json" | Should -BeExactly $before
   }
 
+  It '-CopyBack keeps unicode and a missing final newline byte-exact' {
+    Write-FixtureFile "$h/.plainrc" "plain`nglyph  ✓ é"
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    [IO.File]::ReadAllBytes("$r/plainrc") | Should -Be ([IO.File]::ReadAllBytes("$h/.plainrc"))
+  }
+
+  It '-CopyBack turns the repo path into @DOTFILES@' {
+    Write-FixtureFile "$h/.config/app/app.json" "{`"a`":1,`"d`":`"$r/plugins`"}`n"
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/cfg/app.json" | Should -BeExactly "{`"a`":1,`"d`":`"@DOTFILES@/plugins`"}`n"
+  }
+
   It '-CopyBack adds a new file under a managed directory' {
     Write-FixtureFile "$h/.skills/new/SKILL.md" "new skill`n"
     $result = Invoke-SyncScript '-NoPull', '-CopyBack'
@@ -390,5 +526,113 @@ Describe 'sync.ps1 local changes and copy-back' {
     Read-FixtureFile "$r/plainrc" | Should -BeExactly "plain`n"
     $result.Output | Should -Match '~ Copy back'
     $result.Output | Should -Not -Match 'What if:'
+  }
+}
+
+Describe 'VS Code merge results' {
+  BeforeEach {
+    $saved = @{ HOME = $env:HOME; PATH = $env:PATH; DOTFILES_STATE = $env:DOTFILES_STATE }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "merge-test-$([guid]::NewGuid())"
+    New-Item -ItemType Directory -Path "$tmp/home", "$tmp/bin" | Out-Null
+    $env:HOME = "$tmp/home"
+    $env:DOTFILES_STATE = "$tmp/state"
+    $env:PATH = "$tmp/bin:$env:PATH"
+    # A fake VS Code that saves a result with a duplicate key, as a hand-made merge might.
+    Write-FixtureFile "$tmp/bin/code" "#!/usr/bin/env bash`nresult=`"`${@: -1}`"`nprintf '{`"a`":1,`"a`":2}' > `"`$result`"`n"
+    chmod +x "$tmp/bin/code"
+    Mock Test-CanPrompt -ModuleName Sync { $true }
+  }
+
+  AfterEach {
+    foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
+    Remove-Item -Recurse -Force $tmp
+  }
+
+  It 'a merge result that breaks the JSON stays a conflict' {
+    $target = "$tmp/home/app.json"
+    Write-FixtureFile $target '{"a":0}'
+    $resolved = InModuleScope Sync -Parameters @{ Target = $target } {
+      param($Target)
+      Resolve-Conflict -Target $Target -Base '' -Repo '{"a":1}' -Merged '{"a":1}'
+    } 6>$null
+    $resolved | Should -BeFalse
+    Read-FixtureFile $target | Should -BeExactly '{"a":0}'
+  }
+}
+
+Describe 'ignoring a local change' {
+  BeforeEach {
+    $f = New-SyncFixture
+    $h = $f.Home
+    $r = $f.Repo
+    $ignored = "$($f.State)/ignored"
+    Invoke-TestSync | Out-Null
+    # As if run in a terminal where the user answers 'i'.
+    Mock Test-CanPrompt -ModuleName Sync { $true }
+    Mock Read-CopyBackChoice -ModuleName Sync { 'ignore' }
+    Set-DryRun $false
+  }
+
+  AfterEach {
+    Set-DryRun $false
+    Remove-SyncFixture
+  }
+
+  It 'stays quiet while the file is unchanged' {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`n"
+    Invoke-Sync 6>&1 | Out-Null
+    $out = Invoke-Sync 6>&1 | Out-String
+    # The diff goes straight to the host, so the quiet run shows as no warning line and no second question.
+    $out | Should -Match '  - Local change ignored until it changes: .*/\.plainrc'
+    $out | Should -Not -Match '  ! Local change:'
+    $summary = Invoke-Sync 6>$null
+    $summary.LocalChanges.Count | Should -Be 0
+    $summary.Ignored.Count | Should -Be 1
+    Should -Invoke Read-CopyBackChoice -ModuleName Sync -Times 1 -Exactly
+  }
+
+  It 'shows the change again once the file changes' {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`n"
+    Invoke-Sync 6>&1 | Out-Null
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`nmore`n"
+    $out = Invoke-Sync 6>&1 | Out-String
+    $out | Should -Match '  ! Local change: .*/\.plainrc'
+    Should -Invoke Read-CopyBackChoice -ModuleName Sync -Times 2 -Exactly
+  }
+
+  It 'forgets the ignore once the file matches the repo again' {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`n"
+    Invoke-Sync 6>&1 | Out-Null
+    "$ignored/.plainrc" | Should -Exist
+    Write-FixtureFile "$h/.plainrc" "plain`n"
+    Invoke-Sync 6>&1 | Out-Null
+    "$ignored/.plainrc" | Should -Not -Exist
+  }
+
+  It 'tidies empty folders when it forgets an ignore' {
+    Write-FixtureFile "$h/.config/app/app.json" "{`"a`":2}`n"
+    Invoke-Sync 6>&1 | Out-Null
+    "$ignored/.config/app/app.json" | Should -Exist
+    Write-FixtureFile "$h/.config/app/app.json" (Read-FixtureFile "$r/cfg/app.json")
+    Invoke-Sync 6>&1 | Out-Null
+    "$ignored/.config" | Should -Not -Exist
+  }
+
+  It '-CopyBack leaves an ignored change alone' {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`n"
+    Invoke-Sync 6>&1 | Out-Null
+    $result = Invoke-SyncScript '-NoPull', '-CopyBack'
+    $result.ExitCode | Should -Be 0 -Because $result.Output
+    Read-FixtureFile "$r/plainrc" | Should -BeExactly "plain`n"
+    $result.Output | Should -Match 'ignored until it changes'
+  }
+
+  It "a dry run doesn't record an ignore" {
+    Write-FixtureFile "$h/.plainrc" "plain`nlocal-only`n"
+    Set-DryRun $true
+    $out = Invoke-Sync 6>&1 | Out-String
+    "$ignored/.plainrc" | Should -Not -Exist
+    $out | Should -Match '  ~ Ignore .*/\.plainrc until it changes'
+    $out | Should -Not -Match 'Ignoring this'
   }
 }

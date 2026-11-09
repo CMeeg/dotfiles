@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/Setup.psm1" -Force
   Import-Module "$PSScriptRoot/TestHelpers.psm1" -Force
@@ -35,7 +39,7 @@ BeforeAll {
 
 Describe 'herdr integrations' {
   BeforeEach {
-    $saved = @{ HOME = $env:HOME; PATH = $env:PATH }
+    $saved = @{ HOME = $env:HOME; PATH = $env:PATH; DOTFILES_REPO = $env:DOTFILES_REPO }
     $tmp = Join-Path ([IO.Path]::GetTempPath()) "setup-test-$([guid]::NewGuid())"
     $h = "$tmp/home"
     $bin = "$tmp/bin"
@@ -67,6 +71,17 @@ Describe 'herdr integrations' {
     Write-FixtureFile "$h/.claude/settings.json" '{"permissions":{}}'
     Invoke-Captured { Invoke-HerdrIntegration claude } | Out-Null
     Get-Calls | Should -Contain 'herdr integration install claude'
+  }
+
+  It "skips while the agent's config is still a stow link into the repo" {
+    New-FakeHerdr "claude: current (v11) ($h/.claude/hooks/herdr-agent-state.sh)`n"
+    $env:DOTFILES_REPO = "$tmp/repo"
+    Write-FixtureFile "$tmp/repo/claude/.claude/settings.json" '{"permissions":{}}'
+    New-Item -ItemType Directory -Path "$h/.claude" | Out-Null
+    New-Item -ItemType SymbolicLink -Path "$h/.claude/settings.json" -Target "$tmp/repo/claude/.claude/settings.json" | Out-Null
+    $out = Invoke-Captured { Invoke-HerdrIntegration claude }
+    Get-Calls | Should -Not -Contain 'herdr integration install claude'
+    $out | Should -Match '  - .*retire\.ps1'
   }
 
   It 'installs when herdr reports not installed' {
@@ -160,17 +175,43 @@ Describe 'sshd for the Herdr app' {
   It 'sshd: installs the config and restarts ssh when it differs' {
     Invoke-Captured { Invoke-WslSshd -ConfigDir $configDir -SshdPath $sshd } | Out-Null
     $calls = Get-Calls
-    $calls.Count | Should -Be 4
-    $calls[0] | Should -Be "install -m 644 $repoConfig $configDir/herdr-wsl.conf"
-    $calls[1] | Should -Be 'sshd -t'
-    $calls[2] | Should -Be 'systemctl enable ssh'
-    $calls[3] | Should -Be 'systemctl restart ssh'
+    $calls.Count | Should -Be 5
+    $calls[0] | Should -Be 'install -d -m 755 /run/sshd'
+    $calls[1] | Should -Be "install -m 644 $repoConfig $configDir/herdr-wsl.conf"
+    $calls[2] | Should -Be 'sshd -t'
+    $calls[3] | Should -Be 'systemctl enable ssh'
+    $calls[4] | Should -Be 'systemctl restart ssh'
   }
 
   It "sshd: doesn't restart when sshd -t fails" {
     Write-FixtureFile "$tmp/fail" 'sshd -t'
     $out = Invoke-Captured { Invoke-WslSshd -ConfigDir $configDir -SshdPath $sshd }
     Get-Calls | Should -Not -Contain 'systemctl restart ssh'
+    $out | Should -Match 'sshd setup failed'
+  }
+
+  It 'sshd: removes a new config that fails sshd -t' {
+    Write-FixtureFile "$tmp/fail" 'sshd -t'
+    $out = Invoke-Captured { Invoke-WslSshd -ConfigDir $configDir -SshdPath $sshd }
+    Get-Calls | Should -Contain "rm -f $configDir/herdr-wsl.conf"
+    $out | Should -Match "'sshd -t' failed after installing .*so it was removed; see sshd's output above"
+  }
+
+  It 'sshd: puts the previous config back when the new one fails sshd -t' {
+    Write-FixtureFile "$configDir/herdr-wsl.conf" "Port 2222`n"
+    Write-FixtureFile "$tmp/fail" 'sshd -t'
+    $out = Invoke-Captured { Invoke-WslSshd -ConfigDir $configDir -SshdPath $sshd }
+    $calls = Get-Calls
+    @($calls | Where-Object { $_ -like "install -m 644 * $configDir/herdr-wsl.conf" }).Count | Should -Be 2
+    $calls[-1] | Should -Not -BeLike "*$repoConfig*"
+    $calls | Should -Not -Contain "rm -f $configDir/herdr-wsl.conf"
+    $out | Should -Match "'sshd -t' failed after installing .*so the previous one was put back; see sshd's output above"
+  }
+
+  It "sshd: a failure to create /run/sshd doesn't touch the config" {
+    Write-FixtureFile "$tmp/fail" 'install -d'
+    $out = Invoke-Captured { Invoke-WslSshd -ConfigDir $configDir -SshdPath $sshd }
+    @(Get-Calls) | Should -Be @('install -d -m 755 /run/sshd')
     $out | Should -Match 'sshd setup failed'
   }
 

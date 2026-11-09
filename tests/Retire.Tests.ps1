@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/State.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/Retire.psm1" -Force
@@ -92,11 +96,29 @@ Describe 'retire steps' {
       Read-Applied "$h/.config/app/app.json" | Should -BeExactly "{`"p`":`"$h/x`"}`n"
     }
 
+    It 'fills @DOTFILES@ when replacing a link' {
+      Write-FixtureFile "$repo/plainrc" "plugins=@DOTFILES@/p`n"
+      New-RepoLink "$h/.plainrc" 'plainrc'
+      Invoke-Captured { Invoke-RetireStow } | Out-Null
+      Read-FixtureFile "$h/.plainrc" | Should -BeExactly "plugins=$repo/p`n"
+    }
+
+    It 'replaces a link that points at the resolved path of a linked repo' {
+      New-Item -ItemType SymbolicLink -Path "$tmp/repo-link" -Target $repo | Out-Null
+      $env:DOTFILES_REPO = "$tmp/repo-link"
+      New-Item -ItemType SymbolicLink -Path "$h/.plainrc" -Target "$repo/plainrc" | Out-Null
+      $out = Invoke-Captured { Invoke-RetireStow }
+      Test-IsLink "$h/.plainrc" | Should -BeFalse
+      Read-FixtureFile "$h/.plainrc" | Should -BeExactly "plain`n"
+      $out | Should -Not -Match 'Removed stow link'
+    }
+
     It 'deletes a link to an unmanaged repo file' {
       Write-FixtureFile "$repo/old/.config/old/x.conf" "old`n"
       New-RepoLink "$h/.config/old/x.conf" 'old/.config/old/x.conf'
       Write-FixtureFile "$h/.config/keep.txt" "keep`n"
-      Invoke-Captured { Invoke-RetireStow } | Out-Null
+      $out = Invoke-Captured { Invoke-RetireStow }
+      $out | Should -Match ([regex]::Escape("$h/.config/old/x.conf"))
       Test-IsLink "$h/.config/old/x.conf" | Should -BeFalse
       "$h/.config/old" | Should -Not -Exist
       "$h/.config" | Should -Exist
@@ -105,7 +127,8 @@ Describe 'retire steps' {
 
     It 'deletes a dangling repo link and empty parents' {
       New-RepoLink "$h/.agents/skills/x/SKILL.md" 'agents/.agents/skills/x/SKILL.md'
-      Invoke-Captured { Invoke-RetireStow } | Out-Null
+      $out = Invoke-Captured { Invoke-RetireStow }
+      $out | Should -Match ([regex]::Escape("$h/.agents/skills/x/SKILL.md"))
       Test-IsLink "$h/.agents/skills/x/SKILL.md" | Should -BeFalse
       "$h/.agents" | Should -Not -Exist
       $h | Should -Exist
@@ -146,6 +169,7 @@ Describe 'retire steps' {
       "$tmp/state" | Should -Not -Exist
       $out | Should -Match '  ~ '
       $out | Should -Not -Match 'What if:'
+      $out | Should -Not -Match '✓ Removed stow link'
     }
 
     It 'removes stow when installed' {

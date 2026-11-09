@@ -63,9 +63,9 @@ pwsh ./sync.ps1 -WhatIf    # preview
 ```
 
 * A file changed only in the repo is updated on this machine. A file changed in both places is merged, and a conflict opens VS Code's merge editor (when run in a terminal), or is reported and left alone.
-* For each file that differs on this machine (a local change), sync shows the diff with your home path as `@HOME@` and asks: `c` copies it back into the repo, `s` (or Enter) skips it, `d` opens the diff in VS Code. The VS Code diff is for viewing only (left: the repo, right: this machine): edits made there aren't kept, and `c` copies the whole file.
+* For each file that differs on this machine (a local change), sync shows the diff with your home path as `@HOME@` (and the repo's path as `@DOTFILES@`) and asks: `c` copies it back into the repo, `s` (or Enter) skips it for this run, `i` ignores it until the file changes again (sync then prints one `-` line instead of the diff, and `-CopyBack` leaves it alone), `d` opens the diff in VS Code. The VS Code diff is for viewing only (left: the repo, right: this machine): edits made there aren't kept, and `c` copies the whole file.
 * After copying back, review with `git diff`, stage what you want (`git add -p`), discard the rest and commit. Sync never commits or pushes.
-* Tools such as herdr and GitKraken write entries for this machine into `~/.claude/settings.json`. They show up as local changes on every sync: skip them, or discard them from the repo after copying back.
+* Tools such as herdr and GitKraken write entries for this machine into `~/.claude/settings.json`, so it differs from the repo on every machine. Answer `i` to stop seeing it until the file changes, or discard those entries from the repo after copying back.
 * Run sync from a WSL terminal opened on Windows (e.g. Windows Terminal) when you want the VS Code diff or merge editor. SSH sessions, including the Herdr app's terminals, don't have `code` on `PATH`.
 * `-NoPrompt` reports without asking, and `-CopyBack` copies every local change back without asking.
 
@@ -111,7 +111,7 @@ The installer's retire steps replace each stow link with a real copy (and record
 The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents in this distro by connecting to it as an SSH machine. It runs alongside the herdr TUI above; both stay installed for now. The Windows side is in [windows/README.md](../windows/README.md#herdr-app).
 
 * [herdr-core](https://herdr.dev/core/) (the app's runtime, at `~/.local/bin/herdr-core`): `install.ps1` installs it and `update.ps1` updates it (running terminals keep running), on every Linux machine, since any of them can be added as a machine in the app
-* sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`): `install.ps1` installs `openssh-server`, and the setup actions in `install.ps1` and `update.ps1` install [`linux/sshd_config.d/herdr-wsl.conf`](./sshd_config.d/herdr-wsl.conf) (port 2222 on `127.0.0.1`, key login only) into `/etc/ssh/sshd_config.d/`, check it with `sshd -t`, then enable and restart ssh
+* sshd (WSL only; needs `systemd=true` in `/etc/wsl.conf`): `install.ps1` installs `openssh-server`, and the setup actions in `install.ps1` and `update.ps1` install [`linux/sshd_config.d/herdr-wsl.conf`](./sshd_config.d/herdr-wsl.conf) (port 2222 on `127.0.0.1`, key login only) into `/etc/ssh/sshd_config.d/`, check it with `sshd -t` (putting the previous file back if the check fails, since ssh checks its config at every start), then enable and restart ssh
   * Check: `ss -ltn | grep 127.0.0.1:2222`
   * WSL distros share one network, so only one distro per Windows machine can use port 2222. On a second distro the setup action warns that sshd setup failed and the install carries on.
 * Authorise the Windows key (created in the Windows steps); the setup action warns until there's a key

@@ -30,7 +30,13 @@ function Invoke-HerdrIntegration {
   $status = @(herdr integration status 2>$null)
   $current = [bool]($status | Where-Object { $_ -match "^${Agent}: current\b" })
   $config = $script:HerdrAgentConfig[$Agent]
-  $configText = Read-TextFile "$(Get-HomeDir)/$($config.Path)"
+  $configPath = "$(Get-HomeDir)/$($config.Path)"
+  # herdr would write its entry through the link into the repo, where it isn't meant to be.
+  if (Test-LinkInto $configPath (Get-RepoDir)) {
+    Write-Skip "$configPath is still a stow link into the repo — skipping herdr's $Agent integration until ./retire.ps1 has run"
+    return
+  }
+  $configText = Read-TextFile $configPath
   $referenced = $null -ne $configText -and $configText.Contains($config.Marker)
   if ($current -and $referenced) {
     Write-Skip "herdr's $Agent integration is already installed"
@@ -44,6 +50,28 @@ function Get-SystemdState {
   param([string]$Check, [string]$Unit)
   $PSNativeCommandUseErrorActionPreference = $false
   "$(systemctl $Check $Unit 2>$null)".Trim()
+}
+
+# Puts back the config that was there before (or removes the new one) after 'sshd -t' failed with it installed.
+function Restore-SshdConfig {
+  param([string]$Target, $Previous)
+  try {
+    if ($null -eq $Previous) {
+      Invoke-Step "sudo rm -f $(ConvertTo-ShellArgument $Target)"
+      Write-Warn "sshd setup failed — 'sshd -t' failed after installing the Herdr app's config, so it was removed; see sshd's output above"
+      return
+    }
+    $saved = [IO.Path]::Combine([IO.Path]::GetTempPath(), "herdr-wsl-$([guid]::NewGuid()).conf")
+    [IO.File]::WriteAllBytes($saved, [Text.UTF8Encoding]::new($false).GetBytes($Previous))
+    try {
+      Invoke-Step "sudo install -m 644 $(ConvertTo-ShellArgument $saved) $(ConvertTo-ShellArgument $Target)"
+    } finally {
+      [IO.File]::Delete($saved)
+    }
+    Write-Warn "sshd setup failed — 'sshd -t' failed after installing the Herdr app's config, so the previous one was put back; see sshd's output above"
+  } catch {
+    Write-Warn "sshd setup failed, and the config change couldn't be undone — remove $Target by hand before restarting ssh"
+  }
 }
 
 # Runs sshd on 127.0.0.1:2222 so the Windows Herdr app can reach this WSL distro. A failure warns instead
@@ -65,14 +93,34 @@ function Invoke-WslSshd {
 
   $source = "$(Get-RepoDir)/linux/sshd_config.d/herdr-wsl.conf"
   $target = "$ConfigDir/herdr-wsl.conf"
-  $installed = Read-TextFile $target
-  if ($null -ne $installed -and $installed -ceq (Read-TextFile $source) -and
+  $previous = Read-TextFile $target
+  if ($null -ne $previous -and $previous -ceq (Read-TextFile $source) -and
     (Get-SystemdState is-enabled ssh) -eq 'enabled' -and (Get-SystemdState is-active ssh) -eq 'active') {
     Write-Skip 'sshd for the Herdr app is already set up'
   } else {
     try {
+      # 'sshd -t' needs the folder ssh.service creates when it starts, which is missing if ssh never started
+      Invoke-Step 'sudo install -d -m 755 /run/sshd'
+    } catch {
+      Write-Warn "sshd setup failed — couldn't create /run/sshd"
+      return
+    }
+    $installed = $false
+    try {
       Invoke-Step "sudo install -m 644 $(ConvertTo-ShellArgument $source) $(ConvertTo-ShellArgument $target)"
+      $installed = $true
       Invoke-Step 'sudo sshd -t'
+    } catch {
+      # ssh checks its config before every start, so a file that fails 'sshd -t' would stop ssh starting after
+      # the next restart or boot.
+      if ($installed) {
+        Restore-SshdConfig $target $previous
+      } else {
+        Write-Warn "sshd setup failed — couldn't install $target"
+      }
+      return
+    }
+    try {
       Invoke-Step 'sudo systemctl enable ssh'
       Invoke-Step 'sudo systemctl restart ssh'
     } catch {

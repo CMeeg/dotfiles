@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Json.psm1" -Force
 }
 

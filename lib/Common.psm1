@@ -11,11 +11,13 @@ function Get-HomeDir {
   $env:HOME
 }
 
+# The repo's physical path (links resolved), so it reads the same however the clone was reached; @DOTFILES@
+# and the stow-link checks depend on that.
 function Get-RepoDir {
   [OutputType([string])]
   param()
-  if ($env:DOTFILES_REPO) { return $env:DOTFILES_REPO }
-  "$(Get-HomeDir)/.dotfiles"
+  $repo = if ($env:DOTFILES_REPO) { $env:DOTFILES_REPO } else { "$(Get-HomeDir)/.dotfiles" }
+  Resolve-PhysicalPath $repo
 }
 
 function Get-StateDir {
@@ -114,14 +116,36 @@ function Resolve-LinkTarget {
   [IO.Path]::GetFullPath($destination)
 }
 
-# True if $Path is a symlink that points inside $Directory.
+# $Path with every link along it resolved, like realpath. The part from the first missing folder on is kept
+# as written.
+function Resolve-PhysicalPath {
+  [OutputType([string])]
+  param([Parameter(Mandatory)][string]$Path, [int]$Depth = 0)
+  if ($Depth -gt 40) { throw "Too many levels of symbolic links: $Path" }
+  $parts = [IO.Path]::GetFullPath($Path).Split('/', [StringSplitOptions]::RemoveEmptyEntries)
+  $current = ''
+  for ($i = 0; $i -lt $parts.Count; $i++) {
+    $next = "$current/$($parts[$i])"
+    $target = Resolve-LinkTarget $next
+    if ($target) {
+      $next = Resolve-PhysicalPath $target ($Depth + 1)
+    } elseif (-not (Test-Path -LiteralPath $next)) {
+      return (@($next) + @($parts | Select-Object -Skip ($i + 1))) -join '/'
+    }
+    $current = $next
+  }
+  if ($current) { $current } else { '/' }
+}
+
+# True if $Path is a symlink that points inside $Directory. Both are compared with links resolved, so a link to
+# a linked clone's real path still counts.
 function Test-LinkInto {
   [OutputType([bool])]
   param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Directory)
   $destination = Resolve-LinkTarget $Path
   if (-not $destination) { return $false }
-  $prefix = [IO.Path]::GetFullPath($Directory).TrimEnd('/') + '/'
-  $destination.StartsWith($prefix, [StringComparison]::Ordinal)
+  $prefix = (Resolve-PhysicalPath $Directory).TrimEnd('/') + '/'
+  (Resolve-PhysicalPath $destination).StartsWith($prefix, [StringComparison]::Ordinal)
 }
 
 # Quotes a value for a bash command line run by Invoke-Step.
@@ -161,5 +185,5 @@ function Test-Command {
 }
 
 Export-ModuleMember -Function Get-HomeDir, Get-RepoDir, Get-StateDir, Resolve-TargetPath, Set-DryRun, Test-DryRun,
-  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Write-StopReason, Read-TextFile, Write-TextFile, Resolve-LinkTarget,
+  Write-Status, Write-Ok, Write-Skip, Write-Warn, Write-Dry, Invoke-Step, Write-StopReason, Read-TextFile, Write-TextFile, Resolve-LinkTarget, Resolve-PhysicalPath,
   Test-LinkInto, ConvertTo-ShellArgument, Start-SudoKeepAlive, Add-PathEntry, Test-Command

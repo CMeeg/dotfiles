@@ -7,6 +7,9 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# The repo is this script's own clone unless DOTFILES_REPO says otherwise; the modules read it from there.
+if (-not $env:DOTFILES_REPO) { $env:DOTFILES_REPO = $PSScriptRoot }
+
 Import-Module "$PSScriptRoot/lib/Common.psm1"
 Import-Module "$PSScriptRoot/lib/Retire.psm1"
 

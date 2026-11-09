@@ -124,6 +124,7 @@ An entry with no key for the current OS is skipped on that OS. Stage 3 adds `win
 - **Copy-back:** the machine's home path is replaced with `@HOME@` before the content goes into the repo.
 - Stage 1 handles the Linux form (`/home/<user>`). Stage 3 adds the Windows forms (`C:\Users\<user>`, and the JSON-escaped `C:\\Users\\<user>`).
 - Files without a placeholder are unaffected. A literal `~` stays as written.
+- **`@DOTFILES@`** (decided 2026-11-08, after Stage 1's final review) stands for the clone's own path, for config that points into the repo (Claude Code's `CLAUDE_CODE_PLUGIN_DIRS`, opencode's `skills` list), so the local plugins load from a clone anywhere. Apply fills it in with the repo folder sync is using; copy-back turns that path back into `@DOTFILES@` before turning the home path into `@HOME@`, since the clone is usually under home. The same boundary rule applies: the path must be followed by `/`, a quote, whitespace, `:` or the end of the text.
 
 ### State
 
@@ -140,7 +141,7 @@ Usage: `sync.ps1 [-NoPull] [-WhatIf]`, reading `DOTFILES_REPO` (default `~/.dotf
    |---|---|
    | live missing, no base | write repo |
    | live == repo, no base | nothing to write; record repo as last applied |
-   | live == repo, base exists | nothing to write; **don't** touch the last-applied copy |
+   | live == repo, base exists | nothing to write; record repo as last applied **only if the repo file has no uncommitted changes**, otherwise **don't** touch the last-applied copy |
    | live == base (only repo changed) | write repo |
    | repo == base (only live changed) | leave live alone; list as a local change |
    | both changed | `git merge-file` live ← base → repo. Clean merge (and, for `.json`/`.jsonc`, still parses with `ConvertFrom-Json` and has no key twice in one object) → write it. The duplicate-key check was added on 2026-11-08: `ConvertFrom-Json` accepts duplicate keys, and both sides adding the same key in different places is the usual way a clean textual merge breaks a JSON file (a missing comma needs adjacent edits, which `git merge-file` already reports as a conflict). Otherwise it's a conflict (below). |
@@ -150,8 +151,10 @@ Usage: `sync.ps1 [-NoPull] [-WhatIf]`, reading `DOTFILES_REPO` (default `~/.dotf
    | file removed from repo, live changed | report it, leave live alone |
 
    **The last-applied copy changes only when sync writes the repo version (or a merge result) to the live file**, plus the first-sight case above. Copy-back never updates it, and neither does live happening to equal repo. This guards local-only entries: if copy-back puts a local-only entry (e.g. GitKraken's) into the repo working tree and a sync runs before the user discards it, the base still lacks it. After the user discards it, repo == base again and live is just "changed locally", so the entry survives instead of looking like something the repo deleted. A Pester test must cover exactly this sequence.
+
+   **Updated 2026-11-08** (supersedes "neither does live happening to equal repo" above, found in the Stage 1 review): when live equals repo and the repo file has no uncommitted changes (`git status --porcelain -- <file>` is empty), sync records the repo version as last applied. Without this, a change you copy back and commit leaves the old base in place, so the next upstream edit to the same lines shows as a false conflict (base A, live B, repo C, where C is simply newer than B). The guard above still holds: an uncommitted copy-back doesn't update the base, so discarding it still leaves a local change.
 3. **Conflicts.** When run interactively and `code` is available, open VS Code's three-way merge editor (`code --wait --merge <live> <repo> <base> <result>`), write the result to live, and record the repo version as last applied. Otherwise leave live untouched and report the file with the command to resolve it later.
-4. **Local-changes report.** For each file where live differs from repo, and each new file under a managed directory that isn't excluded, show `git diff --no-index` with the home path shown as `@HOME@`. In an interactive run, offer per file: copy back, skip, or open the diff in VS Code. **Copy back** writes the live content (home path → `@HOME@`) into the repo working tree. The user then reviews, stages the hunks they want (`git add -p`, VS Code, GitKraken), discards the rest and commits, as today. Sync never commits or pushes.
+4. **Local-changes report.** For each file where live differs from repo, and each new file under a managed directory that isn't excluded, show `git diff --no-index` with the home path shown as `@HOME@`. In an interactive run, offer per file: copy back, skip, **ignore until it changes**, or open the diff in VS Code. Ignore (decided 2026-11-08, from Parked ideas option 1) stores a hash of the live file in the state folder; while the file stays the same, sync prints one `-` line for it instead of the diff and doesn't ask, and `-CopyBack` leaves it alone. When the file changes, or no longer differs from the repo, the stored hash is dropped. Skip only lasts for that run. **Copy back** writes the live content (home path → `@HOME@`) into the repo working tree. The user then reviews, stages the hunks they want (`git add -p`, VS Code, GitKraken), discards the rest and commits, as today. Sync never commits or pushes.
 5. **Summary**: written, merged, conflicts, local changes, copied back, and a reminder to review `git diff`.
 
 `-WhatIf` uses PowerShell's `SupportsShouldProcess` and changes nothing in the repo, live files or state; it prints what each step would do. Non-interactive runs (e.g. from `update.ps1` in a pipeline) skip prompts and only report.
@@ -204,7 +207,7 @@ At the end of Stage 1, update `AGENTS.md` (conventions, key commands, "Working o
 
 Local-only entries (GitKraken's marketplace path, herdr's hook) differ from the repo forever, so they appear in every sync's local-changes report. If that becomes annoying, options in rough order of preference:
 
-1. **Remember skips.** When a file is skipped, store its live content hash in state. Stay quiet until the file changes again. No config needed, but new changes in that file re-surface the old ones too.
+1. **Remember skips.** When a file is skipped, store its live content hash in state. Stay quiet until the file changes again. No config needed, but new changes in that file re-surface the old ones too. **Adopted 2026-11-08** as a separate "ignore until it changes" answer, so a plain skip doesn't hide anything (see the local-changes report above).
 2. **A local-only list in the manifest:** per-file JSON paths (e.g. `extraKnownMarketplaces.gitkraken`) hidden from the report and never copied back. Explicit and shared, but needs keeping up to date.
 3. **"Mark as local" during sync:** remembered in that machine's state. No list to write, but each machine has to learn it once.
 4. **Spot the home path:** treat any setting not in the repo that contains this machine's home path as local. No config, but it's a guess and could hide a setting you meant to share.
@@ -228,7 +231,7 @@ Check these while reading:
 - Keep the current repo directory layout instead of flattening it.
 - `@HOME@` as the placeholder token.
 - State as a plain folder at `~/.local/state/dotfiles/applied/`, not SQLite.
-- Sync reads the repo **working tree**, and the last-applied copy only changes when sync writes a live file (protects local-only entries; see the apply rules).
+- Sync reads the repo **working tree**, and the last-applied copy only changes when sync writes a live file (protects local-only entries; see the apply rules). Since 2026-11-08 it also changes when live equals a committed repo file (avoids false conflicts after a committed copy-back).
 - One sync step in `install.ps1`, after tools and before setup actions.
 - Setup actions run on every install and update.
 - `git pull --rebase` stated explicitly (matches `pull.rebase = true` in the repo's `.gitconfig`, without depending on it being applied yet).

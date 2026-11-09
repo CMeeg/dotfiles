@@ -78,11 +78,41 @@ function Expand-HomePlaceholder {
   $Text.Replace('@HOME@', $HomeDir)
 }
 
+# Replaces $Path with $Token only where it's a whole path, followed by /, a quote, whitespace, : or the end of
+# the text: /home/u2 stays as written when the path is /home/u.
+function ConvertTo-PathToken {
+  param([AllowEmptyString()][string]$Text, [string]$Path, [string]$Token)
+  [regex]::Replace($Text, [regex]::Escape($Path.TrimEnd('/')) + '(?=[/"''\s:]|\z)', $Token.Replace('$', '$$'))
+}
+
 function ConvertTo-HomePlaceholder {
   [OutputType([string])]
   param([Parameter(Mandatory)][AllowEmptyString()][string]$Text, [Parameter(Mandatory)][string]$HomeDir)
-  # Only a whole home path: /home/u2 stays as written when home is /home/u.
-  [regex]::Replace($Text, [regex]::Escape($HomeDir) + '(?=[/"''\s:]|\z)', '@HOME@')
+  ConvertTo-PathToken $Text $HomeDir '@HOME@'
 }
 
-Export-ModuleMember -Function Get-ManagedFiles, Get-ManagedDirectories, Test-ExcludedPath, Expand-HomePlaceholder, ConvertTo-HomePlaceholder
+# @DOTFILES@ is the clone's own path, for config that points into the repo (e.g. local plugin folders).
+function Expand-Placeholders {
+  [OutputType([string])]
+  param(
+    [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+    [Parameter(Mandatory)][string]$HomeDir,
+    [Parameter(Mandatory)][string]$RepoDir
+  )
+  Expand-HomePlaceholder ($Text.Replace('@DOTFILES@', $RepoDir.TrimEnd('/'))) $HomeDir
+}
+
+# The repo path is converted first: the clone is usually under home, and its path should become @DOTFILES@,
+# not @HOME@/.dotfiles.
+function ConvertTo-Placeholders {
+  [OutputType([string])]
+  param(
+    [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+    [Parameter(Mandatory)][string]$HomeDir,
+    [Parameter(Mandatory)][string]$RepoDir
+  )
+  ConvertTo-HomePlaceholder (ConvertTo-PathToken $Text $RepoDir '@DOTFILES@') $HomeDir
+}
+
+Export-ModuleMember -Function Get-ManagedFiles, Get-ManagedDirectories, Test-ExcludedPath, Expand-HomePlaceholder,
+  ConvertTo-HomePlaceholder, Expand-Placeholders, ConvertTo-Placeholders

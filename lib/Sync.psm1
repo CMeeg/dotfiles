@@ -14,10 +14,12 @@ function Test-SameText {
 
 # Decides what sync does with one file from its three versions: repo (placeholders filled in), base (the
 # last-applied copy) and live. $null means that version doesn't exist. InRepo is false for a file sync
-# applied before that the repo no longer has.
+# applied before that the repo no longer has. RepoCommitted says the repo file has no uncommitted changes:
+# a committed copy-back becomes the base, but an uncommitted one doesn't, so discarding it still leaves a
+# local change.
 function Get-SyncAction {
   [OutputType([string])]
-  param($Repo, $Base, $Live, [bool]$InRepo)
+  param($Repo, $Base, $Live, [bool]$InRepo, [bool]$RepoCommitted)
   if ($InRepo) {
     if ($null -eq $Base) {
       if ($null -eq $Live) { return 'WriteRepo' }
@@ -25,7 +27,10 @@ function Get-SyncAction {
       return 'Conflict'
     }
     if ($null -eq $Live) { return 'DeletedLocally' }
-    if (Test-SameText $Live $Repo) { return 'None' }
+    if (Test-SameText $Live $Repo) {
+      if ($RepoCommitted -and -not (Test-SameText $Repo $Base)) { return 'RecordBase' }
+      return 'None'
+    }
     if (Test-SameText $Live $Base) { return 'WriteRepo' }
     if (Test-SameText $Repo $Base) { return 'LocalChange' }
     return 'Merge'
@@ -36,9 +41,72 @@ function Get-SyncAction {
   'RemovedButChanged'
 }
 
+# True if $Target, or a folder between it and home, is a link into the repo, as stow makes them. Writing
+# through one would edit the repo file instead of a live copy.
+function Test-StowLinked {
+  [OutputType([bool])]
+  param([string]$Target, [string]$RepoDir)
+  $stop = (Get-HomeDir).TrimEnd('/')
+  $path = $Target
+  while ($path -and $path.Length -gt $stop.Length) {
+    if (Test-LinkInto $path $RepoDir) { return $true }
+    $path = [IO.Path]::GetDirectoryName($path)
+  }
+  $false
+}
+
+# True if the repo file has no uncommitted changes and is tracked (git status lists neither).
+function Test-RepoFileCommitted {
+  [OutputType([bool])]
+  param([string]$RepoDir, [string]$Source)
+  $PSNativeCommandUseErrorActionPreference = $false
+  # git status lists neither ignored files nor, with status.showUntrackedFiles=no, untracked ones.
+  git -C $RepoDir ls-files --error-unmatch -- $Source *> $null
+  if ($LASTEXITCODE -ne 0) { return $false }
+  $status = git -C $RepoDir status --porcelain -- $Source
+  if ($LASTEXITCODE -ne 0) { throw "git status failed for $Source in $RepoDir (exit code $LASTEXITCODE)" }
+  -not $status
+}
+
+# Whether a file whose live copy matches the repo should have the repo version recorded as last applied.
+# git is only asked when the base is out of date, which is rare.
+function Test-RecordCommittedBase {
+  [OutputType([bool])]
+  param([string]$RepoDir, [string]$Source, $Repo, $Base, $Live)
+  $null -ne $Base -and (Test-SameText $Live $Repo) -and -not (Test-SameText $Repo $Base) -and
+    (Test-RepoFileCommitted $RepoDir $Source)
+}
+
+# Records committed copy-backs as last applied before a pull. The pull can bring in a newer version of the
+# same lines, and against the old base that would look like a conflict.
+function Update-CommittedBases {
+  $repoDir = Get-RepoDir
+  $homeDir = Get-HomeDir
+  foreach ($file in Get-ManagedFiles $repoDir) {
+    # Invoke-Sync refuses stow links; nothing to record for them.
+    if (Test-StowLinked $file.Target $repoDir) { continue }
+    $repoText = Read-TextFile (Join-Path $repoDir $file.Source)
+    if ($null -eq $repoText) { continue }
+    $repo = Expand-Placeholders $repoText $homeDir $repoDir
+    if (Test-RecordCommittedBase $repoDir $file.Source $repo (Read-Applied $file.Target) (Read-TextFile $file.Target)) {
+      Write-Applied $file.Target $repo
+    }
+  }
+}
+
 function Get-UnmergedFiles {
   param([string]$RepoDir)
-  @(git -C $RepoDir diff --name-only --diff-filter=U)
+  $PSNativeCommandUseErrorActionPreference = $false
+  $files = @(git -C $RepoDir diff --name-only --diff-filter=U)
+  if ($LASTEXITCODE -ne 0) { throw "git diff failed in $RepoDir (exit code $LASTEXITCODE)" }
+  $files
+}
+
+# For messages after a git step already failed: a second failure is reported, not thrown, so the warnings that
+# follow (e.g. where the stashed changes are) still print.
+function Get-UnmergedFilesOrWarn {
+  param([string]$RepoDir)
+  try { Get-UnmergedFiles $RepoDir } catch { Write-Warn $_.Exception.Message }
 }
 
 # Stashes uncommitted repo changes, pulls with rebase and restores them. Returns $false, after saying why,
@@ -53,9 +121,13 @@ function Invoke-RepoPull {
   }
   $PSNativeCommandUseErrorActionPreference = $false
 
+  if (-not (Test-Path -LiteralPath (Join-Path $RepoDir '.git'))) {
+    Write-Warn "Dotfiles repo not found at $RepoDir"
+    return $false
+  }
   $dirty = git -C $RepoDir status --porcelain --untracked-files=no
   if ($LASTEXITCODE -ne 0) {
-    Write-Warn "Dotfiles repo not found at $RepoDir"
+    Write-Warn "git status failed in $RepoDir (exit code $LASTEXITCODE) — see git's message above"
     return $false
   }
   $stashed = $false
@@ -70,7 +142,7 @@ function Invoke-RepoPull {
 
   git -C $RepoDir pull --rebase --quiet | Out-Host
   if ($LASTEXITCODE -ne 0) {
-    $unmerged = Get-UnmergedFiles $RepoDir
+    $unmerged = Get-UnmergedFilesOrWarn $RepoDir
     if ($unmerged) {
       Write-Warn "git pull stopped on a conflict in: $($unmerged -join ', ')"
       Write-Warn "Resolve it in $RepoDir (git status shows how), then run ./sync.ps1"
@@ -88,7 +160,7 @@ function Invoke-RepoPull {
   if ($stashed) {
     git -C $RepoDir stash pop --quiet | Out-Host
     if ($LASTEXITCODE -ne 0) {
-      $unmerged = Get-UnmergedFiles $RepoDir
+      $unmerged = Get-UnmergedFilesOrWarn $RepoDir
       if ($unmerged) { Write-Warn "Re-applying local changes conflicted in: $($unmerged -join ', ')" }
       Write-Warn "Could not re-apply local changes — they are still in 'git stash list'"
       Write-Warn "Resolve the conflict, run 'git stash drop', then run ./sync.ps1"
@@ -108,6 +180,12 @@ function New-TempDirectory {
 function Write-TempFile {
   param([string]$Path, [AllowEmptyString()][string]$Content)
   [IO.File]::WriteAllBytes($Path, [Text.UTF8Encoding]::new($false).GetBytes($Content))
+}
+
+function Get-TextHash {
+  [OutputType([string])]
+  param([AllowEmptyString()][string]$Text)
+  [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.UTF8Encoding]::new($false).GetBytes($Text)))
 }
 
 function Test-ValidJson {
@@ -180,6 +258,10 @@ function Resolve-Conflict {
       Write-Warn "Conflict: $Target — not resolved, left as it is"
       return $false
     }
+    if ($Target -match '\.jsonc?$' -and -not (Test-ValidJson $result)) {
+      Write-Warn "Conflict: $Target — the merge result isn't valid JSON (or has a key twice), left as it is"
+      return $false
+    }
     Write-TextFile $Target $result
     Write-Applied $Target $Repo
     Write-Ok "Merged $Target in VS Code"
@@ -198,9 +280,9 @@ function New-LocalChangeFiles {
   $name = $File.Source
   [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName("$Dir/repo/$name")) | Out-Null
   [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName("$Dir/live/$name")) | Out-Null
-  $repoText = if ($null -eq $File.Repo) { '' } else { ConvertTo-HomePlaceholder $File.Repo $homeDir }
+  $repoText = if ($null -eq $File.Repo) { '' } else { ConvertTo-Placeholders $File.Repo $homeDir (Get-RepoDir) }
   Write-TempFile "$Dir/repo/$name" $repoText
-  Write-TempFile "$Dir/live/$name" (ConvertTo-HomePlaceholder $File.Live $homeDir)
+  Write-TempFile "$Dir/live/$name" (ConvertTo-Placeholders $File.Live $homeDir (Get-RepoDir))
   [pscustomobject]@{ Repo = "repo/$name"; Live = "live/$name" }
 }
 
@@ -218,16 +300,18 @@ function Show-LocalChange {
   }
 }
 
-# Asks what to do with one local change; 'd' opens the diff in VS Code and asks again. Enter skips.
+# Asks what to do with one local change: 'copy', 'skip' (this run only) or 'ignore' (until the file
+# changes). 'd' opens the diff in VS Code and asks again. Enter skips.
 function Read-CopyBackChoice {
-  [OutputType([bool])]
+  [OutputType([string])]
   param([pscustomobject]$File)
   while ($true) {
     # The VS Code diff shows temp copies, so edits made there don't reach the repo.
-    $answer = (Read-Host '  [c]opy back, [s]kip, [d]iff in VS Code (left: repo, right: this machine; view only)').Trim().ToLowerInvariant()
+    $answer = (Read-Host '  [c]opy back, [s]kip, [i]gnore until it changes, [d]iff in VS Code (left: repo, right: this machine; view only)').Trim().ToLowerInvariant()
     switch ($answer) {
-      'c' { return $true }
-      { $_ -in 's', '' } { return $false }
+      'c' { return 'copy' }
+      { $_ -in 's', '' } { return 'skip' }
+      'i' { return 'ignore' }
       'd' {
         if (-not (Test-Command code)) {
           Write-Warn 'VS Code (code) is not on PATH'
@@ -255,7 +339,7 @@ function Invoke-CopyBack {
     Write-Dry "Copy back $($File.Target) → $($File.Source)"
     return
   }
-  Write-TextFile (Join-Path (Get-RepoDir) $File.Source) (ConvertTo-HomePlaceholder $File.Live (Get-HomeDir))
+  Write-TextFile (Join-Path (Get-RepoDir) $File.Source) (ConvertTo-Placeholders $File.Live (Get-HomeDir) (Get-RepoDir))
   Write-Ok "Copied back $($File.Target) → $($File.Source)"
 }
 
@@ -272,12 +356,29 @@ function Write-RepoVersion {
   Write-Applied $Target $Content
 }
 
+# An ignored file is counted as ignored, not also as a local change or new local file.
+function Move-ToIgnored {
+  param($Result, [string]$Target)
+  [void]$Result.LocalChanges.Remove($Target)
+  [void]$Result.NewLocalFiles.Remove($Target)
+  $Result.Ignored.Add($Target)
+}
+
+# A merge keeps this machine's edits, so a merged file that still differs from the repo goes into this run's
+# local-changes report too, rather than only showing up on the next sync.
+function Add-MergedLocalChange {
+  param($LocalFiles, $Result, [string]$Source, [string]$Target, [AllowEmptyString()][string]$Repo, $Merged)
+  if ($null -eq $Merged -or (Test-SameText $Merged $Repo)) { return }
+  $LocalFiles.Add([pscustomobject]@{ Target = $Target; Source = $Source; Repo = $Repo; Live = $Merged })
+  $Result.LocalChanges.Add($Target)
+}
+
 function Invoke-Sync {
   param([switch]$NoPrompt, [switch]$InitialApply, [switch]$CopyBack)
   $repoDir = Get-RepoDir
   $homeDir = Get-HomeDir
   $result = [ordered]@{}
-  foreach ($name in 'Written', 'Merged', 'Conflicts', 'LocalChanges', 'NewLocalFiles', 'Deleted', 'Reported', 'CopiedBack') {
+  foreach ($name in 'Written', 'Merged', 'Conflicts', 'LocalChanges', 'NewLocalFiles', 'Ignored', 'Deleted', 'Reported', 'CopiedBack') {
     $result[$name] = [Collections.Generic.List[string]]::new()
   }
   # Live files that differ from the repo, reported with a diff once everything is applied.
@@ -291,10 +392,9 @@ function Invoke-Sync {
   }
   $files = @(Get-ManagedFiles $repoDir)
 
-  # Writing through a stow link would edit the repo file instead of a live copy.
   foreach ($file in $files) {
-    if (Test-LinkInto $file.Target $repoDir) {
-      throw "$($file.Target) is still a stow link — run ./retire.ps1 first"
+    if (Test-StowLinked $file.Target $repoDir) {
+      throw "$($file.Target) is still a stow link into the repo — run ./retire.ps1 first"
     }
   }
 
@@ -304,11 +404,12 @@ function Invoke-Sync {
     if ($null -eq $repoText) { continue }
     [void]$managedTargets.Add($file.Target)
     $target = $file.Target
-    $repo = Expand-HomePlaceholder $repoText $homeDir
+    $repo = Expand-Placeholders $repoText $homeDir $repoDir
     $base = Read-Applied $target
     $live = Read-TextFile $target
 
-    switch (Get-SyncAction -Repo $repo -Base $base -Live $live -InRepo $true) {
+    $committed = Test-RecordCommittedBase $repoDir $file.Source $repo $base $live
+    switch (Get-SyncAction -Repo $repo -Base $base -Live $live -InRepo $true -RepoCommitted $committed) {
       'WriteRepo' {
         Write-RepoVersion $target $repo
         $result.Written.Add($target)
@@ -337,8 +438,10 @@ function Invoke-Sync {
           # The repo version, not the merge: the local part stays a local change on later syncs.
           Write-Applied $target $repo
           $result.Merged.Add($target)
+          Add-MergedLocalChange $localFiles $result $file.Source $target $repo $merge.Content
         } elseif (Resolve-Conflict -Target $target -Base $base -Repo $repo -Merged $merge.Content -NoPrompt:$NoPrompt) {
           $result.Merged.Add($target)
+          Add-MergedLocalChange $localFiles $result $file.Source $target $repo (Read-TextFile $target)
         } else {
           $result.Conflicts.Add($target)
         }
@@ -360,6 +463,7 @@ function Invoke-Sync {
           $merge = Invoke-ThreeWayMerge -Live $live -Base '' -Repo $repo -Target $target
           if (Resolve-Conflict -Target $target -Base '' -Repo $repo -Merged $merge.Content -NoPrompt:$NoPrompt) {
             $result.Merged.Add($target)
+            Add-MergedLocalChange $localFiles $result $file.Source $target $repo (Read-TextFile $target)
           } else {
             $result.Conflicts.Add($target)
           }
@@ -412,18 +516,43 @@ function Invoke-Sync {
     }
   }
 
+  # Ignores still in force this run; any other stored ignore is for a file that changed or no longer differs.
+  $keepIgnored = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
   if ($localFiles.Count) {
     Write-Status 'Local changes (this machine vs the repo)...'
     $canPrompt = -not $CopyBack -and (Test-CanPrompt -NoPrompt:$NoPrompt)
     foreach ($localFile in $localFiles) {
-      Write-Warn "$(if ($null -eq $localFile.Repo) { 'New local file' } else { 'Local change' }): $($localFile.Target)"
+      $target = $localFile.Target
+      $hash = Get-TextHash $localFile.Live
+      if ((Read-IgnoredHash $target) -ceq $hash) {
+        Write-Skip "Local change ignored until it changes: $target"
+        [void]$keepIgnored.Add($target)
+        Move-ToIgnored $result $target
+        continue
+      }
+      Write-Warn "$(if ($null -eq $localFile.Repo) { 'New local file' } else { 'Local change' }): $target"
       Show-LocalChange $localFile
-      $copy = if ($CopyBack) { $true } elseif ($canPrompt) { Read-CopyBackChoice $localFile } else { $false }
-      if ($copy) {
-        Invoke-CopyBack $localFile
-        $result.CopiedBack.Add($localFile.Target)
+      $choice = if ($CopyBack) { 'copy' } elseif ($canPrompt) { Read-CopyBackChoice $localFile } else { 'skip' }
+      switch ($choice) {
+        'copy' {
+          Invoke-CopyBack $localFile
+          $result.CopiedBack.Add($target)
+        }
+        'ignore' {
+          Write-IgnoredHash $target $hash
+          [void]$keepIgnored.Add($target)
+          Move-ToIgnored $result $target
+          if (Test-DryRun) {
+            Write-Dry "Ignore $target until it changes"
+          } else {
+            Write-Skip "Ignoring this local change until it changes: $target"
+          }
+        }
       }
     }
+  }
+  foreach ($target in Get-IgnoredTargets) {
+    if (-not $keepIgnored.Contains($target)) { Remove-IgnoredHash $target }
   }
 
   $summary = [ordered]@{}
@@ -434,13 +563,13 @@ function Invoke-Sync {
 function Show-SyncSummary {
   param([Parameter(Mandatory)][pscustomobject]$Summary)
   Write-Status 'Sync summary'
-  Write-Ok ('{0} written, {1} merged, {2} conflicts, {3} local changes, {4} new local files, {5} deleted, {6} copied back' -f
+  Write-Ok ('{0} written, {1} merged, {2} conflicts, {3} local changes, {4} new local files, {5} ignored, {6} deleted, {7} copied back' -f
     $Summary.Written.Count, $Summary.Merged.Count, $Summary.Conflicts.Count, $Summary.LocalChanges.Count,
-    $Summary.NewLocalFiles.Count, $Summary.Deleted.Count, $Summary.CopiedBack.Count)
+    $Summary.NewLocalFiles.Count, $Summary.Ignored.Count, $Summary.Deleted.Count, $Summary.CopiedBack.Count)
   if ($Summary.CopiedBack.Count -and -not (Test-DryRun)) {
     Write-Warn "Review with 'git diff' in $(Get-RepoDir), stage what you want, then commit and push"
   }
 }
 
-Export-ModuleMember -Function Get-SyncAction, Invoke-RepoPull, Invoke-ThreeWayMerge, Show-LocalChange, Invoke-CopyBack,
+Export-ModuleMember -Function Get-SyncAction, Update-CommittedBases, Invoke-RepoPull, Invoke-ThreeWayMerge, Show-LocalChange, Invoke-CopyBack,
   Invoke-Sync, Show-SyncSummary

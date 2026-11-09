@@ -4,12 +4,12 @@
     "superpowers@git+https://github.com/obra/superpowers.git"
   ],
   "skills": [
-    "~/.dotfiles/claude/.claude/local-plugins/workflow/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/writing/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/engineering/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/typescript/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/aspire/skills",
-    "~/.dotfiles/claude/.claude/local-plugins/nextjs/skills"
+    "@DOTFILES@/claude/.claude/local-plugins/workflow/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/writing/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/engineering/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/typescript/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/aspire/skills",
+    "@DOTFILES@/claude/.claude/local-plugins/nextjs/skills"
   ],
   "mcp": {
     "servers": {

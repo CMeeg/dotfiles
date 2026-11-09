@@ -6,6 +6,10 @@ BeforeAll {
   Set-StrictMode -Version Latest
   $ErrorActionPreference = 'Stop'
 
+  # Unload the repo's modules first: a module loaded by an earlier test file would stay bound to an older copy of
+  # Common (and its dry-run flag) after this file reloads Common with -Force.
+  Get-Module Common, Manifest, State, Json, Sync, Retire, Tools, Setup | Remove-Module -Force
+
   Import-Module "$PSScriptRoot/../lib/Common.psm1" -Force
   Import-Module "$PSScriptRoot/../lib/Manifest.psm1" -Force
 
@@ -94,6 +98,23 @@ Describe 'Home placeholder' {
 
   It 'ConvertTo-HomePlaceholder leaves a longer username alone' {
     ConvertTo-HomePlaceholder '/home/u2/x' '/home/u' | Should -Be '/home/u2/x'
+  }
+
+  It 'Expand-Placeholders fills @HOME@ and @DOTFILES@' {
+    Expand-Placeholders '@DOTFILES@/a @HOME@/b' '/home/u' '/home/u/.dotfiles' | Should -Be '/home/u/.dotfiles/a /home/u/b'
+  }
+
+  It 'ConvertTo-Placeholders turns the repo path into @DOTFILES@ before the home path' {
+    ConvertTo-Placeholders '"/home/u/.dotfiles/a" /home/u/b' '/home/u' '/home/u/.dotfiles' | Should -Be '"@DOTFILES@/a" @HOME@/b'
+  }
+
+  It 'ConvertTo-Placeholders leaves a longer repo folder name alone' {
+    ConvertTo-Placeholders '/home/u/.dotfiles2/x' '/home/u' '/home/u/.dotfiles' | Should -Be '@HOME@/.dotfiles2/x'
+  }
+
+  It 'both placeholders round-trip' {
+    $text = "dirs = `"@DOTFILES@/plugins`"`nhome = '@HOME@/x'"
+    ConvertTo-Placeholders (Expand-Placeholders $text '/home/u' '/home/u/.dotfiles') '/home/u' '/home/u/.dotfiles' | Should -Be $text
   }
 
   It 'placeholder round-trips' {

@@ -1,7 +1,7 @@
 {
   "respectGitignore": false,
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins"
+    "CLAUDE_CODE_PLUGIN_DIRS": "@DOTFILES@/claude/.claude/local-plugins"
   },
   "permissions": {
     "deny": [

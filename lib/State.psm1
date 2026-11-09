@@ -34,25 +34,62 @@ function Write-Applied {
   Write-TextFile (Get-AppliedPath $Target) $Content
 }
 
-# Removes the applied copy and any folders it leaves empty. Does nothing in dry-run.
-function Remove-Applied {
-  param([Parameter(Mandatory)][string]$Target)
-  if (Test-DryRun) { return }
-  $path = Get-AppliedPath $Target
-  if ([IO.File]::Exists($path)) { [IO.File]::Delete($path) }
-  $root = Get-AppliedRoot
-  $dir = [IO.Path]::GetDirectoryName($path)
-  while ($dir.Length -gt $root.Length -and [IO.Directory]::Exists($dir) -and
+# Deletes the state file at $Path and any folders it leaves empty, up to $Root.
+function Remove-StateFile {
+  param([string]$Path, [string]$Root)
+  if ([IO.File]::Exists($Path)) { [IO.File]::Delete($Path) }
+  $dir = [IO.Path]::GetDirectoryName($Path)
+  while ($dir.Length -gt $Root.Length -and [IO.Directory]::Exists($dir) -and
     -not [IO.Directory]::EnumerateFileSystemEntries($dir).GetEnumerator().MoveNext()) {
     [IO.Directory]::Delete($dir)
     $dir = [IO.Path]::GetDirectoryName($dir)
   }
 }
 
+# Removes the applied copy and any folders it leaves empty. Does nothing in dry-run.
+function Remove-Applied {
+  param([Parameter(Mandatory)][string]$Target)
+  if (Test-DryRun) { return }
+  Remove-StateFile (Get-AppliedPath $Target) (Get-AppliedRoot)
+}
+
 function Get-AppliedTargets {
   [OutputType([string[]])]
   param()
   $root = Get-AppliedRoot
+  if (-not [IO.Directory]::Exists($root)) { return @() }
+  $homeDir = (Get-HomeDir).TrimEnd('/')
+  foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File -Force) {
+    "$homeDir/$($file.FullName.Substring($root.Length + 1))"
+  }
+}
+
+# A local change the user chose to ignore is remembered by the hash of the live file, in
+# <state>/ignored/<path under home>, until the file changes.
+function Get-IgnoredRoot { "$(Get-StateDir)/ignored" }
+
+function Read-IgnoredHash {
+  param([Parameter(Mandatory)][string]$Target)
+  $text = Read-TextFile "$(Get-IgnoredRoot)/$(Get-HomeRelativePath $Target)"
+  if ($null -ne $text) { $text.Trim() }
+}
+
+function Write-IgnoredHash {
+  param([Parameter(Mandatory)][string]$Target, [Parameter(Mandatory)][string]$Hash)
+  Write-TextFile "$(Get-IgnoredRoot)/$(Get-HomeRelativePath $Target)" "$Hash`n"
+}
+
+# Does nothing in dry-run.
+function Remove-IgnoredHash {
+  param([Parameter(Mandatory)][string]$Target)
+  if (Test-DryRun) { return }
+  Remove-StateFile "$(Get-IgnoredRoot)/$(Get-HomeRelativePath $Target)" (Get-IgnoredRoot)
+}
+
+function Get-IgnoredTargets {
+  [OutputType([string[]])]
+  param()
+  $root = Get-IgnoredRoot
   if (-not [IO.Directory]::Exists($root)) { return @() }
   $homeDir = (Get-HomeDir).TrimEnd('/')
   foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File -Force) {
@@ -74,4 +111,5 @@ function Backup-LiveFile {
   $backup
 }
 
-Export-ModuleMember -Function Get-AppliedPath, Read-Applied, Write-Applied, Remove-Applied, Get-AppliedTargets, Backup-LiveFile
+Export-ModuleMember -Function Get-AppliedPath, Read-Applied, Write-Applied, Remove-Applied, Get-AppliedTargets, Backup-LiveFile,
+  Read-IgnoredHash, Write-IgnoredHash, Remove-IgnoredHash, Get-IgnoredTargets

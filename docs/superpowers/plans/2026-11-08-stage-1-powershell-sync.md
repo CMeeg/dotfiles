@@ -135,7 +135,7 @@
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: 15 passed (6 + 9), 0 failed.
 
-- [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `add dotfiles manifest and home placeholder`)
+- [x] **Step 6: Checkpoint: user reviews and commits** (suggested: `add dotfiles manifest and home placeholder`)
 
 ---
 
@@ -158,7 +158,8 @@
     | yes | none | live missing | `WriteRepo` |
     | yes | none | live == repo | `RecordBase` |
     | yes | none | live ≠ repo | `Conflict` |
-    | yes | exists | live == repo | `None` |
+    | yes | exists | live == repo == base, or repo has uncommitted changes | `None` |
+    | yes | exists | live == repo ≠ base, repo file committed (added 2026-11-08, see the spec) | `RecordBase` |
     | yes | exists | live missing | `DeletedLocally` |
     | yes | exists | live == base | `WriteRepo` |
     | yes | exists | repo == base | `LocalChange` |
@@ -209,7 +210,7 @@
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed (15 + 28), 0 failed.
 
-- [ ] **Step 5: Checkpoint: user reviews and commits** (suggested: `add sync engine apply rules and state`)
+- [x] **Step 5: Checkpoint: user reviews and commits** (suggested: `add sync engine apply rules and state`)
 
 ---
 
@@ -257,7 +258,7 @@
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
 
-- [ ] **Step 5: Checkpoint: user reviews and commits** (suggested: `add pull and three-way merge to sync`)
+- [x] **Step 5: Checkpoint: user reviews and commits** (suggested: `add pull and three-way merge to sync`)
 
 ---
 
@@ -297,7 +298,7 @@
   Run: `pwsh -NoProfile -c 'Invoke-Pester tests -Output Detailed'`
   Expected: all passed, 0 failed.
 
-- [ ] **Step 5: Checkpoint: user reviews and commits** (suggested: `add local-change report and copy-back to sync`)
+- [x] **Step 5: Checkpoint: user reviews and commits** (suggested: `add local-change report and copy-back to sync`)
 
 ---
 
@@ -349,7 +350,7 @@
   Run: `pwsh -NoProfile ./retire.ps1 -WhatIf`
   Expected: `~` lines replacing each link into the repo under `~`, `~/.config`, `~/.claude` (bash, git, starship, superfile, herdr, opencode, claude files, including `~/.claude/CLAUDE.md`), deleting any links whose target is gone or not in the manifest (none expected once this machine's dangling links are cleaned up), and `~ sudo apt remove -y stow`; the other steps print `-`. Nothing changes.
 
-- [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `add retire.ps1 with stow migration`)
+- [x] **Step 6: Checkpoint: user reviews and commits** (suggested: `add retire.ps1 with stow migration`)
 
 ---
 
@@ -413,7 +414,7 @@
   ./install.sh --dry-run >/tmp/sh.txt; pwsh -NoProfile ./install.ps1 -WhatIf >/tmp/ps.txt; diff <(grep '^•' /tmp/sh.txt) <(grep '^•' /tmp/ps.txt)   # expect: only the stow/sync/setup/retire status lines differ
   ```
 
-- [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `port install and update scripts to PowerShell`)
+- [x] **Step 6: Checkpoint: user reviews and commits** (suggested: `port install and update scripts to PowerShell`)
 
 ---
 
@@ -485,7 +486,7 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
   pwsh -NoProfile ./update.ps1 -WhatIf    # expect: "~ /home/meeg/.local/bin/herdr-core update"; the same sshd lines; exit 0
   ```
 
-- [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `install herdr-core and sshd for the Windows Herdr app`)
+- [x] **Step 6: Checkpoint: user reviews and commits** (suggested: `install herdr-core and sshd for the Windows Herdr app`)
 
 ---
 
@@ -535,7 +536,7 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
   pwsh -NoProfile ./update.ps1 -WhatIf                                                            # expect: exit 0, retire block all "-" lines
   ```
 
-- [ ] **Step 6: Checkpoint: user reviews and commits** (suggested: `switch to PowerShell sync and retire stow`)
+- [x] **Step 6: Checkpoint: user reviews and commits** (suggested: `switch to PowerShell sync and retire stow`)
 
 ---
 
@@ -543,25 +544,59 @@ The Herdr desktop app on Windows manages agents in WSL by treating the distro as
 
 **Files:** none (fix anything it finds in the owning task's files).
 
-- [ ] **Step 1: Fresh install**
+- [x] **Step 1: Fresh install**
 
   From PowerShell on Windows: `wsl --install -d Debian --name dotfiles-test`. Inside: `sudo apt install -y git && git clone https://github.com/cmeagher-rwy/dotfiles.git ~/.dotfiles && cd ~/.dotfiles && ./bootstrap.sh`.
   Expected: pwsh installed; tools installed, including herdr-core (`~/.local/bin/herdr-core --version`); `herdr integration status` shows claude and opencode current; the sshd setup action warns that it failed, because the main Debian distro already holds port 2222 (WSL distros share one network), and the install carries on to "Done"; Debian's default `~/.bashrc` backed up under `~/.local/state/dotfiles/backup/` and replaced; `ls -l ~/.bashrc` shows a regular file; a second `pwsh ./sync.ps1 -NoPull -NoPrompt` reports nothing to write.
 
-- [ ] **Step 2: Stow-machine migration**
+- [x] **Step 2: Stow-machine migration**
 
   In the same distro: remove the files sync wrote and the state folder; `git checkout <commit before Stage 1>`; `./install.sh` (old bash, stows everything); `git checkout main`; `./bootstrap.sh`.
   Expected: no links into `~/.dotfiles` remain; stow is removed; herdr's Claude and opencode integrations are both current; a second sync reports only the expected local-only entries.
 
-- [ ] **Step 3: Clean up**
+- [x] **Step 3: Clean up**
 
   From PowerShell: `wsl --unregister dotfiles-test`.
 
-- [ ] **Step 4: Checkpoint: user reviews and commits any fixes**
+- [x] **Step 4: Checkpoint: user reviews and commits any fixes**
 
 ---
+
+## Final review fixes (2026-11-08)
+
+A fresh-context review of the whole branch found nine issues; the user chose to fix all of them in one pass. Each has a test that failed first (finding 8's tests guard existing behaviour and were checked by breaking the writer).
+
+1. **Stale last-applied copy after a committed copy-back** (Important): the next upstream edit to the same lines showed as a false conflict. Sync now records the repo version as last applied when live equals a committed repo file, both before the pull (`Update-CommittedBases`) and while applying (`Get-SyncAction -RepoCommitted`). The spec's apply table and "last-applied copy" paragraph record the change. Tests: `records a committed repo version that live already matches`, `a committed copy-back is the base for the next upstream change`.
+2. **Stow-linked parent folder, or a repo path that's a link**, slipped past sync's stow guard. `Test-StowLinked` checks the target and each folder up to home; `Test-LinkInto` also matches the repo's resolved path. Tests: `refuses to write through a stow-linked parent folder`, `refuses a link into the repo when the repo path is itself a link`.
+3. **Setup actions could write herdr's hook through a stow link into the repo** (with `-SkipRetire`). `Invoke-HerdrIntegration` skips an agent whose config file is a link into the repo. Test: `skips while the agent's config is still a stow link into the repo`.
+4. **A config that failed `sshd -t` stayed in `/etc/ssh/sshd_config.d/`** (Important: ssh checks its config at every start). `Invoke-WslSshd` now puts the previous file back, or removes the new one, and creates `/run/sshd` before the check so a never-started ssh doesn't fail it. Tests: `sshd: removes a new config that fails sshd -t`, `sshd: puts the previous config back when the new one fails sshd -t`.
+5. **A merge result from VS Code wasn't checked as JSON.** `Resolve-Conflict` treats an invalid or duplicate-key result as unresolved. Test: `a merge result that breaks the JSON stays a conflict`.
+6. **Untruthful message and an unchecked exit code:** `Invoke-RepoPull` says "git status failed" (not "repo not found") when the repo exists, and `Get-UnmergedFiles` throws when git fails. Tests: `says git failed, not that the repo is missing, when git status fails`, `stops when git can't list unmerged files`.
+7. **A clone outside `~/.dotfiles` read the wrong folder.** Each script sets `DOTFILES_REPO` to its own folder when it's unset. Test: `uses its own folder as the repo when DOTFILES_REPO is unset`.
+8. **Byte-exact tests covered only the first write.** Added `… byte-exact through a merge` and `-CopyBack keeps unicode and a missing final newline byte-exact`.
+9. **Retire's stow step only counted the links it deleted.** It now names each one and why (not in `dotfiles.json`, or no longer exists). Tests: `deletes a link to an unmanaged repo file`, `deletes a dangling repo link and empty parents` check the names.
+10. **A merged file's local edits weren't reported until the next sync** (found 2026-11-09 when applying `@DOTFILES@` on this machine). After a clean merge or a merge resolved in VS Code, a result that still differs from the repo goes into the same run's local-changes report, as the spec's report rule says. Test: `a merge that keeps a local edit reports it in the same run`.
+
+## Second review fixes (2026-11-09)
+
+A second fresh-context review, of the first review's fixes and the two Addenda follow-ups, found one important and nine minor issues; the user chose to fix all of them. Each has a test that failed first, except 9 (an error path that needs two git failures at once).
+
+1. **Retire deleted a managed file reached through a linked clone** (Important): with `~/.dotfiles` a link and a stow link pointing at the resolved path, the "managed?" check compared against the unresolved path, so the link was removed instead of replaced. `Resolve-PhysicalPath` (in `lib/Common.psm1`) now resolves links along a path; `Get-RepoDir` returns the resolved repo path, and `Test-LinkInto` and retire compare resolved paths. Tests: `Resolve-PhysicalPath follows links anywhere in the path`, `replaces a link that points at the resolved path of a linked repo`.
+2. **Ignored files were counted twice** (as local changes and as ignored). Test: `stays quiet while the file is unchanged` checks the summary.
+3. **A dry run claimed an ignore**: answering `i` in a dry run now prints a `~` line. Test: `a dry run doesn't record an ignore`.
+4. **The sshd rollback could blame the wrong file**: `/run/sshd` is created before the config is installed, outside the rollback, and the message says `'sshd -t' failed after installing …; see sshd's output above`. Test: `sshd: a failure to create /run/sshd doesn't touch the config`, plus the reordered call list.
+5. **Retire's dry run claimed removals**: it prints `~ Remove stow link …` instead. Test: `-WhatIf changes nothing`.
+6. **The repo path depended on how a script was started** (link path or physical path): fixed by 1, since `Get-RepoDir` resolves it.
+7. **A wrong `DOTFILES_REPO` gave a `dotfiles.json` error**: `sync.ps1` checks the repo exists first. Test: `says the repo is missing when DOTFILES_REPO points nowhere`.
+8. **An untracked or ignored repo file counted as committed**: `Test-RepoFileCommitted` also requires `git ls-files --error-unmatch`. Test: `an untracked repo file that git status doesn't list isn't treated as committed`.
+9. **A second git failure could hide the stash warning**: `Get-UnmergedFilesOrWarn` reports it instead of throwing.
+10. **Removing an ignore left empty folders**: `Remove-StateFile` tidies them, for applied copies and ignores alike. Test: `tidies empty folders when it forgets an ignore`.
 
 ## Addenda: deferred items
 
 - **Repo location is hard-coded in agent config** (deferred 2026-11-08). `CLAUDE_CODE_PLUGIN_DIRS` in `claude/.claude/settings.json` (`~/.dotfiles/claude/.claude/local-plugins`) and the `skills` list in `opencode/.config/opencode/opencode.jsonc` (`~/.dotfiles/claude/.claude/local-plugins/<plugin>/skills`) assume the repo is at `~/.dotfiles`, while the scripts allow another location through `DOTFILES_REPO`. On a machine with the repo elsewhere, the local plugins and their skills wouldn't load. Possible fixes: a second placeholder (e.g. `@DOTFILES@`, filled in by sync like `@HOME@`), or documenting that the repo must live at `~/.dotfiles`.
+  **Decision 2026-11-08:** take on before the next plan starts (after Stage 1's final review). Finding 7 of the review already makes the scripts use their own clone; this item covers the agent config.
+  **Done 2026-11-08:** a second placeholder, `@DOTFILES@` (`Expand-Placeholders` / `ConvertTo-Placeholders` in `lib/Manifest.psm1`), now stands for the clone's path in `claude/.claude/settings.json` and `opencode/.config/opencode/opencode.jsonc`; the spec's placeholder section records it.
+- **Local-only noise in the sync report** (spec, "Parked ideas: local-only noise"; raised 2026-11-08 at the end of Stage 1, since herdr's hook shows as a local change on every sync). **Decision 2026-11-08:** take on before the next plan starts, starting from the spec's option 1 (remember skips).
+  **Done 2026-11-08:** sync's prompt has `[i]gnore until it changes`, which stores the live file's hash under `<state>/ignored/`; while the file stays the same sync prints one `-` line, doesn't ask, and `-CopyBack` leaves it alone. The spec's local-changes report and Parked ideas record it.
 - **Nothing installs Pester on other machines** (raised 2026-11-08, Task 1). Task 1 installed Pester 6 on this machine by hand, but no script or doc does it elsewhere, while Task 9 documents `pwsh -c 'Invoke-Pester tests'` as a key command. Fix: in Task 9's `AGENTS.md` update, add the install command (`Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force`) beside the test command. **Done 2026-11-08** in Task 9: `AGENTS.md`'s Key Commands table has it beside the test command.

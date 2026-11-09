@@ -60,14 +60,13 @@ function Invoke-RetireStow {
   foreach ($file in Get-ManagedFiles $repoDir) { $managed[$file.Target] = $file }
 
   $replaced = 0
-  $removed = 0
   $touchedAgents = $false
   foreach ($link in $links) {
-    $destination = Resolve-LinkTarget $link
+    $destination = Resolve-PhysicalPath (Resolve-LinkTarget $link)
     $file = $managed[$link]
-    if ($file -and $destination -eq [IO.Path]::GetFullPath((Join-Path $repoDir $file.Source)) -and
+    if ($file -and $destination -eq (Resolve-PhysicalPath (Join-Path $repoDir $file.Source)) -and
       [IO.File]::Exists($destination)) {
-      $content = Expand-HomePlaceholder (Read-TextFile $destination) $homeDir
+      $content = Expand-Placeholders (Read-TextFile $destination) $homeDir $repoDir
       if (Test-DryRun) {
         Write-Dry "Replace stow link $link with a copy of $($file.Source)"
       } else {
@@ -78,13 +77,18 @@ function Invoke-RetireStow {
       $replaced++
       continue
     }
-    Invoke-Step "rm -f $(ConvertTo-ShellArgument $link)"
-    $removed++
+    # Named one by one: the step runs on every install and update, and a link made by hand would go too.
+    $reason = if (Test-Path -LiteralPath $destination) { "isn't in dotfiles.json" } else { 'no longer exists' }
+    if (Test-DryRun) {
+      Write-Dry "Remove stow link $link ($destination $reason)"
+    } else {
+      Invoke-Step "rm -f $(ConvertTo-ShellArgument $link)"
+      Write-Ok "Removed stow link $link ($destination $reason)"
+    }
     if ($link.StartsWith("$homeDir/.agents/", [StringComparison]::Ordinal)) { $touchedAgents = $true }
     if (-not (Test-DryRun)) { Remove-EmptyParents ([IO.Path]::GetDirectoryName($link)) }
   }
   if ($replaced) { Write-Ok "Replaced $replaced stow links with copies of the repo files" }
-  if ($removed) { Write-Ok "Removed $removed stow links to files the repo no longer manages" }
 
   # ~/.agents only held repo skills; anything left there came from another tool.
   if (-not (Test-DryRun) -and $touchedAgents -and [IO.Directory]::Exists("$homeDir/.agents")) {
