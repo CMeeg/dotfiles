@@ -1,0 +1,6 @@
+{
+  "name": "herdr",
+  "version": "0.1.0",
+  "description": "Working with herdr and the Herdr app: agents in terminals that stay alive, the window, and its config",
+  "author": { "name": "Chris Meagher" }
+}

@@ -1,5 +1,7 @@
 # Stow → chezmoi Migration Implementation Plan
 
+> **Superseded** by [the cross-platform dotfiles design](../specs/2026-11-06-cross-platform-dotfiles-design.md) (2026-11-06): the repo moved off stow to its own PowerShell `sync.ps1` instead of chezmoi. Kept for the record; don't implement it.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace GNU Stow with chezmoi for managing `$HOME` dotfiles on Debian/WSL, with a sync script that moves edits in both directions (home → repo and repo → home), and migrate existing stow machines.

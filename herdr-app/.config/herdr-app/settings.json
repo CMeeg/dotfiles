@@ -1,0 +1,12 @@
+{
+  "zoom": 1,
+  "sounds": {
+    "enabled": true
+  },
+  "theme": "dracula",
+  "font_ligatures": true,
+  "minimum_contrast": 1,
+  "ui_font": "JetBrains Mono",
+  "font": "JetBrainsMono Nerd Font",
+  "telemetry": false
+}

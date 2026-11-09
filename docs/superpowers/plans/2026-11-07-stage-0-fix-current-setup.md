@@ -180,6 +180,8 @@
 
 ### Task 4: Move shared skills to Claude's folder and restow `claude`
 
+*Superseded on 2026-11-08: the skills have since moved into local plugins under `claude/.claude/local-plugins/` (see the spec's Decisions). The restow and dangling-link parts still stand.*
+
 **Files:**
 - Move: `agents/.agents/skills/*` → `claude/.claude/skills/` (`git mv`, six skill folders)
 - Delete: `agents/` (including its `.stow-local-ignore`)

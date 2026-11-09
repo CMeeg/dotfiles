@@ -1,0 +1,16 @@
+{
+  "entries": [
+    { "source": "bash/.bash_aliases", "linux": "~/.bash_aliases" },
+    { "source": "bash/.bash_logout", "linux": "~/.bash_logout" },
+    { "source": "bash/.bashrc", "linux": "~/.bashrc" },
+    { "source": "bash/.profile", "linux": "~/.profile" },
+    { "source": "git/.gitconfig", "linux": "~/.gitconfig" },
+    { "source": "starship/.config/starship.toml", "linux": "~/.config/starship.toml" },
+    { "source": "superfile/.config/superfile/config.toml", "linux": "~/.config/superfile/config.toml" },
+    { "source": "herdr/.config/herdr/config.toml", "linux": "~/.config/herdr/config.toml" },
+    { "source": "opencode/.config/opencode/opencode.jsonc", "linux": "~/.config/opencode/opencode.jsonc" },
+    { "source": "opencode/.config/opencode/cli.json", "linux": "~/.config/opencode/cli.json" },
+    { "source": "claude/.claude/settings.json", "linux": "~/.claude/settings.json" },
+    { "source": "claude/.claude/CLAUDE.md", "linux": "~/.claude/CLAUDE.md" }
+  ]
+}

@@ -46,7 +46,7 @@ Ground rules for keeping them separate:
 
 ### Settings
 
-Stow isn't available on Windows, so set up the config by hand.
+`sync.ps1` doesn't manage Windows files yet, so set up the config by hand.
 
 * Clone the dotfiles repo to `%USERPROFILE%\.dotfiles` on Windows as well, so `~/.dotfiles` is the same path on both. You can reach the WSL copy from Windows at `\\wsl.localhost\Debian\home\chrism\.dotfiles`.
 * Don't copy `claude/.claude/settings.json` as it is. Some of its settings are specific to one OS or one project:
@@ -57,18 +57,19 @@ Stow isn't available on Windows, so set up the config by hand.
 * Leave out `theme`, `extraKnownMarketplaces`, `enabledPlugins` and `pluginConfigs` for now. Installing the theme and plugins below adds those settings for you.
 * Copy `claude/.claude/CLAUDE.md` (the global instructions, see [Global instructions](#global-instructions)) to `%USERPROFILE%\.claude\CLAUDE.md`
   * It's a copy, so re-copy it after you change `CLAUDE.md` in the repo
-* Skills need no copying: they're all in local plugins, which `CLAUDE_CODE_PLUGIN_DIRS` loads straight from the repo clone. `git pull` picks up changes.
+* Skills need no copying: they're all in local plugins, which `CLAUDE_CODE_PLUGIN_DIRS` loads straight from the repo clone. `git pull` picks up changes. The repo's `settings.json` writes the clone's path as `@DOTFILES@`, which sync fills in on Linux; when copying settings by hand, use the clone's path instead (e.g. `~/.dotfiles/claude/.claude/local-plugins`).
 * Then follow the [Theme](#theme), [Config](#config), [Plugins](#plugins) and [Local plugins](#local-plugins) steps below, the same as on Linux.
 
 ### Dotfiles
 
-`claude/` is a stow package — `claude/.claude/` is linked into `~/.claude`:
+`claude/.claude/settings.json` and `claude/.claude/CLAUDE.md` are copied to `~/.claude/` by `sync.ps1` (they're listed in `dotfiles.json`), which `install.ps1` and `update.ps1` run:
 
-* Claude Code rewrites `settings.json` when you change settings or install plugins — if `ls -l ~/.claude/settings.json` shows it's no longer a symlink, re-run the stow command to adopt the changes back into the repo
+* Claude Code rewrites `~/.claude/settings.json` when you change settings or install plugins. The next `pwsh ./sync.ps1` shows the change and offers to copy it back into the repo (see [Syncing dotfiles](../linux/README.md#syncing-dotfiles)).
+* herdr's `SessionStart` hook and GitKraken's marketplace and plugin entries are written into the live file by those tools, so they aren't in the repo and show up as local changes on every sync. Answer `i` at sync's prompt to ignore them until the file changes, or discard them from the repo after copying back. The installer's setup actions run `herdr integration install claude` when the hook is missing.
 
 ### Global instructions
 
-`claude/.claude/CLAUDE.md` is linked to `~/.claude/CLAUDE.md`: my working preferences for every repository (git, processes, scope and follow-ups, writing code, verifying, communicating, secrets), which a repository's own `AGENTS.md` or `CLAUDE.md` adds to. opencode reads it too when it has no `~/.config/opencode/AGENTS.md`.
+`claude/.claude/CLAUDE.md` is copied to `~/.claude/CLAUDE.md` by sync: my working preferences for every repository (git, processes, scope and follow-ups, writing code, verifying, communicating, secrets), which a repository's own `AGENTS.md` or `CLAUDE.md` adds to. opencode reads it too when it has no `~/.config/opencode/AGENTS.md`.
 
 ### Secrets
 
@@ -107,7 +108,7 @@ These are config settings I have changed from the default:
   "askUserQuestionTimeout": "never", // If a question is asked then I want to see it!
   "feedbackDrafts": "quiet", // The feedback "notice" can get in the way so this shows there is feedback to give in the footer instead that you can access with `/feedback`
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins" // My local plugins from this repo
+    "CLAUDE_CODE_PLUGIN_DIRS": "@DOTFILES@/claude/.claude/local-plugins" // My local plugins from this repo; sync fills in the clone's path
   }
 }
 ```
@@ -124,15 +125,15 @@ If Context7 has been added to your claude.ai account, Claude Code installs it fo
 
 ### Skills
 
-My skills are all in [local plugins](#local-plugins), grouped by when I'd reach for them. To add one, create `claude/.claude/local-plugins/<plugin>/skills/<name>/SKILL.md`; for a new plugin, add its `skills/` folder to `skills` in `opencode/.config/opencode/opencode.jsonc` too. `~/.claude/skills/synced/` holds skills Claude Code syncs down from claude.ai; it's managed by Claude Code and isn't in the repo.
+My skills are all in [local plugins](#local-plugins), grouped by when I'd reach for them. To add one, create `claude/.claude/local-plugins/<plugin>/skills/<name>/SKILL.md`; for a new plugin, add its `skills/` folder to `skills` in `opencode/.config/opencode/opencode.jsonc` too, written as `@DOTFILES@/claude/.claude/local-plugins/<plugin>/skills`. `~/.claude/skills/synced/` holds skills Claude Code syncs down from claude.ai; it's managed by Claude Code and isn't in the repo.
 
 ### Local plugins
 
 My own plugins live in `claude/.claude/local-plugins/<name>/`, each grouping related skills, hooks and mods (a mod is a plugin that changes Claude Code's interface, e.g. the status line, footer or panels).
 
-Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`~/.dotfiles/claude/.claude/local-plugins`), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). That path is the same on Linux and Windows, so edits land in the repo with no copying.
+Claude Code loads every plugin in that folder straight from the repo through `env.CLAUDE_CODE_PLUGIN_DIRS` (`@DOTFILES@/claude/.claude/local-plugins` in the repo; sync writes the clone's real path), and calls their skills `<plugin>:<skill>` (e.g. `workflow:implement-plan`). The plugins load from the clone itself, so edits land in the repo with no copying.
 
-Stow skips the folder (`claude/.stow-local-ignore`), as Claude Code wouldn't load anything linked into `~/.claude/`. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
+The manifest (`dotfiles.json`) doesn't list the folder, so sync doesn't copy it into `~/.claude/`: Claude Code loads it from the repo instead. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
 
 ### Marketplace mods
 

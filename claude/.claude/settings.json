@@ -1,7 +1,7 @@
 {
   "respectGitignore": false,
   "env": {
-    "CLAUDE_CODE_PLUGIN_DIRS": "~/.dotfiles/claude/.claude/local-plugins"
+    "CLAUDE_CODE_PLUGIN_DIRS": "@DOTFILES@/claude/.claude/local-plugins"
   },
   "permissions": {
     "deny": [
@@ -24,20 +24,6 @@
       "Read(~/.claude/.credentials.json)"
     ],
     "defaultMode": "auto"
-  },
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "^(startup|resume|clear|compact|fork)$",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$HOME/.claude/hooks/herdr-agent-state.sh\" session",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
   },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
