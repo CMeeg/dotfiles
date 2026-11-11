@@ -59,6 +59,10 @@ The [Herdr desktop app](https://herdr.dev/guide/) manages agents locally and in 
 * In the app, add a machine and pick `debian-wsl` from the SSH config list
 * After `wsl --shutdown`, the machine shows as unreachable and reconnects on its own once WSL is running again
 
+### tailscale (optional)
+
+To reach herdr-core on this machine and in WSL from your phone or other computers by name, set up Tailscale and Windows' OpenSSH server: see [tailscale/README.md](../tailscale/README.md). The app's own connection to WSL above stays on `127.0.0.1:2222` and doesn't use Tailscale.
+
 ### claude code
 
 * See [Claude Code → Windows](../claude/README.md#windows). It runs alongside the WSL install without clashing.

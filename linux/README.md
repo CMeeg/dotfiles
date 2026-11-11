@@ -117,6 +117,10 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * `mkdir -p ~/.ssh && chmod 700 ~/.ssh`
   * `cat /mnt/c/Users/<windows user>/.ssh/id_ed25519_wsl.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
 
+### Tailscale (optional)
+
+To reach this machine's herdr-core and dev servers from your phone or other computers by name, run `pwsh ./tailscale.ps1 -Hostname <name>` (not part of `install.ps1`). See [tailscale/README.md](../tailscale/README.md) for what it does, the manual steps, and the admin console and phone setup. Once installed, `update.ps1` keeps Tailscale up to date through `apt upgrade`.
+
 ### Dotfiles (base)
 
 * Clone the repo

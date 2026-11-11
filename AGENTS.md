@@ -8,7 +8,7 @@ This repository contains dotfiles, setup scripts, and reference configs for sett
 - **Prompt**: Starship with Dracula theme (`starship/.config/starship.toml`)
 - **Package managers**: `apt` (Debian), `winget`/`choco` (Windows)
 - **Dotfile management**: `dotfiles.json` lists every managed file and where it goes; `sync.ps1` copies them into place as real files and syncs changes both ways
-- **Scripts**: PowerShell 7 (`pwsh`) for `install.ps1`, `update.ps1`, `sync.ps1` and `retire.ps1`, with shared modules in `lib/`; bash only for `bootstrap.sh`, which installs PowerShell
+- **Scripts**: PowerShell 7 (`pwsh`) for `install.ps1`, `update.ps1`, `sync.ps1`, `retire.ps1` and the opt-in `tailscale.ps1`, with shared modules in `lib/`; bash only for `bootstrap.sh`, which installs PowerShell
 - **Theme**: Dracula throughout
 - **Font**: JetBrains Mono / JetBrainsMono Nerd Font
 - **File style**:
@@ -28,6 +28,7 @@ This repository contains dotfiles, setup scripts, and reference configs for sett
 | `pwsh ./install.ps1 [-WhatIf] [-SkipRetire]` | Run the retire steps, install the tools, apply the dotfiles and run the setup actions |
 | `pwsh ./update.ps1 [-WhatIf] [-SkipRetire]` | Run the retire steps, update the tools, pull and sync the dotfiles and run the setup actions |
 | `pwsh ./sync.ps1 [-NoPull] [-NoPrompt] [-CopyBack] [-WhatIf]` | Pull the repo, apply it to this machine and report local changes, offering to copy each one back into the repo |
+| `pwsh ./tailscale.ps1 -Hostname <name> [-WhatIf]` | Opt-in, Linux/WSL only: install Tailscale and join the tailnet with Tailscale SSH (see `tailscale/README.md`) |
 | `pwsh ./retire.ps1 -WhatIf` | Preview removing retired tools and leftover stow links |
 | `pwsh -c 'Invoke-Pester tests'` | Run the tests. Install Pester once with `pwsh -c 'Install-Module Pester -MinimumVersion 6.0 -Scope CurrentUser -Force'` |
 

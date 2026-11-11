@@ -5,6 +5,7 @@ dotfiles and setup instructions and scripts for:
 * [windows](./windows/README.md)
   * [wsl](./wsl/README.md)
 * [linux](./linux/README.md)
+* [tailscale](./tailscale/README.md) (optional): reach herdr-core and dev servers on these machines from your phone or other computers
 
 ## How the dotfiles are managed
 
