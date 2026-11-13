@@ -243,5 +243,31 @@ Describe 'retire steps' {
       Get-Content $log | Should -Not -Contain 'dotnet tool uninstall -g aspire.cli'
       $out | Should -Match '  - Aspire is not installed as a \.NET global tool'
     }
+
+    It 'statuslines mods: uninstalls them and removes the marketplace, leaving other plugins' {
+      New-FakeCommand 'claude' @"
+echo "claude `$*" >>'$log'
+case "`$*" in
+  'plugin list --json') echo '[{"id":"sub-meter@statuslines"},{"id":"context-bar@statuslines"},{"id":"superpowers@claude-plugins-official"}]' ;;
+  'plugin marketplace list --json') echo '[{"name":"statuslines"},{"name":"claude-themes"}]' ;;
+esac
+"@
+      Invoke-Captured { Invoke-RetireStatuslinesMods } | Out-Null
+      $calls = Get-Content $log
+      $calls | Should -Contain 'claude plugin uninstall sub-meter@statuslines --scope user'
+      $calls | Should -Contain 'claude plugin uninstall context-bar@statuslines --scope user'
+      $calls | Should -Contain 'claude plugin marketplace remove statuslines'
+      $calls | Where-Object { $_ -match 'superpowers|claude-themes' -and $_ -notmatch 'list' } | Should -BeNullOrEmpty
+    }
+
+    It 'statuslines mods: skips when none are installed' {
+      New-FakeCommand 'claude' @"
+echo "claude `$*" >>'$log'
+echo '[]'
+"@
+      $out = Invoke-Captured { Invoke-RetireStatuslinesMods }
+      Get-Content $log | Where-Object { $_ -match 'uninstall|remove' } | Should -BeNullOrEmpty
+      $out | Should -Match '  - The statuslines mods are not installed'
+    }
   }
 }

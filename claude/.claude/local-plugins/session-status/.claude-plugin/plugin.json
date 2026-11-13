@@ -1,0 +1,23 @@
+{
+  "name": "session-status",
+  "version": "0.1.0",
+  "description": "Model and effort, the context window as a bar, and subscription usage under the prompt",
+  "author": { "name": "Chris Meagher" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "display": {
+      "type": "string",
+      "title": "What the subscription meter shows",
+      "description": "rotate: one window at a time, switching every few seconds. both: the 5-hour and weekly windows side by side. session: only the 5-hour window. week: only the weekly window. When only one window is reported, it shows that one whatever the choice.",
+      "options": ["rotate", "both", "session", "week"],
+      "default": "rotate"
+    },
+    "rotateSeconds": {
+      "type": "number",
+      "title": "Seconds per window",
+      "description": "How long the meter shows each window (5-hour, weekly) before it switches to the other. Only used when display is rotate.",
+      "default": 8,
+      "min": 1
+    }
+  }
+}

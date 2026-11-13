@@ -135,12 +135,12 @@ Claude Code loads every plugin in that folder straight from the repo through `en
 
 The manifest (`dotfiles.json`) doesn't list the folder, so sync doesn't copy it into `~/.claude/`: Claude Code loads it from the repo instead. When Claude Code loads a plugin with a hooks module (e.g. a mod), it writes generated type files into the plugin's `.claude-plugin/types/`; that folder ignores itself in git.
 
-### Marketplace mods
+### Status line
 
-These are installed from the [statuslin.es](https://statuslin.es) marketplace (`statuslines` in `settings.json`):
+The status line is split between two places:
 
-* [Context Bar](https://statuslin.es/mods/context-bar)
-* [Sub Meter](https://statuslin.es/mods/sub-meter)
+* `statusLine` in `settings.json` prints the folder and git branch in the row above the prompt footer. It runs in bash and needs `jq` on the `PATH` (on Windows, Git Bash and `winget install jqlang.jq`).
+* The `session-status` local plugin replaces the footer's hint line with the context window as a bar, the 5-hour and weekly subscription usage, and the model and effort. `[+]` beside the bar shows the bar's colour key and `[-]` hides it again. Its `display` and `rotateSeconds` options are in `/config`, as `pluginConfigs` in `settings.json`. It adapts [Context Bar](https://statuslin.es/mods/context-bar) and [Sub Meter](https://statuslin.es/mods/sub-meter), both MIT licensed.
 
 ### Tips
 

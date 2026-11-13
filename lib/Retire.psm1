@@ -168,6 +168,33 @@ function Invoke-RetireAspireDotnetTool {
   Write-Ok "Aspire .NET global tool removed — run ./install.ps1 to reinstall it with Aspire's install script"
 }
 
+# The statuslines marketplace's sub-meter and context-bar mods are replaced by the session-status local plugin.
+# Dropping them from settings.json isn't enough: an installed plugin with no enabledPlugins entry starts enabled.
+function Invoke-RetireStatuslinesMods {
+  $plugins = @()
+  $hasMarketplace = $false
+  if (Test-Command claude) {
+    $PSNativeCommandUseErrorActionPreference = $false
+    try {
+      $installed = (claude plugin list --json 2>$null) -join "`n" | ConvertFrom-Json
+      $plugins = @($installed | Where-Object { $_.id -in 'sub-meter@statuslines', 'context-bar@statuslines' } |
+          ForEach-Object { $_.id })
+      $marketplaces = (claude plugin marketplace list --json 2>$null) -join "`n" | ConvertFrom-Json
+      $hasMarketplace = [bool]($marketplaces | Where-Object { $_.name -eq 'statuslines' })
+    } catch {
+      Write-Warn "Couldn't list Claude Code's plugins, so sub-meter and context-bar were left as they are"
+      return
+    }
+  }
+  if (-not $plugins.Count -and -not $hasMarketplace) {
+    Write-Skip 'The statuslines mods are not installed'
+    return
+  }
+  foreach ($id in $plugins) { Invoke-Step "claude plugin uninstall $id --scope user" }
+  if ($hasMarketplace) { Invoke-Step 'claude plugin marketplace remove statuslines' }
+  Write-Ok 'statuslines mods and marketplace removed — the session-status local plugin replaces them'
+}
+
 function Invoke-RetireSteps {
   Write-Status 'Retiring removed tools...'
   Invoke-RetireStow
@@ -175,7 +202,8 @@ function Invoke-RetireSteps {
   Invoke-RetireBun
   Invoke-RetireSuperpowersClone
   Invoke-RetireAspireDotnetTool
+  Invoke-RetireStatuslinesMods
 }
 
 Export-ModuleMember -Function Invoke-RetireStow, Invoke-RetireOpenDesign, Invoke-RetireBun, Invoke-RetireSuperpowersClone,
-  Invoke-RetireAspireDotnetTool, Invoke-RetireSteps, Test-StowLinksPresent
+  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireSteps, Test-StowLinksPresent
