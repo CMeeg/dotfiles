@@ -25,11 +25,13 @@
     ],
     "defaultMode": "auto"
   },
+  "statusLine": {
+    "type": "command",
+    "command": "input=$(cat); dir=$(echo \"$input\" | jq -r '.workspace.current_dir' | tr '\\\\' '/'); branch=$(git -C \"$dir\" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null); printf '\\033[1;38;2;80;250;123m%s\\033[0m' \"$(basename \"$dir\")\"; [ -n \"$branch\" ] && printf ' \\033[1;38;2;255;121;198m%s\\033[0m' \"$branch\"; true"
+  },
   "enabledPlugins": {
     "superpowers@claude-plugins-official": true,
     "dracula@claude-themes": true,
-    "sub-meter@statuslines": true,
-    "context-bar@statuslines": true,
     "chrome-devtools-mcp@claude-plugins-official": true,
     "context7@anthropic-plugin-directory": true
   },
@@ -46,12 +48,6 @@
         "repo": "matcra587/claude-themes"
       }
     },
-    "statuslines": {
-      "source": {
-        "source": "url",
-        "url": "https://statuslin.es/marketplace.json"
-      }
-    },
     "cloudflare": {
       "source": {
         "source": "github",
@@ -63,10 +59,9 @@
   "awaySummaryEnabled": false,
   "askUserQuestionTimeout": "never",
   "pluginConfigs": {
-    "sub-meter@statuslines": {
+    "session-status@inline": {
       "options": {
-        "rotateSeconds": 30,
-        "hideCycleHint": true
+        "rotateSeconds": 30
       }
     }
   },
