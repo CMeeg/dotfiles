@@ -48,20 +48,32 @@ export function toReading (b: Breakdown, pctOverride?: number): Reading {
   }
 }
 
-/** The bar as runs of cells: each slice gets its share of `width`, a used one at least one cell. */
+/**
+ * The bar as runs of cells. The used slices share the cells for the used part of the window, a used slice at least one
+ * cell, and the free space and buffer share the rest, so the coloured part of the bar matches the percentage beside it.
+ */
 export function cells (r: Reading, width: number) {
-  const sizes = r.slices.map(s => Math.max(s.kind === 'used' ? 1 : 0, Math.round((s.tokens / r.window) * width)))
-  // Rounding leaves the sum a few cells off: free space takes the difference first, then the largest slices
-  let diff = width - sizes.reduce((a, n) => a + n, 0)
-  const isUsed = (i: number) => r.slices[i]!.kind === 'used'
-  const order = r.slices.map((_, i) => i).sort((a, b) => Number(isUsed(a)) - Number(isUsed(b)) || sizes[b]! - sizes[a]!)
+  const used = r.slices.filter(s => s.kind === 'used')
+  const unused = r.slices.filter(s => s.kind !== 'used')
+  const usedTokens = used.reduce((a, s) => a + s.tokens, 0)
+  const usedCells = Math.min(width, Math.max(used.length, Math.round((usedTokens / r.window) * width)))
+  const sizes = [...apportion(used.map(s => s.tokens), usedCells, 1), ...apportion(unused.map(s => s.tokens), width - usedCells, 0)]
+  return [...used, ...unused].map((s, i) => ({ name: s.name, color: s.color, text: GLYPH.repeat(sizes[i]!) })).filter(c => c.text !== '')
+}
+
+/** `count` cells split in proportion to `weights`, each at least `min`; the largest take the rounding difference. */
+function apportion (weights: number[], count: number, min: number) {
+  const sum = weights.reduce((a, n) => a + n, 0)
+  const sizes = weights.map(w => Math.max(min, sum > 0 ? Math.round((w / sum) * count) : 0))
+  let diff = count - sizes.reduce((a, n) => a + n, 0)
+  const order = sizes.map((_, i) => i).sort((a, b) => sizes[b]! - sizes[a]!)
   for (const i of order) {
     if (diff === 0) break
-    const size = Math.max(isUsed(i) ? 1 : 0, sizes[i]! + diff)
+    const size = Math.max(min, sizes[i]! + diff)
     diff -= size - sizes[i]!
     sizes[i] = size
   }
-  return r.slices.map((s, i) => ({ name: s.name, color: s.color, text: GLYPH.repeat(sizes[i]!) })).filter(c => c.text !== '')
+  return sizes
 }
 
 /** How full the window is towards compaction (or the window, with compaction off), as a theme colour. */
