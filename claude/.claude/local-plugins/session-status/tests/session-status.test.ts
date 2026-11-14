@@ -35,6 +35,30 @@ test('the context bar fills exactly its width, every used category at least one 
   expect(cells(overfull, 20).reduce((sum, run) => sum + [...run.text].length, 0)).toBe(20)
 })
 
+test('the used cells match the share of the window used, the small categories\' minimum cells taken from the larger ones', () => {
+  const reading = toReading({
+    categories: [
+      { name: 'System prompt', tokens: 6_300, color: '', kind: 'used' },
+      { name: 'System tools', tokens: 19_000, color: '', kind: 'used' },
+      { name: 'MCP tools', tokens: 3_200, color: '', kind: 'used' },
+      { name: 'MCP server instructions', tokens: 875, color: '', kind: 'used' },
+      { name: 'Memory files', tokens: 4_700, color: '', kind: 'used' },
+      { name: 'Skills', tokens: 10_000, color: '', kind: 'used' },
+      { name: 'Messages', tokens: 423_000, color: '', kind: 'used' },
+      { name: 'Free space', tokens: 500_000, color: '', kind: 'free' },
+      { name: 'Autocompact buffer', tokens: 33_000, color: '', kind: 'buffer' }
+    ],
+    totalTokens: 467_000,
+    rawMaxTokens: 1_000_000,
+    percentage: 47,
+    isAutoCompactEnabled: false
+  })
+  const runs = cells(reading, 30)
+  const used = runs.filter(run => !['free space', 'autocompact buffer'].includes(run.name))
+  expect(used.reduce((sum, run) => sum + [...run.text].length, 0)).toBe(14) // 47% of 30
+  expect(runs.reduce((sum, run) => sum + [...run.text].length, 0)).toBe(30)
+})
+
 test('compaction moves to the override percentage of the effective window only when it is lower and in range', () => {
   const cases: [number | undefined, number][] = [
     [undefined, 167_000],
