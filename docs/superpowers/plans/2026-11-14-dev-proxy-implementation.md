@@ -166,7 +166,7 @@ In the existing "second run is a no-op", add `Mock Invoke-RetireCaddy -ModuleNam
   - it exits 0, with no `Installing Caddy...` line;
   - under "Retiring removed tools...", one of `- Caddy is not installed`, `~ sudo apt remove -y caddy` or `~ sudo rm -f …`.
 
-- [ ] **Step 8: Checkpoint.** The user reviews and commits (suggested: `retire caddy in wsl`).
+- [x] **Step 8: Checkpoint.** The user reviews and commits (suggested: `retire caddy in wsl`).
 
 ### Task 2: Retire the low-ports sysctl
 
@@ -248,7 +248,7 @@ Then:
   - no `Allowing unprivileged processes...` line;
   - a low-ports line under the retire steps.
 
-- [ ] **Step 7: Checkpoint.** The user reviews and commits (suggested: `retire the low-ports sysctl`).
+- [x] **Step 7: Checkpoint.** The user reviews and commits (suggested: `retire the low-ports sysctl`).
 
 ### Task 3: Remove the Tailscale exploration's script
 
@@ -270,7 +270,7 @@ Then:
   ```
 
   Expected: no output. `tailscale/README.md` still mentions the script until Task 8.
-- [ ] **Step 4: Checkpoint.** The user reviews and commits (suggested: `remove the tailscale script, which wsl no longer needs`).
+- [x] **Step 4: Checkpoint.** The user reviews and commits (suggested: `remove the tailscale script, which wsl no longer needs`).
 
 ### Task 4: The dev proxy on Windows: config files and guide
 
@@ -301,11 +301,11 @@ Then:
 
 - Produces: `dev-proxy/Caddyfile`, `dev-proxy/sites/ports.caddy` and `dev-proxy/example.caddy`, which the guide tells the reader to copy or adapt.
 
-- [ ] **Step 1: Write the three Caddyfiles** as above. Use tabs inside them, as `caddy fmt` does.
+- [x] **Step 1: Write the three Caddyfiles** as above. Use tabs inside them, as `caddy fmt` does.
 
-- [ ] **Step 2: Check Caddy accepts them.** On Windows, with any Caddy (e.g. Chocolatey's), copy `example.caddy` into a scratch copy of `sites/` and run `caddy adapt --config <scratch>/Caddyfile`. Expected: exits 0, and the JSON contains `127.0.0.1:5399` and `"127.0.0.1:3000"`. `import` resolves relative to the Caddyfile, whatever folder the command runs from.
+- [x] **Step 2: Check Caddy accepts them.** On Windows, with any Caddy (e.g. Chocolatey's), copy `example.caddy` into a scratch copy of `sites/` and run `caddy adapt --config <scratch>/Caddyfile`. Expected: exits 0, and the JSON contains `127.0.0.1:5399` and `"127.0.0.1:3000"`. `import` resolves relative to the Caddyfile, whatever folder the command runs from.
 
-- [ ] **Step 3: Write `dev-proxy/README.md`.**
+- [x] **Step 3: Write `dev-proxy/README.md`.**
   - **Opening:**
     - what the dev proxy is, in two sentences, from the design's Goal, in this repo's voice;
     - a table of a project's names: local, work tunnel, personal tunnel, Tailscale;
@@ -334,7 +334,7 @@ Then:
     - remove the root: find its thumbprint with `certutil -user -store Root`, looking for *Caddy Local Authority* ([certutil](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil)), then `certutil -user -delstore Root <thumbprint>`;
     - for tunnels, link to `#tunnels`, which Task 6 gives its own removal lines.
 
-- [ ] **Step 4: Review the README against the Global Constraints, and Review Focus 5.**
+- [x] **Step 4: Review the README against the Global Constraints, and Review Focus 5.**
   - **Personal values and links:** run the personal-values check on `dev-proxy`, and the link check on `dev-proxy/README.md`.
   - **Labels:** every step has a label and a source link.
   - **Other shells:** both `sc.exe create` lines say only PowerShell 7 was tested, and give the Command Prompt form.
