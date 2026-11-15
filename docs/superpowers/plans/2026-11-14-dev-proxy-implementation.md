@@ -261,9 +261,9 @@ Then:
 
 **Interfaces:** none. Nothing else imports `Tailscale.psm1`.
 
-- [ ] **Step 1: Delete the three files, and edit `AGENTS.md` and `linux/README.md`** as listed.
-- [ ] **Step 2: Run the tests.** Use the test command. Expected: all pass, with no Tailscale tests.
-- [ ] **Step 3: Check nothing still points at the removed files.**
+- [x] **Step 1: Delete the three files, and edit `AGENTS.md` and `linux/README.md`** as listed.
+- [x] **Step 2: Run the tests.** Use the test command. Expected: all pass, with no Tailscale tests.
+- [x] **Step 3: Check nothing still points at the removed files.**
 
   ```
   grep -rn "tailscale\.ps1\|Tailscale\.psm1" --exclude-dir=docs --exclude-dir=.git --exclude=README.md . ; grep -n "tailscale\.ps1" README.md linux/README.md windows/README.md
