@@ -94,7 +94,7 @@ pwsh -c '$f = "<folder>/README.md"; (Select-String -Path $f -Pattern "\]\((?!htt
 - Produces: `Invoke-RetireCaddy [-AptSource <string> = '/etc/apt/sources.list.d/caddy-stable.list'] [-Keyring <string> = '/usr/share/keyrings/caddy-stable-archive-keyring.gpg']`.
 - Consumes: `Test-AptInstalled` (`lib/Tools.psm1`), `Invoke-Step`, `Write-Skip`, `Write-Ok`, `ConvertTo-ShellArgument` (`lib/Common.psm1`).
 
-- [ ] **Step 1: Write the failing tests** in `tests/Retire.Tests.ps1` → `Context 'tools'`. The file's `BeforeEach` already fakes `sudo` (logging `sudo $*` to `$log`) and `dpkg-query` (not installed).
+- [x] **Step 1: Write the failing tests** in `tests/Retire.Tests.ps1` → `Context 'tools'`. The file's `BeforeEach` already fakes `sudo` (logging `sudo $*` to `$log`) and `dpkg-query` (not installed).
 
 ```powershell
 It 'Caddy: removes the package, its apt source and keyring' {
@@ -141,9 +141,9 @@ It 'Invoke-RetireSteps runs the Caddy step' {
 
 In the existing "second run is a no-op", add `Mock Invoke-RetireCaddy -ModuleName Retire {}` before the first `Invoke-RetireSteps`, so it doesn't read this machine's real apt state.
 
-- [ ] **Step 2: Run the tests to check they fail.** Use the test command for `tests/Retire.Tests.ps1`. Expected: the five new tests fail, as `Invoke-RetireCaddy` isn't recognised (the mock can't bind to it).
+- [x] **Step 2: Run the tests to check they fail.** Use the test command for `tests/Retire.Tests.ps1`. Expected: the five new tests fail, as `Invoke-RetireCaddy` isn't recognised (the mock can't bind to it).
 
-- [ ] **Step 3: Implement `Invoke-RetireCaddy` in `lib/Retire.psm1`.**
+- [x] **Step 3: Implement `Invoke-RetireCaddy` in `lib/Retire.psm1`.**
   - **Skip:** if the package isn't installed and neither path exists, `Write-Skip 'Caddy is not installed'`.
   - **Remove the package:** run `Invoke-Step 'sudo apt remove -y caddy'` when it's installed.
   - **Remove the leftovers:** when either path exists, run `Invoke-Step "sudo rm -f <paths>"`. The paths are the existing ones only, in the order AptSource then Keyring, each through `ConvertTo-ShellArgument` and space-separated.
@@ -151,18 +151,18 @@ In the existing "second run is a no-op", add `Mock Invoke-RetireCaddy -ModuleNam
   - **Comment:** one line of why above the function: Caddy runs as a Windows service for the dev proxy, so the apt package goes, with its apt repo and keyring.
   - **Wire it up:** call it after `Invoke-RetireStatuslinesMods` in `Invoke-RetireSteps`, and export it.
 
-- [ ] **Step 4: Remove Caddy from `install.ps1`.** Delete `Test-SystemdUnit`, `Install-Caddy` and the `Install-Caddy` call. Leave `Enable-UnprivilegedLowPorts` for Task 2.
+- [x] **Step 4: Remove Caddy from `install.ps1`.** Delete `Test-SystemdUnit`, `Install-Caddy` and the `Install-Caddy` call. Leave `Enable-UnprivilegedLowPorts` for Task 2.
 
-- [ ] **Step 5: Edit `linux/README.md`'s `### Caddy`.** Keep the heading. Replace lines 172–179 (the install and disable-service bullets) with:
+- [x] **Step 5: Edit `linux/README.md`'s `### Caddy`.** Keep the heading. Replace lines 172–179 (the install and disable-service bullets) with:
   - Caddy runs on Windows as the dev proxy and serves dev servers in WSL too: see [dev-proxy/README.md](../dev-proxy/README.md). That file is written in Task 4.
   - WSL doesn't install it, and the retire steps remove an apt-installed Caddy, with its apt repo and keyring.
   - `apt remove` keeps `/etc/caddy` and `/var/lib/caddy`; `sudo apt purge caddy` removes them too.
   - Caddy's old local certificate authority roots stay in the trust stores: see the dev proxy's clean-up step, in Task 4's `## Moving a project onto the service`.
   - Left on purpose, as they're small and other tools may use them: `debian-keyring`, `debian-archive-keyring` and `apt-transport-https`, installed alongside Caddy's apt repo, and `libnss3-tools` in the base packages.
 
-- [ ] **Step 6: Run the tests to check they pass.** Use the test command. Expected: all pass, including the five new tests and "second run is a no-op".
+- [x] **Step 6: Run the tests to check they pass.** Use the test command. Expected: all pass, including the five new tests and "second run is a no-op".
 
-- [ ] **Step 7: Check the dry run.** Run `install.ps1 -WhatIf` as in the Global Constraints. Expected:
+- [x] **Step 7: Check the dry run.** Run `install.ps1 -WhatIf` as in the Global Constraints. Expected:
   - it exits 0, with no `Installing Caddy...` line;
   - under "Retiring removed tools...", one of `- Caddy is not installed`, `~ sudo apt remove -y caddy` or `~ sudo rm -f …`.
 

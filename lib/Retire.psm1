@@ -195,6 +195,25 @@ function Invoke-RetireStatuslinesMods {
   Write-Ok 'statuslines mods and marketplace removed — the session-status local plugin replaces them'
 }
 
+# Caddy runs as a Windows service for the dev proxy, so the apt package goes, with its apt repo and keyring.
+function Invoke-RetireCaddy {
+  param(
+    [string]$AptSource = '/etc/apt/sources.list.d/caddy-stable.list',
+    [string]$Keyring = '/usr/share/keyrings/caddy-stable-archive-keyring.gpg'
+  )
+  $installed = Test-AptInstalled 'caddy'
+  $leftovers = @($AptSource, $Keyring | Where-Object { [IO.File]::Exists($_) })
+  if (-not $installed -and -not $leftovers.Count) {
+    Write-Skip 'Caddy is not installed'
+    return
+  }
+  if ($installed) { Invoke-Step 'sudo apt remove -y caddy' }
+  if ($leftovers.Count) {
+    Invoke-Step "sudo rm -f $(($leftovers | ForEach-Object { ConvertTo-ShellArgument $_ }) -join ' ')"
+  }
+  Write-Ok 'Caddy removed — the dev proxy runs it on Windows (see dev-proxy/README.md)'
+}
+
 function Invoke-RetireSteps {
   Write-Status 'Retiring removed tools...'
   Invoke-RetireStow
@@ -203,7 +222,8 @@ function Invoke-RetireSteps {
   Invoke-RetireSuperpowersClone
   Invoke-RetireAspireDotnetTool
   Invoke-RetireStatuslinesMods
+  Invoke-RetireCaddy
 }
 
 Export-ModuleMember -Function Invoke-RetireStow, Invoke-RetireOpenDesign, Invoke-RetireBun, Invoke-RetireSuperpowersClone,
-  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireSteps, Test-StowLinksPresent
+  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireCaddy, Invoke-RetireSteps, Test-StowLinksPresent
