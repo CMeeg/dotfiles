@@ -177,6 +177,18 @@
 
 The WSL test server has already been stopped and its folder removed (both times). The Chocolatey Caddy and `cloudflared` weren't touched.
 
+**The Host-override check (2026-11-15, design Still open 10), all undone and checked the same day.** Chocolatey's Caddy and `cloudflared` were run, not changed:
+
+| Change | Undo |
+|---|---|
+| Caddy run as the user with a scratch Caddyfile (`https://myapp.localhost:8443`, admin off), its data in a scratch folder | Stopped; the scratch folder deleted |
+| `%APPDATA%\Caddy`, a throwaway local certificate authority that `caddy validate` created, trusted nowhere | Deleted |
+| A header-echo server, then a scratch Vite 7 app with `vite` installed in its scratch folder, on `127.0.0.1:3000` | Stopped; the scratch folder deleted |
+| Four quick tunnels (`trycloudflare.com` names, gone with the process); no Cloudflare account changes | Stopped |
+| One Chrome tab, in an isolated profile, on the tunnel's URL | Closed |
+
+Afterwards nothing listened on 3000 or 8443, no `caddy` or `cloudflared` process was running, `%APPDATA%\Caddy` was gone, and `%USERPROFILE%\.cloudflared` was still empty.
+
 **A fresh start in Cloudflare (2026-11-14, on purpose, not to be undone):**
 - **The account as found:** one zone, `meeglocal.net` (registered 2024-01-28, auto-renewing), with no DNS records and no tunnels. It has an Access organisation, `meeg.cloudflareaccess.com`, with no apps.
 - **What was removed:** `%USERPROFILE%\.cloudflared\cert.pem`, from an old `cloudflared tunnel login`, deleted unopened. The user is deleting two old "Argo Tunnel" API tokens in the dashboard.

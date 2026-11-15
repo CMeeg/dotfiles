@@ -339,7 +339,7 @@ Then:
   - **Labels:** every step has a label and a source link.
   - **Other shells:** both `sc.exe create` lines say only PowerShell 7 was tested, and give the Command Prompt form.
 
-- [ ] **Step 5: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's windows guide and config`).
+- [x] **Step 5: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's windows guide and config`).
 
 ### Task 5: Check two tunnel improvements (design, "Still open" 9 and 10)
 
@@ -354,19 +354,19 @@ Then:
 
   Each answer is "document it", "document it as unverified" or "leave it out", decided with the user in Step 4.
 
-- [ ] **Step 1: Research item 9 (each person managing their own tunnel's routes)** in Cloudflare's docs ([granular permissions](https://developers.cloudflare.com/tunnel/guides/granular-permissions/) and the roles reference it links to). Find out:
+- [x] **Step 1: Research item 9 (each person managing their own tunnel's routes)** in Cloudflare's docs ([granular permissions](https://developers.cloudflare.com/tunnel/guides/granular-permissions/) and the roles reference it links to). Find out:
   - **The role:** which resource-scoped role lets a member add and remove published application routes on one tunnel.
   - **DNS:** whether adding a route also needs DNS permission on the zone, as the dashboard creates each route's DNS record.
   - **Other people's names:** whether anything stops that member routing a hostname that belongs to someone else, e.g. another person's `<person>-<app>` prefix.
 
   Use the docs, or the Cloudflare plugin read-only; change nothing in any account. Testing it would need a second member in an account, so it isn't tested here. If the docs leave it open, the verdict is "needs a test by the work account's admins".
 
-- [ ] **Step 2: Research item 10 (skipping the project changes with a Host header override)** in Cloudflare's [origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/). Find out:
+- [x] **Step 2: Research item 10 (skipping the project changes with a Host header override)** in Cloudflare's [origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/). Find out:
   - **Which settings:** whether `httpHostHeader`, `originServerName`, `noTLSVerify` and `caPool` can each be set for a remotely-managed tunnel's route in the dashboard, or only in a config file.
   - **The route:** the settings it would need: Service URL `https://127.0.0.1:443`, Host header `<app>.localhost`, origin server name `<app>.localhost`, and either `noTLSVerify` or a CA pool. A CA pool would need a copy of Caddy's root that `cloudflared` can read, as the original sits where only administrators can read it.
   - **The equivalent quick-tunnel flags,** for a live check: `cloudflared tunnel --url … --http-host-header … --origin-server-name … --no-tls-verify`.
 
-- [ ] **Step 3 (only with the user's approval): check item 10 live on the personal laptop.**
+- [x] **Step 3 (only with the user's approval): check item 10 live on the personal laptop.**
   - **Prepare:** bring the user an exact change list with an undo for each, as in project plan steps 5 and 6.
   - **The set-up:** the default Windows Caddy service with one `.localhost` site, a throwaway dev server, and a quick tunnel using the Step 2 flags. No Cloudflare account changes.
   - **Check:**
@@ -376,7 +376,7 @@ Then:
     - what happens to links the app builds from the Host.
   - **Afterwards:** undo everything, and check it's undone.
 
-- [ ] **Step 4: Record and decide.** Write the findings into "Still open" 9 and 10, with sources, dates and labels (*tested* or *docs only*). Then ask the user, for each item, whether Task 6 documents it, documents it as unverified, or leaves it out. Record their answer in the design.
+- [x] **Step 4: Record and decide.** Write the findings into "Still open" 9 and 10, with sources, dates and labels (*tested* or *docs only*). Then ask the user, for each item, whether Task 6 documents it, documents it as unverified, or leaves it out. Record their answer in the design.
 
 - [ ] **Step 5: Checkpoint.** The user reviews and commits (suggested: `check two tunnel improvements`).
 
