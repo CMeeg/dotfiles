@@ -214,6 +214,25 @@ function Invoke-RetireCaddy {
   Write-Ok 'Caddy removed — the dev proxy runs it on Windows (see dev-proxy/README.md)'
 }
 
+# Nothing in WSL binds ports 80 or 443, as Caddy runs on Windows.
+function Invoke-RetireUnprivilegedLowPorts {
+  param([string]$ConfPath = '/etc/sysctl.d/50-unprivileged-ports.conf')
+  if (-not [IO.File]::Exists($ConfPath)) {
+    Write-Skip 'The low-ports sysctl is not set'
+    return
+  }
+  $settings = @([IO.File]::ReadAllLines($ConfPath) | ForEach-Object { $_.Trim() } |
+      Where-Object { $_ -and -not $_.StartsWith('#') })
+  if ($settings.Count -ne 1 -or $settings[0] -cne 'net.ipv4.ip_unprivileged_port_start=80') {
+    Write-Warn "$ConfPath has other settings — left in place"
+    return
+  }
+  Invoke-Step "sudo rm -f $(ConvertTo-ShellArgument $ConfPath)"
+  # 1024 is the kernel's default
+  Invoke-Step 'sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024'
+  Write-Ok 'Low-ports sysctl removed: ports below 1024 need root again'
+}
+
 function Invoke-RetireSteps {
   Write-Status 'Retiring removed tools...'
   Invoke-RetireStow
@@ -223,7 +242,9 @@ function Invoke-RetireSteps {
   Invoke-RetireAspireDotnetTool
   Invoke-RetireStatuslinesMods
   Invoke-RetireCaddy
+  Invoke-RetireUnprivilegedLowPorts
 }
 
 Export-ModuleMember -Function Invoke-RetireStow, Invoke-RetireOpenDesign, Invoke-RetireBun, Invoke-RetireSuperpowersClone,
-  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireCaddy, Invoke-RetireSteps, Test-StowLinksPresent
+  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireCaddy, Invoke-RetireUnprivilegedLowPorts,
+  Invoke-RetireSteps, Test-StowLinksPresent

@@ -150,21 +150,6 @@ function Install-Chrome {
   Write-Ok 'Google Chrome installed'
 }
 
-function Enable-UnprivilegedLowPorts {
-  Write-Status 'Allowing unprivileged processes to bind ports 80 and above...'
-  # Lets 'caddy run' (or any dev server) bind 80/443 without root. Unlike setcap,
-  # this survives binary upgrades. Fine for a dev machine.
-  $conf = '/etc/sysctl.d/50-unprivileged-ports.conf'
-  $setting = 'net.ipv4.ip_unprivileged_port_start=80'
-  if ([IO.File]::Exists($conf) -and ([IO.File]::ReadAllLines($conf) -ccontains $setting)) {
-    Write-Skip 'Unprivileged port start is already set to 80'
-    return
-  }
-  Invoke-Step "echo '$setting' | sudo tee $conf >/dev/null"
-  Invoke-Step 'sudo sysctl --system >/dev/null'
-  Write-Ok 'Unprivileged port start set to 80'
-}
-
 function Install-Aspire {
   Write-Status 'Installing Aspire CLI...'
   # Only the install script's location counts, so every machine installs Aspire the same way
@@ -256,7 +241,6 @@ try {
   Install-GitKraken
   Install-Node
   Install-Chrome
-  Enable-UnprivilegedLowPorts
   Install-Aspire
   Install-Opencode
   Install-ClaudeCode

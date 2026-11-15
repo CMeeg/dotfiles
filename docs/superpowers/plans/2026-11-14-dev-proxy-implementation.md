@@ -180,7 +180,7 @@ In the existing "second run is a no-op", add `Mock Invoke-RetireCaddy -ModuleNam
 - Produces: `Invoke-RetireUnprivilegedLowPorts [-ConfPath <string> = '/etc/sysctl.d/50-unprivileged-ports.conf']`.
 - Consumes: as Task 1, plus `Write-Warn`.
 
-- [ ] **Step 1: Write the failing tests.**
+- [x] **Step 1: Write the failing tests.**
 
 ```powershell
 It 'low ports: removes the file and restores the default now' {
@@ -231,19 +231,19 @@ Then:
 - in "second run is a no-op", add `Mock Invoke-RetireUnprivilegedLowPorts -ModuleName Retire {}` beside Task 1's mock;
 - in Task 1's "Invoke-RetireSteps runs the Caddy step", add the same mock.
 
-- [ ] **Step 2: Run the tests to check they fail.** Use the test command for `tests/Retire.Tests.ps1`. Expected: the six new tests fail, as the function doesn't exist.
+- [x] **Step 2: Run the tests to check they fail.** Use the test command for `tests/Retire.Tests.ps1`. Expected: the six new tests fail, as the function doesn't exist.
 
-- [ ] **Step 3: Implement `Invoke-RetireUnprivilegedLowPorts`.**
+- [x] **Step 3: Implement `Invoke-RetireUnprivilegedLowPorts`.**
   - **Skip:** if the file doesn't exist, `Write-Skip 'The low-ports sysctl is not set'`.
   - **Leave it if it's been added to:** the file's lines, trimmed, without blank lines and lines starting with `#`, must equal exactly `net.ipv4.ip_unprivileged_port_start=80` (case-sensitive). Otherwise `Write-Warn "$ConfPath has other settings — left in place"` and return, without touching the kernel setting.
   - **Remove:** otherwise run `Invoke-Step "sudo rm -f <quoted path>"`, then `Invoke-Step 'sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024'` (1024 is the kernel's default), then `Write-Ok 'Low-ports sysctl removed: ports below 1024 need root again'`.
   - **Comment:** one line of why: nothing in WSL binds ports 80 or 443, as Caddy runs on Windows.
 
-- [ ] **Step 4: Remove `Enable-UnprivilegedLowPorts`** and its call from `install.ps1`.
+- [x] **Step 4: Remove `Enable-UnprivilegedLowPorts`** and its call from `install.ps1`.
 
-- [ ] **Step 5: Edit `linux/README.md`'s `### Caddy`.** Replace the sysctl bullets and the `setcap` N.B. with one bullet: the retire steps also remove the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`) and put the kernel's default back, unless the file holds other settings.
+- [x] **Step 5: Edit `linux/README.md`'s `### Caddy`.** Replace the sysctl bullets and the `setcap` N.B. with one bullet: the retire steps also remove the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`) and put the kernel's default back, unless the file holds other settings.
 
-- [ ] **Step 6: Run all tests, and check the dry run** as in Task 1, Steps 6–7. Expected:
+- [x] **Step 6: Run all tests, and check the dry run** as in Task 1, Steps 6–7. Expected:
   - all tests pass;
   - no `Allowing unprivileged processes...` line;
   - a low-ports line under the retire steps.

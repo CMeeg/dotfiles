@@ -174,12 +174,7 @@ To reach this machine's herdr-core and dev servers from your phone or other comp
 * `apt remove` keeps `/etc/caddy` and `/var/lib/caddy`; `sudo apt purge caddy` removes them too
 * Caddy's old local certificate authority roots stay in the trust stores: see the dev proxy's clean-up step in [Moving a project onto the service](../dev-proxy/README.md#moving-a-project-onto-the-service)
 * Left on purpose, as they're small and other tools may use them: `debian-keyring`, `debian-archive-keyring` and `apt-transport-https`, installed alongside Caddy's apt repo, and `libnss3-tools` in the base packages
-* Allow unprivileged processes to bind ports 80 and above, so `caddy run` can listen on 80/443 as your own user
-  * `echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee /etc/sysctl.d/50-unprivileged-ports.conf`
-  * `sudo sysctl --system`
-* Updates come through `sudo apt upgrade`
-
-> N.B. The sysctl is used instead of `sudo setcap cap_net_bind_service=+ep $(which caddy)` because `setcap` is stored on the binary and lost whenever an upgrade replaces it. The sysctl applies machine-wide, which is fine for a dev machine.
+* The retire steps also remove the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`) and put the kernel's default back, unless the file holds other settings
 
 ### Aspire CLI
 
