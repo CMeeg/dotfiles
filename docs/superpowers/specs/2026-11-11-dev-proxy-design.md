@@ -59,6 +59,7 @@ The same dotfiles run on the personal laptop and the work laptop. The default pa
   - **One tunnel per person.** An admin creates each tunnel and gives that person only its token.
   - **Hostnames point at Caddy,** one route per app, so a project's routing lives in its sites file. The admin adds each route.
   - **Access** puts a login in front of each hostname, with a Bypass policy for paths that must stay open (e.g. webhooks).
+  - **One Access application per person** (decided 2026-11-15, Still open 14): `<person>-*.<work domain>` covers all of that person's routes, so a new app needs only its route and is behind the login from the start. Each webhook path still has its own Bypass application, which takes precedence. This replaces an Access application per hostname.
 - **Personal option: Tailscale.** A wildcard DNS record (*DNS only*) points at Windows' tailnet address (`meeg-laptop`), and Caddy holds a Let's Encrypt wildcard certificate for it, proven with a DNS challenge through Cloudflare's API. A tunnel is still used when something outside the tailnet must reach a server (webhooks, public access).
   - **How tailnet traffic reaches Caddy** (decided 2026-11-14, after the spike): Tailscale forwards it, with `tailscale serve --bg --tcp=443 tcp://127.0.0.1:443`. Caddy serves the tailnet names on loopback like every other site, and never binds the tailnet address.
   - **Why:** a Caddy site bound to the tailnet address stops the whole service from starting while Tailscale is down, `.localhost` names included (Still open 5).
@@ -85,7 +86,7 @@ The same dotfiles run on the personal laptop and the work laptop. The default pa
     - **Routing:** one wildcard route, `*.meeglocal.net` → the laptop's tunnel → Caddy, sits behind one wildcard Access app. A new app then needs only its sites-file entry, and webhook paths get their own Bypass apps.
     - **Telling them apart:** the extra machine label (`.laptop`) marks a name as tailnet-only.
     - **More machines:** a second machine can still get exact per-app routes, as an exact DNS record takes precedence over the wildcard.
-    - **Fallback:** if the dashboard won't take a wildcard route (Still open 6), one route per app, with the same names.
+    - **The wildcard route works** in the dashboard (Still open 6, tested 2026-11-15), so the fallback of one route per app isn't needed.
   - **One project's names, side by side:**
 
     ```
@@ -361,7 +362,7 @@ As found in Cloudflare's dashboard on 2026-11-12 *(tested)*, matching [create a 
    - **Service URL:** the person's Caddy public-name port, with its scheme, e.g. `http://127.0.0.1:5399`.
    - **DNS:** Cloudflare creates the DNS record for the hostname.
    - **Multi-level names:** a subdomain more than one level deep needs an Advanced Certificate.
-4. **Access in front:**
+4. **Access in front:** *(since decided: one application per person on `<person>-*`, Still open 14; the trial used one per hostname, as below)*
    - **The app:** Zero Trust → Access controls → Applications → *Create new application* → *Self-hosted and private* → *Public DNS*. Add the hostname with no path and an *Allow* policy, e.g. the person's email with the one-time PIN login.
    - **An open webhook path:** add a second application for the same hostname with the path (e.g. `webhook`) and a *Bypass* policy for *Everyone* ([policies](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/), [application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)).
    - **Tested:** every other path, including `POST /`, redirects to the login. The bypass covers everything under its path but not lookalikes (`/webhookx`). It **ignores case** (`/Webhook` was open too), and requests through it carry no Access token.
@@ -482,7 +483,7 @@ Run through the steps above, then report on each:
 
 Provisional:
 
-- **Team tunnel names:** `<person>-<app>.<work domain>`.
+- **Team tunnel names:** `<person>-<app>.<work domain>`, kept over `<app>-<person>` (2026-11-15), as `<person>-*` covers them in Access and keeps a person's DNS records together. Person names have no hyphens, so no person's wildcard (`chris-*`) also matches another's names (`chris-p-myapp`).
 - **Personal tunnel names:** `<app>.<personal domain>`, e.g. `myapp.meeglocal.net`.
 - **Tailscale names:** `<app>.<machine>.<personal domain>`, with `<machine>` e.g. `laptop` (`myapp.laptop.meeglocal.net`).
 - **The public-name port in Caddy:** `5399`.
@@ -529,8 +530,8 @@ Provisional:
 6. **Tunnel wildcard hostnames (checked 2026-11-14):**
    - **Shared work domain: ruled out.** A tunnel's ingress rules accept `*.example.com` but not a wildcard inside a hostname ([configuration file](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/configuration-file/)), so there's no wildcard per person under `<person>-<app>.<work domain>`.
    - **Personal domain: possible.** One person owns the whole domain, so `*.<personal domain>` → Caddy could cover every app.
-   - **Unverified:** whether the dashboard accepts a wildcard published application (a community report says it does now; Cloudflare's docs don't say), and whether it then creates the wildcard DNS record.
-   - **When to check:** when building the personal tunnel, as the personal names now use it (item 1). If it doesn't work, use one route per app.
+   - **The dashboard accepts a wildcard published application** (*tested* 2026-11-15 on the personal domain, with a throwaway tunnel, since deleted). A route with subdomain `*` was added with no error, and DNS → Records then showed a proxied `*` record of type *Tunnel* pointing at the tunnel, not a CNAME. Every name tried under the domain reached the local service through it. Cloudflare's docs still show wildcard hostnames only in a locally-managed tunnel's config file.
+   - **What's left for the personal tunnel:** nothing on this point; the one-route-per-app fallback isn't needed.
 7. **The hardened alternative: tested 2026-11-14 on the personal laptop, and it works** (Caddy 2.11.9, official zip, service `start= demand`, Chrome).
    - **The config:** `admin off` in the global options, with the top Caddyfile, `sites` and the log under `C:\Program Files\Caddy\`. The service is created with `--config "C:\Program Files\Caddy\Caddyfile"`, quoted because of the space.
    - **What it showed:**
@@ -544,9 +545,9 @@ Provisional:
 8. **Quick tunnels at work:** does the team allow them? They need no account and leave no trace of who opened them.
 9. **People managing their own tunnel's routes: needs a test by the work account's admins** (*docs only*, checked 2026-11-15). **Decided 2026-11-15:** the admin's guide mentions it as unverified.
    - **The role:** Cloudflare can scope a member's role to one tunnel: Manage Account → Members → the member's policy → Scope "Specific resources" → resource type "Cloudflare Tunnel instances" ([granular permissions](https://developers.cloudflare.com/tunnel/guides/granular-permissions/), updated 2026-09-11; [role scopes](https://developers.cloudflare.com/fundamentals/manage-members/scope/); [roles](https://developers.cloudflare.com/fundamentals/manage-members/roles/#resource-scoped-roles), updated 2026-10-12). Resource-scoped roles are in beta. The docs describe the scope only as "manage a specific Cloudflare Tunnel instance": they don't name the role to bind, or say whether it covers adding and removing published application routes.
-   - **DNS:** the docs don't say whether a route added in the dashboard, which creates the route's DNS record, needs DNS permission too. DNS roles are scoped to a whole domain, so DNS edit would let the person change any record on the work domain, other people's included.
+   - **DNS:** routing a tunnel to a public hostname needs the DNS role on top of the account-scoped tunnel role ([tunnel permissions](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/remote-tunnel-permissions/#account-scoped-roles), updated 2026-06-23, found 2026-11-15). The docs don't say whether the same holds with a tunnel-scoped role. DNS roles are scoped to a whole domain, so DNS edit would let the person change any record on the work domain, other people's included.
    - **Other people's names:** nothing in the docs stops a member routing a hostname with another person's `<person>-<app>` prefix.
-   - **Access:** creating an Access application needs an account-level Access role; the resource-scoped Access role edits one existing application only. So the admin would still put the login in front of each new route, and a route is public until they do.
+   - **Access:** creating an Access application needs an account-level Access role; the resource-scoped Access role edits one existing application only. With one Access application per person (item 14), a new route is behind the login from the start, but the admin would still add each webhook's Bypass application.
 10. **Skipping the project changes for a named tunnel: the override works** (*tested* 2026-11-15 on the personal laptop with a quick tunnel; the dashboard settings are *docs only*).
     - **The idea:** the tunnel route's Host header override sends each request in as the app's `.localhost` name. The project's local site in Caddy then answers it, with no public site in the sites file and no host-check change in the project.
     - **The settings** ([origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/), updated 2026-09-11): a remotely-managed tunnel's published route sets them in the dashboard under "Additional application settings": "HTTP Host Header" (`httpHostHeader`), "Origin Server Name" (`originServerName`), "Disable TLS certificate verification" (`noTLSVerify`) and "CA Pool" (`caPool`, a file path). "Match SNI to host" (`matchSNItoHost`) sends the Host override as the TLS name, so "Origin Server Name" isn't needed with it. The route: Service `https://127.0.0.1:443`, Host header `<app>.localhost`, the TLS name `<app>.localhost`, and either verification off or a CA pool. A CA pool needs a copy of Caddy's root that `cloudflared` can read, as the original sits where only administrators can read it.
@@ -572,6 +573,16 @@ Provisional:
     - **Where it is now:** which account the spare domain is in.
     - **If it shares an account with other domains:** whether to move it to a dedicated account, and how. Cloudflare's process for moving a domain between accounts hasn't been checked.
     - **Who runs it:** who the new account's admins are.
+14. **One Access application per person, with a wildcard in the name: works** (*tested* 2026-11-15 on the personal domain, with made-up person names `alpha` and `beta`; everything since deleted).
+    - **What the docs say:** a wildcard can go at the beginning or end of an Access application's subdomain, e.g. `*test.example.com` covers `alphatest.example.com`, and it never covers more than one label ([application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/), updated 2026-04-17). The docs don't state, for public hostnames, which of two overlapping applications wins.
+    - **The set-up:** a tunnel with one `*` route to a header-echo server, and two Access applications with *Allow* policies, one on subdomain `*-alpha` and one on `beta-*`. The dashboard accepted both.
+    - **What it showed** (curl, redirects not followed):
+      - `one-alpha`, `two-alpha`, `x-one-alpha` and `ONE-ALPHA` went to the login; `alpha` and `one-alphax` reached the server;
+      - `beta-one` and `beta-two` went to the login; `beta` and `xbeta-one` reached the server;
+      - so either form matches any text in place of the `*`, hyphens included, and nothing else.
+    - **Webhooks:** a Bypass application on `one-alpha` with path `webhook` wins over the `*-alpha` application. `/webhook`, `/webhook/sub` and `/Webhook` were open to GET and POST; `/`, `/webhookx` and `two-alpha/webhook` still went to the login. (The first attempt failed because the application's policy had been saved as *Allow*; with *Bypass* it worked within seconds.)
+    - **What it changes** for the work domain: one Access application per person, `<person>-*.<work domain>`, covers all of that person's apps, so a new app needs only its route, and a route is behind the login from the start. Today's names already fit it, so the `*-<person>` form isn't needed for this. Routes are still one per app, as a route can't take a wildcard inside a name (item 6), and each webhook still has its own Bypass application.
+    - **Decided 2026-11-15:** keep `<person>-<app>`, with one Access application per person on `<person>-*` and no hyphens in person names (see Reaching dev servers, and Names). One application for the whole domain would do if everyone's policy were the same, which is for the work account's admins to decide.
 
 ## Next steps
 

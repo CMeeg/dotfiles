@@ -189,6 +189,17 @@ The WSL test server has already been stopped and its folder removed (both times)
 
 Afterwards nothing listened on 3000 or 8443, no `caddy` or `cloudflared` process was running, `%APPDATA%\Caddy` was gone, and `%USERPROFILE%\.cloudflared` was still empty.
 
+**The Access wildcard and wildcard route check (2026-11-15, design Still open 6 and 14), all undone the same day.** Dashboard changes were made by the user:
+
+| Change | Undo |
+|---|---|
+| Tunnel `spike` on the personal account, its token saved in `%USERPROFILE%\.cloudflared\spike.token` (never opened) | The user deleted the tunnel; the token file was deleted |
+| Access applications `spike alpha` (`*-alpha`), `spike beta` (`beta-*`) and `spike bypass` (`one-alpha`, path `webhook`) | Deleted by the user, the bypass one first |
+| Route `*` on the tunnel, and the `*` DNS record of type *Tunnel* it created | Deleted by the user |
+| A header-echo server on `127.0.0.1:3000` and `cloudflared tunnel run --token-file`, run as the user | Stopped; the scratch folder deleted |
+
+Afterwards the test names didn't resolve through `1.1.1.1` and requests to them failed to connect, no `cloudflared` was running, nothing listened on 3000, and `%USERPROFILE%\.cloudflared` was empty.
+
 **A fresh start in Cloudflare (2026-11-14, on purpose, not to be undone):**
 - **The account as found:** one zone, `meeglocal.net` (registered 2024-01-28, auto-renewing), with no DNS records and no tunnels. It has an Access organisation, `meeg.cloudflareaccess.com`, with no apps.
 - **What was removed:** `%USERPROFILE%\.cloudflared\cert.pem`, from an old `cloudflared tunnel login`, deleted unopened. The user is deleting two old "Argo Tunnel" API tokens in the dashboard.

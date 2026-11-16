@@ -378,7 +378,7 @@ Then:
 
 - [x] **Step 4: Record and decide.** Write the findings into "Still open" 9 and 10, with sources, dates and labels (*tested* or *docs only*). Then ask the user, for each item, whether Task 6 documents it, documents it as unverified, or leaves it out. Record their answer in the design.
 
-- [ ] **Step 5: Checkpoint.** The user reviews and commits (suggested: `check two tunnel improvements`).
+- [x] **Step 5: Checkpoint.** The user reviews and commits (suggested: `check two tunnel improvements`).
 
 ### Task 6: Tunnels: the person's guide and the admin's guide
 
@@ -389,9 +389,9 @@ Then:
 - Consumes: Task 4's headings and anchors, and Task 5's two answers. If item 9 is documented, it goes in `## Admin's guide: Cloudflare Tunnel`; if item 10 is, it goes in `## Tunnels`, under regular access. Either way, they're written as the design records them and labelled to match.
 - Produces: the `#tunnels`, `#admins-guide-cloudflare-tunnel` and `#personal-domain` anchors.
 
-- [ ] **Step 1: Check each Cloudflare dashboard step against current docs**, as in the Global Constraints. Note each page's URL and the date checked; any step that no longer matches is written as the docs now say, and marked so.
+- [x] **Step 1: Check each Cloudflare dashboard step against current docs**, as in the Global Constraints. Note each page's URL and the date checked; any step that no longer matches is written as the docs now say, and marked so.
 
-- [ ] **Step 2: Write `## Tunnels`.** Take the design's "Reaching dev servers from other devices" decision (two options, by how long the access is needed) and step 9:
+- [x] **Step 2: Write `## Tunnels`.** Take the design's "Reaching dev servers from other devices" decision (two options, by how long the access is needed) and step 9:
   - **One-off sharing:** a quick tunnel to the dev server, with `--http-host-header`, its limits and risks. Label the two claims that come from an article, not Cloudflare's docs.
   - **Whether quick tunnels are allowed:** where several people use this set-up under one organisation, checking first is that organisation's call (design, "Still open" 8).
   - **Regular access:**
@@ -401,17 +401,17 @@ Then:
     - why `trusted_proxies` is in the top file.
   - **Removing a tunnel:** stop `cloudflared`, delete the token file, and uninstall `cloudflared` if it's no longer wanted. Add these to `## Removing`.
 
-- [ ] **Step 3: Write `## Admin's guide: Cloudflare Tunnel`.**
+- [x] **Step 3: Write `## Admin's guide: Cloudflare Tunnel`.**
   - **Content:** the design's admin's guide (setting a person up, Access with a Bypass path, Always Use HTTPS, when someone leaves, `cert.pem`), as checked in Step 1.
   - **The dedicated account:** a domain used this way lives in a Cloudflare account of its own. For the work domain this is still to be confirmed (design, "Still open" 13), so say that.
   - **For anyone following the guide, agents included:** the dashboard changes often, so check every step against current docs before following it (context7 `/cloudflare/cloudflare-docs`, or the page's `index.md`). Where Cloudflare's plugin is installed, agents use it read-only, and changes are made by the person or approved by them one at a time. This is from the design's "Dotfiles and docs" decisions.
 
-- [ ] **Step 4: Write `## Personal domain`.**
+- [x] **Step 4: Write `## Personal domain`.**
   - **The wildcard route:** `*.<personal domain>` → the machine's tunnel → Caddy on `http://127.0.0.1:5399`, behind one wildcard Access app. A new app needs only its sites-file entry: `http://<app>.<personal domain>:5399`.
   - **Fallback:** the design's "Still open" 6. The dashboard's support for wildcard routes is unverified, so the fallback is one route per app with the same names.
   - **Verify while writing:** if the dashboard can be checked read-only (the Cloudflare plugin or the docs), record what it shows. Otherwise label it *docs only, unverified*.
 
-- [ ] **Step 5: Review as Task 4, Step 4**, adding: every dashboard step names the docs page it was checked against, and each anchor link matches Task 4's table.
+- [x] **Step 5: Review as Task 4, Step 4**, adding: every dashboard step names the docs page it was checked against, and each anchor link matches Task 4's table.
 
 - [ ] **Step 6: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's tunnel guides`).
 
@@ -519,6 +519,7 @@ Then:
 - Modify: `docs/superpowers/specs/2026-11-11-dev-proxy-design.md`:
   - **"Where things stand":** what was built, with links to `dev-proxy/README.md` and `tailscale/README.md`, and that the exploration's script is gone.
   - **Two stale lines:** in the "Tailscale runs on Windows only" decision, `tcp://localhost:2222` becomes `tcp://127.0.0.1:2222`, as tested. In the "Windows service" decision, "Neither is tested yet" becomes a pointer to "Still open" 7, which records the test.
+  - **Cloudflare's docs since the trial** (found in Task 6, Step 1): "Set-up as tested" step 9 and its admin's guide get a note on what the docs now say, keeping what was tested. The changes: Access's button is **Add public hostname** (not *Public DNS*); Cloudflare recommends creating the Access application before the route; creating a tunnel has no connector type to choose; **Refresh token** doesn't cut off a `cloudflared` already connected; the run-parameters page no longer says `--token` or `TUNNEL_TOKEN` take precedence over `--token-file`; and quick tunnels' docs now cover `--allowed-mail`, the 200-request limit and the lack of Server-Sent Events. `dev-proxy/README.md` already follows the docs.
 - Modify: `docs/superpowers/plans/2026-11-14-dev-proxy-project.md`: add a step 8, "Build", ticked, linking to this plan. Record anything deferred during the work in its "Deferred" section at the time it's deferred.
 
 - [ ] **Step 1: Run the full test suite.** Use the test command. Expected: all pass. Then run `install.ps1 -WhatIf` and `update.ps1 -WhatIf` as in the Global Constraints. Expected: both exit 0 and change nothing.
