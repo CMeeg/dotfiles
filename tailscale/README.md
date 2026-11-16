@@ -6,7 +6,7 @@ It's optional and for personal machines: `install.ps1` doesn't set it up. Each s
 
 ## How it fits together
 
-Tailscale runs on Windows only, and Windows is the one device on the tailnet, named `<host>`:
+Tailscale runs on Windows only, so each machine is one device on the tailnet, named `<host>`, and WSL is reached through it:
 
 | What | Reached from the tailnet at | Through |
 |---|---|---|

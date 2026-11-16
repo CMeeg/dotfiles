@@ -25,7 +25,7 @@ The files this guide copies are beside it: [Caddyfile](./Caddyfile) (the top fil
 
 The order to set a machine up in, what to check and decide first, and the one check that shows each part worked. Each part's steps are in its own section. This order was followed on a personal Windows 11 machine with WSL *(tested)*; the work and Mac rows below are *docs only*.
 
-Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are made by the person whose machine or account it is. An agent helping can prepare them and check the result, but never handles a token.
+Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are made by the person whose machine or account it is, unless they hand some to an agent helping them, one approved change at a time. An agent prepares them and checks the result, and never handles a token.
 
 ### Before you start
 
@@ -33,7 +33,8 @@ Check what's already on the machine, without changing anything:
 
 - [ ] **Caddy on Windows:** a `caddy` service (`sc.exe query caddy`); `C:\Program Files\Caddy` and `C:\ProgramData\Caddy`; a per-user Caddy from winget or Chocolatey (`winget list --id CaddyServer.Caddy`, `choco list caddy`) and its `%APPDATA%\Caddy`; *Caddy Local Authority* roots in your store (`certutil -user -store Root`).
 - [ ] **Ports:** what listens on 80, 443, 2019 and 5399 (`Get-NetTCPConnection -State Listen`), and whether IIS is installed (`Get-Service W3SVC`).
-- [ ] **WSL:** an apt-installed Caddy (`dpkg -l caddy`), the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`), and old roots in `/usr/local/share/ca-certificates/`.
+- [ ] **WSL:** an apt-installed Caddy (`dpkg -l caddy`), the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`), old roots in `/usr/local/share/ca-certificates/`, and whether WSL's clone of this repo is up to date (`git -C ~/.dotfiles status -sb` after a `git fetch`).
+- [ ] **Projects that ran their own Caddy:** Caddyfiles and scripts that run `caddy run` in your project folders. They keep working until moved, but compete for ports 80 and 443 with the service ([Moving a project onto the service](#moving-a-project-onto-the-service)).
 - [ ] **`cloudflared`:** every copy on `PATH` (`Get-Command cloudflared -All`), and what's in `%USERPROFILE%\.cloudflared`: a `config.yml` there can stop quick tunnels working.
 - [ ] **Personal machines:** whether Tailscale is installed (`tailscale status`, `tailscale serve status`), the SSH server (`Get-Service sshd`) and its firewall rule's addresses, and whether a DNS filter such as NextDNS runs on the machine or the phone ([DNS filters](../tailscale/README.md#optional-dns-filters)).
 - [ ] **Old cloud set-up,** if the machine was set up before: tunnels, Access applications, DNS records and API tokens for it in Cloudflare, and the device in Tailscale's admin console.
@@ -52,16 +53,17 @@ Keep a list of each change you make with how to undo it; [Removing](#removing) c
 |---|---|
 | Personal Windows machine | Everything: the dev proxy, a tunnel for the machine on the [personal domain](#personal-domain), and [Tailscale](../tailscale/README.md) for SSH, WSL and the tailnet names |
 | Work Windows machine | The dev proxy and the person's own tunnel on the work domain, run with the token the work account's admin hands over ([Regular access](#regular-access-a-named-tunnel)); nothing in the work account is changed except by its admins. No Tailscale |
+| A second personal machine on the same domain | As the first, with its own tunnel using a route per app, as the first machine's `*` route already covers the domain ([Personal domain](#personal-domain)). An exact route takes that name from the first machine, so give its apps names the first doesn't use, e.g. `<app>-<machine>`; the first machine's `*` Access application already covers them. Its own `<host>` and `<machine>` label, so its tailnet names don't clash, and its own API token, so each can be deleted on its own *(docs only)* |
 | Mac | The [macOS](#macos) steps, which are untested: work through [To check on a Mac](#to-check-on-a-mac) and correct the guide from what happens |
 
 ### The order
 
-1. **Retire Caddy in WSL** (machines with WSL): run `pwsh ./update.ps1` in WSL, whose retire steps remove an apt-installed Caddy and the low-ports sysctl ([linux/README.md](../linux/README.md#caddy)). *Check:* `pwsh ./update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`.
+1. **Retire Caddy in WSL** (machines with WSL): pull WSL's clone first (`git -C ~/.dotfiles pull`), as `update.ps1` runs its retire steps before it pulls; then run `pwsh ./update.ps1` in WSL, whose retire steps remove an apt-installed Caddy and the low-ports sysctl ([linux/README.md](../linux/README.md#caddy)). *Check:* `pwsh ./update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`.
 2. **The dev proxy:** [Windows](#windows-also-windows--wsl) steps 1–8, with the [hardened set-up](#optional-the-hardened-set-up) in place of steps 2–3 and 5 if chosen. *Check:* `https://<app>.localhost` loads in a browser with no certificate warning, and hot reload works.
 3. **Clean up the old Caddy:** [old roots, the per-user Caddy and WSL's roots](#optional-clean-up-the-old-caddy). *Check:* `certutil -user -store Root` shows one *Caddy Local Authority* root, the service's.
 4. **Tunnels:** install `cloudflared` ([Tunnels](#tunnels)), then the personal domain's tunnel or the person's work tunnel. *Check:* `curl.exe -s -o NUL -w "%{http_code}" https://<public name>/` prints `302` (the Access login), and after the login the page loads.
 5. **Tailscale** (personal machines): [tailscale/README.md](../tailscale/README.md), from Windows to the tailnet names. *Check:* the phone opens `https://<app>.<machine>.<personal domain>` with Tailscale connected, and not with it disconnected.
-6. **Restart Windows.** *Check:* with `start= auto`, the `caddy` service is running without being started by hand and `https://<app>.localhost` answers; `tailscale serve status` lists the forwards; the phone reaches WSL once WSL is running ([Keep WSL running](../tailscale/README.md#keep-wsl-running)).
+6. **Restart Windows.** *Check:* with `start= auto`, the `caddy` service is running without being started by hand and `https://<app>.localhost` answers; `tailscale serve status` lists the forwards; the tunnel runs again with the same command (nothing starts it by itself); the phone reaches WSL once WSL is running ([Keep WSL running](../tailscale/README.md#keep-wsl-running)).
 
 ### When something differs from the guide
 
@@ -163,7 +165,7 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
 5. **Trust Caddy's certificate authority** *(tested)*.
    - **Command:** with the service running, as administrator: `& 'C:\Program Files\Caddy\caddy.exe' trust` ([caddy trust](https://caddyserver.com/docs/command-line#caddy-trust)).
    - **What it does:** it fetches the root from the admin API and installs it into the **current user's** Trusted Root Certification Authorities, even when run as administrator, after a Windows security dialog. Chrome then accepts the certificates (Edge and Firefox weren't tried).
-   - **Run it as the account you browse with:** elevating with a separate administrator account would put the root in that account's store. Whether it works without elevation wasn't tested.
+   - **Run it as the account you browse with:** elevating with a separate administrator account would put the root in that account's store. Whether it works without elevation wasn't tested. Where administrator rights come from a separate account, trust it as the [hardened set-up](#optional-the-hardened-set-up) does (step 4): copy `root.crt` out with the administrator account, then add it with `certutil -user` as yourself *(tested, with one account)*.
    - **To remove it:** see [Removing](#removing).
 6. **Make `.localhost` names resolve for tools other than browsers** *(tested)*.
    - **Browsers** resolve any `*.localhost` name to the local machine themselves; Windows' own resolver doesn't.
@@ -319,7 +321,7 @@ On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudf
 - **Names:** `<app>.<personal domain>`, e.g. `myapp.example.net`, one level deep so Cloudflare's free certificate covers them.
 - **The tunnel:** one per machine, named for it, run as in [Regular access](#regular-access-a-named-tunnel).
 - **The wildcard route:** subdomain `*` on the domain → Service URL `http://127.0.0.1:5399`, behind one Access application with subdomain `*`. A `*.example.net` application covers `myapp.example.net`, but not the domain itself or deeper names ([application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)). Webhook paths get their own Bypass applications, one per hostname.
-- **A new app:** add `http://<app>.<personal domain>:5399` to the project's sites file, and the name to its host check. Nothing changes in Cloudflare.
+- **A new app:** add `http://<app>.<personal domain>:5399` to the project's sites file, and the name to its host check. On the machine with the `*` route, nothing changes in Cloudflare.
 - **The dashboard takes the wildcard route,** though Cloudflare's docs show wildcard hostnames only in a locally-managed tunnel's config file. DNS → Records then shows a proxied `*` record of type *Tunnel*, not a CNAME.
 - **What the `*` Access application did** (curl, redirects not followed): `https://<app>.<personal domain>/` returned `302` to the Access login, and so did a name with no site behind it; the bare domain, which has no record, didn't connect; `http://` redirected to `https://` (`301`). After the PIN, the page loaded, a refresh didn't ask again, and hot reload worked. Partial wildcards (e.g. `*-alpha`) matched as the docs describe, and a Bypass application for one hostname's webhook path took precedence over them; a Bypass under the full `*` application wasn't tried.
 - **Names with no site** pass the login, then get Caddy's empty `200`, as no site on `5399` matches them *(Caddy's answer tested directly on `5399`)*.

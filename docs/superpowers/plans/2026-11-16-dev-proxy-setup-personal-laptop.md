@@ -172,20 +172,21 @@ Read-only: nothing on the machine changes.
 A skill, so an agent on another machine follows the same way of working: take stock read-only, decide with the person, change lists with an undo, one instruction at a time, verify, and fix the guide where reality differs. It points at the guide for every step rather than repeating it, so there's one place to keep current.
 
 **Files:**
-- Create: `claude/.claude/local-plugins/dev-proxy/.claude-plugin/plugin.json`: `{"name": "dev-proxy", "version": "0.1.0", "description": "Setting up and checking the dev proxy, its tunnels and its Tailscale route on a machine", "author": {"name": "Chris Meagher"}}`.
-- Create: `claude/.claude/local-plugins/dev-proxy/skills/setting-up-a-machine/SKILL.md` (name *provisional*: `dev-proxy:setting-up-a-machine`).
+- Create: `claude/.claude/local-plugins/dev-proxy/.claude-plugin/plugin.json`: name `dev-proxy`, version `0.1.0`, description "Setting up and checking the dev proxy, its tunnels and its Tailscale route on a machine", author Chris Meagher, laid out like the sibling plugins' `plugin.json`.
+- Create: `claude/.claude/local-plugins/dev-proxy/skills/setting-up-a-machine/SKILL.md` (`dev-proxy:setting-up-a-machine`).
 - Modify: `opencode/.config/opencode/opencode.jsonc`: add `"@DOTFILES@/claude/.claude/local-plugins/dev-proxy/skills"` to the skills list, beside the others.
+- Modify (added while testing): `dev-proxy/README.md`'s Setting up a machine (pull WSL's clone first, projects with their own Caddy, the second personal machine's row, who does what, the tunnel after a restart), Windows step 5 (trusting with a separate admin account) and Personal domain's "A new app"; `tailscale/README.md`'s opening line on devices.
 
 **Interfaces:**
 - Consumes: Task 7's `#setting-up-a-machine` section.
 
-- [ ] **Step 1: Load `superpowers:writing-skills`** and follow it, including its baseline test: a subagent asked to "set up the dev proxy on this machine" without the skill, briefed with the repo's guardrails and told to describe what it would do rather than do it. Note where it goes wrong (e.g. runs admin commands itself, skips the inventory, makes dashboard changes, reads a token file).
-- [ ] **Step 2: Write the skill.** Its description says when to use it (setting up, moving or checking the dev proxy, tunnels or Tailscale route on a machine). Its body:
+- [x] **Step 1: Load `superpowers:writing-skills`** and follow it, including its baseline test: a subagent asked to "set up the dev proxy on this machine" without the skill, briefed with the repo's guardrails and told to describe what it would do rather than do it. Note where it goes wrong (e.g. runs admin commands itself, skips the inventory, makes dashboard changes, reads a token file). (Done with two scenarios, a work laptop under time pressure with a token pasted into the chat, and a second personal laptop with leftovers. Without the skill, the work-laptop agent ran the admin commands itself once told the terminal was elevated, and both had to guess at a second machine on the same domain, per-project Caddy and the WSL clone being out of date.)
+- [x] **Step 2: Write the skill.** Its description says when to use it (setting up, moving or checking the dev proxy, tunnels or Tailscale route on a machine). Its body:
   - **First:** read the guide's [Setting up a machine](../../../dev-proxy/README.md#setting-up-a-machine), and take stock read-only;
   - **Rules:** the Global Constraints of this plan that hold on any machine: who does what, change lists with an undo, secrets, Cloudflare docs checks, processes;
   - **Recording:** where reality differs, fix the guide; keep a list of the machine's changes with undos for the person (in a plan, if one is being followed);
   - **Machine types:** personal, work and Mac, pointing at the guide's table, with the work machine's differences (the token comes from the account's admin; nothing in the work account is changed by the person unless they're its admin).
-- [ ] **Step 3: Test it** the same way as the baseline, with the skill loaded. Expected: the subagent's described approach follows the rules the baseline broke. Close each gap in the skill and re-test, as `writing-skills` says.
+- [x] **Step 3: Test it** the same way as the baseline, with the skill loaded. Expected: the subagent's described approach follows the rules the baseline broke. Close each gap in the skill and re-test, as `writing-skills` says. (Three rounds: the gaps that were about the set-up itself went into the guide's Setting up a machine section and the Tailscale guide; the ones about working with the person went into the skill. The last round checked the work-admin wording on its own.)
 - [ ] **Step 4: Check it loads:** in a new Claude Code session, the skill is listed as `dev-proxy:setting-up-a-machine`; opencode lists it too after a sync (`pwsh ./sync.ps1 -NoPull`, run by the person if it needs to prompt).
 - [ ] **Step 5: Checkpoint** (suggested: `add a skill for setting up the dev proxy on a machine`).
 

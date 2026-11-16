@@ -1,0 +1,6 @@
+{
+  "name": "dev-proxy",
+  "version": "0.1.0",
+  "description": "Setting up and checking the dev proxy, its tunnels and its Tailscale route on a machine",
+  "author": { "name": "Chris Meagher" }
+}
