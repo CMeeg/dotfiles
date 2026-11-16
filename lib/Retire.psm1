@@ -221,7 +221,8 @@ function Invoke-RetireUnprivilegedLowPorts {
     Write-Skip 'The low-ports sysctl is not set'
     return
   }
-  $settings = @([IO.File]::ReadAllLines($ConfPath) | ForEach-Object { $_.Trim() } |
+  # sysctl.d allows spaces around the equals sign
+  $settings = @([IO.File]::ReadAllLines($ConfPath) | ForEach-Object { $_.Trim() -replace '\s*=\s*', '=' } |
       Where-Object { $_ -and -not $_.StartsWith('#') })
   if ($settings.Count -ne 1 -or $settings[0] -cne 'net.ipv4.ip_unprivileged_port_start=80') {
     Write-Warn "$ConfPath has other settings — left in place"

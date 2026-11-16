@@ -40,16 +40,25 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
      ```
 
    - **Not a per-user install** (such as winget's default): the user can overwrite that file, and the service would run it as SYSTEM.
+   - **Updating** *(docs only)*: download the newer zip and checksums and compare the hashes as above. Then, as administrator, stop the service, expand the zip over the old files with `-Force`, and start it again, with the new version in place of `2.11.9`. A running `caddy.exe` can't be replaced, and without `-Force`, `Expand-Archive` stops at the existing file:
+
+     ```powershell
+     sc.exe stop caddy
+     Expand-Archive caddy_2.11.9_windows_amd64.zip -DestinationPath 'C:\Program Files\Caddy' -Force
+     sc.exe start caddy
+     ```
+
+     With Caddy's Cloudflare plugin added for [Tailscale names](../tailscale/README.md#dev-servers-by-name-on-the-tailnet), use `caddy upgrade` instead ([caddy upgrade](https://caddyserver.com/docs/command-line#caddy-upgrade)): the zip has no plugins, so the tailnet site would fail to load and take every site down with it.
 2. **Create the configuration** *(tested)*.
    - **Files:** as administrator, create `C:\ProgramData\Caddy\sites`, then copy in the top [Caddyfile](./Caddyfile) and [sites/ports.caddy](./sites/ports.caddy) from this repo's clone ([New-Item](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/new-item), [Copy-Item](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/copy-item)):
 
      ```powershell
      New-Item -ItemType Directory C:\ProgramData\Caddy\sites
-     Copy-Item <dotfiles>\dev-proxy\Caddyfile C:\ProgramData\Caddy\
-     Copy-Item <dotfiles>\dev-proxy\sites\ports.caddy C:\ProgramData\Caddy\sites\
+     Copy-Item $env:USERPROFILE\.dotfiles\dev-proxy\Caddyfile C:\ProgramData\Caddy\
+     Copy-Item $env:USERPROFILE\.dotfiles\dev-proxy\sites\ports.caddy C:\ProgramData\Caddy\sites\
      ```
 
-     `<dotfiles>` is the clone's folder, e.g. `$env:USERPROFILE\.dotfiles`. `ports.caddy` is optional (step 7).
+     For a clone elsewhere, change `$env:USERPROFILE\.dotfiles` to its folder. `ports.caddy` is optional (step 7).
    - **What the top file sets** ([global options](https://caddyserver.com/docs/caddyfile/options)):
      - **`default_bind 127.0.0.1 [::1]`** keeps every site, and the HTTP-to-HTTPS redirect server, on loopback, so dev servers aren't exposed to the network.
      - **`skip_install_trust`** stops the service's failed attempts, at every start, to install its root into a trust store ("failed to install root certificate"). Trusting is its own step (5).
@@ -197,7 +206,7 @@ To stop using a tunnel, see [Removing](#removing).
 
 ### Option: skip the project changes with a Host override
 
-*Tested with a quick tunnel and Vite 7; the dashboard settings are docs only.* A route can send each request in as the app's `.localhost` name, so the project's local site answers it, with no public site in the sites file and no host-check change. The admin sets this per route, under the route's **Additional application settings** ([origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/), [HTTPS origins](https://developers.cloudflare.com/tunnel/troubleshooting/https-origins/)):
+*Tested with a quick tunnel and Vite 7.3.8; the dashboard settings are docs only.* A route can send each request in as the app's `.localhost` name, so the project's local site answers it, with no public site in the sites file and no host-check change. The admin sets this per route, under the route's **Additional application settings** ([origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/), [HTTPS origins](https://developers.cloudflare.com/tunnel/troubleshooting/https-origins/)):
 
 | Setting | Value |
 |---|---|
@@ -283,9 +292,11 @@ On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudf
 
    ```bash
    mkdir -p "$(brew --prefix)/etc/sites"
-   cp <dotfiles>/dev-proxy/Caddyfile "$(brew --prefix)/etc/"
-   cp <dotfiles>/dev-proxy/sites/ports.caddy "$(brew --prefix)/etc/sites/"
+   cp ~/.dotfiles/dev-proxy/Caddyfile "$(brew --prefix)/etc/"
+   cp ~/.dotfiles/dev-proxy/sites/ports.caddy "$(brew --prefix)/etc/sites/"
    ```
+
+   For a clone elsewhere, change `~/.dotfiles` to its folder.
 
    - **The path is fixed:** the formula's service always reads `$(brew --prefix)/etc/Caddyfile`.
    - **No admin rights needed,** unlike Windows: Homebrew's prefix belongs to the user.
@@ -429,13 +440,13 @@ Some steps in these guides exist only because of a DNS filter, such as NextDNS. 
 
 ## Removing
 
-**On Windows,** as administrator, unless marked *(docs only, except where marked)*:
+**On Windows,** as administrator unless a step says otherwise. The steps are *docs only* except where marked *tested*.
 
-1. **The service:** `sc.exe stop caddy; sc.exe delete caddy` ([sc delete](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete)).
-2. **Caddy and its config:** delete `C:\Program Files\Caddy`, and `C:\ProgramData\Caddy` unless you used the hardened set-up.
-3. **The service's data:** delete `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy`, which holds the certificate authority's private key.
-4. **Hosts entries:** remove the names added to `C:\Windows\System32\drivers\etc\hosts` in step 6.
-5. **The root,** in an ordinary terminal: `certutil -user -store Root` lists your roots; find *Caddy Local Authority* in a `Subject` line, then run `certutil -user -delstore Root <thumbprint>` with its `Cert Hash(sha1)` value *(tested)*, confirming the Windows dialog ([certutil](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil)). `caddy untrust` does the same, but only while the service still runs, so before step 1 *(docs only)* ([caddy untrust](https://caddyserver.com/docs/command-line#caddy-untrust)). PowerShell's `Remove-Item Cert:\CurrentUser\Root\<thumbprint>` fails with "The operation is on user root store and UI is not allowed".
+1. **The root,** in an ordinary terminal: `certutil -user -store Root` lists your roots; find *Caddy Local Authority* in a `Subject` line, then run `certutil -user -delstore Root <thumbprint>` with its `Cert Hash(sha1)` value *(tested)*, confirming the Windows dialog ([certutil](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil)). `caddy untrust` does the same while the service is still running, as it uses the admin API ([caddy untrust](https://caddyserver.com/docs/command-line#caddy-untrust)). PowerShell's `Remove-Item Cert:\CurrentUser\Root\<thumbprint>` fails with "The operation is on user root store and UI is not allowed".
+2. **The service:** `sc.exe stop caddy; sc.exe delete caddy` ([sc delete](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete)).
+3. **Caddy and its config:** delete `C:\Program Files\Caddy`, and `C:\ProgramData\Caddy` unless you used the hardened set-up.
+4. **The service's data:** delete `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy`, which holds the certificate authority's private key.
+5. **Hosts entries:** remove the names added to `C:\Windows\System32\drivers\etc\hosts` in set-up step 6.
 6. **A tunnel,** in an ordinary terminal *(docs only)*:
    - stop `cloudflared` with Ctrl+C;
    - delete the token file, `%USERPROFILE%\.cloudflared\<tunnel>.token`, and `caddy-root.crt` beside it if you made one for the Host override;
@@ -448,6 +459,6 @@ Some steps in these guides exist only because of a DNS filter, such as NextDNS. 
 1. **The root,** while the service still runs, as `caddy untrust` uses the admin API: `caddy untrust`, or `sudo caddy untrust` if trusting needed `sudo` ([caddy untrust](https://caddyserver.com/docs/command-line#caddy-untrust)).
 2. **The service:** `brew services stop caddy` (with `sudo` if it was started with `sudo`).
 3. **Caddy's config and data:** delete `$(brew --prefix)/etc/Caddyfile`, the `sites` folder beside it, and `$(brew --prefix)/var/lib/caddy`, which holds the certificate authority's private key.
-4. **Hosts entries:** remove the names added to `/etc/hosts` in step 6, with `sudo`.
+4. **Hosts entries:** remove the names added to `/etc/hosts` in set-up step 6, with `sudo`.
 5. **A tunnel:** stop `cloudflared`, delete `~/.cloudflared/<tunnel>.token`, and remove the public sites and host-check names, as on Windows; the admin deletes the tunnel.
 6. **The tools:** `brew uninstall caddy cloudflared`.

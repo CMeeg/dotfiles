@@ -329,6 +329,12 @@ echo '[]'
       Get-Content $log | Should -Contain "sudo rm -f $tmp/50-unprivileged-ports.conf"
     }
 
+    It 'low ports: removes a file with spaces around the equals sign' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start = 80`n"
+      Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" } | Out-Null
+      Get-Content $log | Should -Contain "sudo rm -f $tmp/50-unprivileged-ports.conf"
+    }
+
     It 'low ports: leaves a file with other settings' {
       Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start=80`nvm.swappiness=10`n"
       $out = Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" }

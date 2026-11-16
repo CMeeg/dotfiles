@@ -1,10 +1,21 @@
 # Dev proxy: design (draft)
 
-**Status:** first pass of decisions made (2026-11-14); the items under [Still open](#still-open) remain. Nothing is built yet. Names marked *provisional* may still change. The work is tracked in the [project plan](../plans/2026-11-14-dev-proxy-project.md).
+**Status:** built as reference docs (2026-11-16): see [Where things stand](#where-things-stand). The items under [Still open](#still-open) that aren't marked decided or tested remain. Names marked *provisional* may still change. The work is tracked in the [project plan](../plans/2026-11-14-dev-proxy-project.md).
 
-**Started:** 2026-11-11 as "service names on your own domain". **Updated:** 2026-11-14: portless dropped after the work-machine Caddy trial; first pass of decisions; named "dev proxy".
+**Started:** 2026-11-11 as "service names on your own domain". **Updated:** 2026-11-14: portless dropped after the work-machine Caddy trial; first pass of decisions; named "dev proxy". 2026-11-16: built, per the [implementation plan](../plans/2026-11-14-dev-proxy-implementation.md).
 
 ## Where things stand
+
+### Built (2026-11-16)
+
+The [implementation plan](../plans/2026-11-14-dev-proxy-implementation.md) is done:
+
+- **[dev-proxy/README.md](../../../dev-proxy/README.md):** the Windows (and Windows + WSL) guide, the tunnel guides (quick tunnels, named tunnels, the Host override option, the admin's guide, the personal domain), the untested macOS guide with its checklist, IIS, moving a project over, the hardened set-up, DNS filters and removing. Its config files are beside it: `Caddyfile`, `sites/ports.caddy` and `example.caddy`.
+- **[tailscale/README.md](../../../tailscale/README.md):** Tailscale on Windows only, SSH to WSL through a forwarded port, and dev servers by name on the tailnet, with `tailscale/tailnet.caddy`.
+- **WSL:** `install.ps1` no longer installs Caddy or sets the low-ports sysctl, and retire steps remove both.
+- **The exploration's script** (`tailscale.ps1`, its module and tests) is gone.
+
+The sections below record how things stood before that.
 
 ### 1. Tailscale (exploration, on a branch)
 
@@ -65,7 +76,7 @@ The same dotfiles run on the personal laptop and the work laptop. The default pa
   - **Why:** a Caddy site bound to the tailnet address stops the whole service from starting while Tailscale is down, `.localhost` names included (Still open 5).
   - **The forwarding is raw TCP,** so Caddy still holds the certificate. It sees requests as coming from `127.0.0.1`.
 - **Tailscale runs on Windows only** (decided 2026-11-14). This replaces the earlier decision that WSL stays its own tailnet device with Tailscale SSH.
-  - **How WSL is reached:** Windows forwards one tailnet port per WSL distro to that distro's existing SSH server, e.g. `tailscale serve --tcp=2222 tcp://localhost:2222` reaches the server the Windows Herdr app already uses on `127.0.0.1:2222`. Logins use keys, so the phone's key is added in WSL.
+  - **How WSL is reached:** Windows forwards one tailnet port per WSL distro to that distro's existing SSH server, e.g. `tailscale serve --tcp=2222 tcp://127.0.0.1:2222` reaches the server the Windows Herdr app already uses on `127.0.0.1:2222`. Logins use keys, so the phone's key is added in WSL.
   - **Why:**
     - all WSL 2 distros share one network, so only one distro could be its own tailnet device;
     - Tailscale advises running it on the Windows host only;
@@ -105,7 +116,7 @@ The same dotfiles run on the personal laptop and the work laptop. The default pa
   - **What was tested:** the service runs as LocalSystem, with its admin API on, and the config is in `C:\ProgramData\Caddy\`.
   - **The risk:** any local process can reconfigure Caddy through its admin API, and ordinary users can probably add sites files.
   - **Why accept it:** it's security against convenience, and how likely either is to be exploited is unclear.
-  - **Also document a hardened alternative:** `admin off` (changes apply by restarting the service; trust by importing `root.crt`), with the config under `C:\Program Files\Caddy\`. Neither is tested yet.
+  - **Also document a hardened alternative:** `admin off` (changes apply by restarting the service; trust by importing `root.crt`), with the config under `C:\Program Files\Caddy\`. Tested since: see Still open 7.
 - **`skip_install_trust`** goes in the top Caddyfile. Trusting is its own step in the guide, so the service's failed attempts at each start are just noise.
 - **IIS:** for machines that also run IIS, the Windows docs get a short section on switching by hand: `iisreset /stop`, then `sc.exe start caddy`, and the reverse.
 - **Old Caddy roots:** the docs get an optional clean-up step for people moving from per-project `caddy run`, removing the unused roots, the per-user winget Caddy and its `%APPDATA%\Caddy` folder.
@@ -290,7 +301,7 @@ Versions: Caddy 2.11.9, Vite 8.3.8, Next 16.4.6, Chrome.
    - **A public name has to be added to the host check:**
      - Vite answers `403 Blocked request. This host is not allowed` until the name is in `server.allowedHosts` (a new config file needs a restart);
      - Next serves the page but blocks hot reload until the name is in `allowedDevOrigins`.
-9. **Run a tunnel** *(tested, except the install)*.
+9. **Run a tunnel** *(tested, except the install)*. *Cloudflare's docs since (checked 2026-11-15; [dev-proxy/README.md](../../../dev-proxy/README.md#tunnels) follows them):* the run-parameters page no longer says `--token` or `TUNNEL_TOKEN` take precedence over `--token-file`; and the [quick tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) page now documents `--allowed-mail`, the 200-request limit and the lack of Server-Sent Events.
    - **Install `cloudflared`** with the Windows installer from [Cloudflare's downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) *(docs only)*.
    - **Keep the token in a file only you can read,** e.g. `%USERPROFILE%\.cloudflared\<tunnel>.token`. Paste it into Notepad and save it there; never paste it into a terminal or a chat.
    - **Run it** in an ordinary terminal, and stop it with Ctrl+C. `--token-file` keeps the token out of shell history and the process list; a `--token` option or `TUNNEL_TOKEN` variable would take precedence over it ([run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/cloudflared-parameters/run-parameters/)):
@@ -351,6 +362,8 @@ Versions: Caddy 2.11.9, Vite 8.3.8, Next 16.4.6, Chrome.
 ### Admin's guide: Cloudflare Tunnel
 
 As found in Cloudflare's dashboard on 2026-11-12 *(tested)*, matching [create a tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/) and [add routes](https://developers.cloudflare.com/cloudflare-one/networks/routes/add-routes/) as checked on 2026-11-14.
+
+*Cloudflare's docs since (checked 2026-11-15; [dev-proxy/README.md](../../../dev-proxy/README.md#admins-guide-cloudflare-tunnel) follows them):* creating a tunnel has no connector type to choose; Access's button is **Add public hostname**, not *Public DNS*; Cloudflare recommends creating the Access application before the route; and *Refresh token* doesn't cut off a `cloudflared` that's already connected, whose connections the docs only delete through the API.
 
 **Setting up a person:**
 
@@ -500,6 +513,7 @@ Provisional:
    - **The file:** saved from Notepad run as administrator, at `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\cloudflare.token`. Only administrators and the service can read that folder; an ordinary account is even denied reading its permissions.
    - **The site:** `dns cloudflare {file.C:/Windows/System32/config/systemprofile/AppData/Roaming/Caddy/cloudflare.token}` in the site's `tls` block. Caddy read it, and the DNS challenge succeeded.
    - **Why not the environment:** this keeps the token out of the service's environment, which Windows keeps in the registry.
+   - **What it doesn't protect against** (found in the final review, 2026-11-16): Caddy reads the file itself, so with the admin API on, or `sites` writable by ordinary users, any local process could add a site that returns the file's contents. The Tailscale guide recommends the hardened set-up (item 7) on a machine that holds the token.
    - **Optional, if a DNS filter blocks port 53:** a filter app that blocks direct DNS (here the NextDNS Windows app) stops Caddy's own check that the challenge record has spread: "dial tcp 1.0.0.1:53: … forbidden by its access permissions". `propagation_delay 30s` and `propagation_timeout -1` in the `tls` block leave the check to Let's Encrypt ([tls](https://caddyserver.com/docs/caddyfile/directives/tls)). The staging certificate and then the real one were issued with them.
 4. **Tailscale route: DNS filters with rebinding protection do block it** (found 2026-11-14 on the personal laptop).
    - **What happened:** with NextDNS in use, every plain DNS lookup of `spike.laptop.meeglocal.net` returned `45.32.235.161` (a server at Vultr) instead of `100.66.231.9`. That included lookups sent straight to `1.1.1.1`, `8.8.8.8` and Cloudflare's own nameserver, so something on the network catches all DNS traffic. Ordinary names were unaffected.

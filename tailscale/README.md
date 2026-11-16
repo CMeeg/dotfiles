@@ -10,7 +10,7 @@ Tailscale runs on Windows only, and Windows is the one device on the tailnet, na
 
 | What | Reached from the tailnet at | Through |
 |---|---|---|
-| The Windows host | `<host>`, port 22 | Windows' OpenSSH server, key login, tailnet addresses only |
+| The Windows host | `<host>`, port 22 | Windows' OpenSSH server, key login, Tailscale's address range only |
 | WSL | `<host>`, port 2222 | Tailscale forwarding to WSL's SSH server on `127.0.0.1:2222` |
 | Dev servers | `https://<app>.<machine>.<personal domain>` | Tailscale forwarding port 443 to the dev proxy |
 
@@ -46,9 +46,10 @@ Windows' own SSH server is how tailnet devices log in to the Windows host, limit
 
 - **Install the server** (Settings → System → Optional features also has it): `Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0`.
 - **Start it now and at every boot:** `Set-Service sshd -StartupType Automatic; Start-Service sshd`.
-- **Accept SSH only from tailnet addresses** ([tailnet addresses](https://tailscale.com/docs/concepts/tailscale-ip-addresses)); installing the server adds a firewall rule that allows any address:
+- **Accept SSH only from Tailscale's address range** ([tailnet addresses](https://tailscale.com/docs/concepts/tailscale-ip-addresses)); installing the server adds a firewall rule that allows any address:
   - `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
   - if that rule is missing: `New-NetFirewallRule -Name OpenSSH-Server-In-TCP -DisplayName 'OpenSSH Server (sshd)' -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
+  - **Not quite tailnet-only:** `100.64.0.0/10` is the shared address range that some ISPs, mobile and hotel networks also use, so a device on such a local network could reach the port too. Key login still keeps it out. Adding `-InterfaceAlias Tailscale` to the rule would limit it to Tailscale's network adapter *(docs only, not tested)* ([Set-NetFirewallRule](https://learn.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallrule)).
 - **Turn off password logins:** in `C:\ProgramData\ssh\sshd_config` (open it as administrator), change the `#PasswordAuthentication yes` line near the top to `PasswordAuthentication no`, then `Restart-Service sshd`. Don't add it at the end instead: the file ends with a `Match Group administrators` block, and lines after it only apply to that block.
 
 ### Keys
@@ -126,6 +127,7 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
 1. **The DNS record** ([create DNS records](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/)): in the domain's DNS → Records → **Add record**: type `A`, name `*.<machine>`, IPv4 address the Windows host's tailnet address (`tailscale ip -4`), proxy status off (*DNS only*). Cloudflare shows it as "DNS only - reserved IP", as it can't proxy a tailnet address.
 2. **The API token** ([create API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)): My Profile → API Tokens → **Create Token**, from scratch, with a *Zone* policy for the one domain granting Zone → Read and DNS → Edit, and a **Token expiration** date. The secret is shown once, so save it straight away, in the next step.
 3. **The token file:** open Notepad as administrator, paste the token, and save it as `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\cloudflare.token` (*Save as type*: *All files*). Only administrators and the service can read that folder. Never paste the token into a terminal or a chat.
+   - **How safe that is:** Caddy reads the file itself, so the token is only as safe as Caddy's config. In the dev proxy's default set-up, any local process can change that config through the admin API, or by adding a file to `C:\ProgramData\Caddy\sites`, e.g. with a site that sends the file's contents back, and the token can edit the domain's DNS. On a machine that holds the token, use the [hardened set-up](../dev-proxy/README.md#optional-the-hardened-set-up), which turns the admin API off and keeps the config where only administrators can write.
 4. **Caddy's Cloudflare plugin,** as administrator, with the service stopped ([caddy add-package](https://caddyserver.com/docs/command-line#caddy-add-package)):
 
    ```powershell
@@ -136,8 +138,8 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
 
    - **What it does:** it downloads a build of the latest release with the plugin added from caddyserver.com, and replaces `caddy.exe`. Here it left the old binary beside it as `caddy.exe.tmp` *(observed)*; delete that once the new one works.
    - **Updates:** use `caddy upgrade`, which keeps the plugins ([caddy upgrade](https://caddyserver.com/docs/command-line#caddy-upgrade)), *docs only*, rather than the dev proxy's zip, which has no plugins. Both commands are marked experimental in Caddy's docs.
-5. **The site:** copy [tailnet.caddy](./tailnet.caddy) into `C:\ProgramData\Caddy\sites\` as administrator, change `laptop.example.net` to `<machine>.<personal domain>`, and add a `handle` for each app. Then restart the service: `sc.exe stop caddy; sc.exe start caddy`.
-   - **The token** is read with Caddy's `{file.…}` placeholder, which keeps it out of the service's environment, which Windows keeps in the registry ([placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders)).
+5. **The site:** copy [tailnet.caddy](./tailnet.caddy) into the `sites` folder (`C:\ProgramData\Caddy\sites\`, or `C:\Program Files\Caddy\sites\` with the hardened set-up) as administrator, change `laptop.example.net` to `<machine>.<personal domain>`, and add a `handle` for each app. Then restart the service: `sc.exe stop caddy; sc.exe start caddy`.
+   - **The token** is read with Caddy's `{file.…}` placeholder, which keeps it out of the service's environment, which Windows keeps in the registry ([placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders)). It doesn't keep it from Caddy's config (step 3).
    - **No `bind`:** a site bound to the tailnet address stops the whole service starting while Tailscale is down, `.localhost` sites included. The site stays on loopback, and Tailscale forwards to it (next step).
    - **Other names** under `*.<machine>` get `404`.
 6. **The forward,** in an ordinary terminal ([tailscale serve](https://tailscale.com/docs/reference/tailscale-cli/serve)):
@@ -172,6 +174,8 @@ Some steps exist only because of a DNS filter, such as NextDNS (see also [the de
 - **The optional DNS-filter changes:** remove the domain from the filter's allowlist, and turn "Use Tailscale DNS" back on in the phone's Tailscale app.
 - **Windows,** from PowerShell 7 run as administrator:
   - stop the SSH server: `Stop-Service sshd; Set-Service sshd -StartupType Manual`;
-  - put the firewall rule back to allowing any address: `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress Any`;
+  - the firewall rule: if installing the server created it, put it back to allowing any address with `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress Any`; if you created it with `New-NetFirewallRule`, delete it with `Remove-NetFirewallRule -Name OpenSSH-Server-In-TCP`;
+  - password logins: change `PasswordAuthentication no` in `C:\ProgramData\ssh\sshd_config` back to `#PasswordAuthentication yes`;
   - remove the other keys you added from `C:\ProgramData\ssh\administrators_authorized_keys`;
+  - optionally, remove the server itself: `Remove-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0`;
   - if you added the [Keep WSL running](#keep-wsl-running) task: `Unregister-ScheduledTask -TaskName 'Keep WSL running' -Confirm:$false`.

@@ -511,7 +511,7 @@ Then:
   - **Nothing outdated:** no step *uses* `meeg-laptop-wsl`, Tailscale SSH or `--operator`, though the text may explain why they aren't used.
   - **Anchors:** each one links to a heading in Task 4's table.
 
-- [ ] **Step 5: Checkpoint.** The user reviews and commits (suggested: `rewrite the tailscale guide for tailscale on windows only`).
+- [x] **Step 5: Checkpoint.** The user reviews and commits (suggested: `rewrite the tailscale guide for tailscale on windows only`).
 
 ### Task 9: Finish
 
@@ -522,8 +522,8 @@ Then:
   - **Cloudflare's docs since the trial** (found in Task 6, Step 1): "Set-up as tested" step 9 and its admin's guide get a note on what the docs now say, keeping what was tested. The changes: Access's button is **Add public hostname** (not *Public DNS*); Cloudflare recommends creating the Access application before the route; creating a tunnel has no connector type to choose; **Refresh token** doesn't cut off a `cloudflared` already connected; the run-parameters page no longer says `--token` or `TUNNEL_TOKEN` take precedence over `--token-file`; and quick tunnels' docs now cover `--allowed-mail`, the 200-request limit and the lack of Server-Sent Events. `dev-proxy/README.md` already follows the docs.
 - Modify: `docs/superpowers/plans/2026-11-14-dev-proxy-project.md`: add a step 8, "Build", ticked, linking to this plan. Record anything deferred during the work in its "Deferred" section at the time it's deferred.
 
-- [ ] **Step 1: Run the full test suite.** Use the test command. Expected: all pass. Then run `install.ps1 -WhatIf` and `update.ps1 -WhatIf` as in the Global Constraints. Expected: both exit 0 and change nothing.
-- [ ] **Step 2: Update the design and the project plan** as listed.
-- [ ] **Step 3: Get a fresh-eyes review.** A subagent that hasn't seen the conversation reviews the branch. Brief it with what changed, what it's for, the Global Constraints, and the guardrails: no secrets, no git changes, no live systems, nothing run for real. Check each finding, and report the ones that hold, with fixes.
-- [ ] **Step 4: List what was raised and deferred** during the plan, for the user to decide on.
-- [ ] **Step 5: Checkpoint.** The user reviews and commits (suggested: `record the dev proxy as built`).
+- [x] **Step 1: Run the full test suite.** Use the test command. Expected: all pass. Then run `install.ps1 -WhatIf` and `update.ps1 -WhatIf` as in the Global Constraints. Expected: both exit 0 and change nothing.
+- [x] **Step 2: Update the design and the project plan** as listed.
+- [x] **Step 3: Get a fresh-eyes review.** A subagent that hasn't seen the conversation reviews the branch. Brief it with what changed, what it's for, the Global Constraints, and the guardrails: no secrets, no git changes, no live systems, nothing run for real. Check each finding, and report the ones that hold, with fixes.
+- [x] **Step 4: List what was raised and deferred** during the plan, for the user to decide on.
+- [x] **Step 5: Checkpoint.** The user reviews and commits (suggested: `record the dev proxy as built`).

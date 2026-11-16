@@ -211,7 +211,7 @@ Afterwards the test names didn't resolve through `1.1.1.1` and requests to them 
 ### 7. Write the implementation plan
 
 - [x] Decide the shape of tunnel names on the personal domain (design, Still open 1). `<app>.meeglocal.net`, through a wildcard route (2026-11-14).
-- [ ] Write the implementation plan with `superpowers:writing-plans`, covering:
+- [x] Write the implementation plan with `superpowers:writing-plans`, covering:
   - the Windows reference docs (in `windows/README.md`, `tailscale/README.md` or new files such as `caddy/README.md`);
   - the macOS docs;
   - retiring Caddy in WSL (`Install-Caddy`, `Enable-UnprivilegedLowPorts`, retire steps in `lib/Retire.psm1`, `install.ps1`, `update.ps1`, `linux/README.md`) and its tests;
@@ -221,6 +221,14 @@ Afterwards the test names didn't resolve through `1.1.1.1` and requests to them 
 **Produces:** an implementation plan in `docs/superpowers/plans/`.
 **Needs:** steps 1, 2 and 4 to 6.
 **Done when:** you've approved the plan.
+
+### 8. Build
+
+- [x] Carried out [2026-11-14-dev-proxy-implementation.md](./2026-11-14-dev-proxy-implementation.md) with `/implement-plan`, one reviewed task at a time (2026-11-15 to 2026-11-16). Along the way, two live checks on the personal laptop: the tunnel Host override, and one Access application per person with a wildcard tunnel route (change lists under step 6).
+
+**Produces:** `dev-proxy/` and the rewritten `tailscale/` guide, WSL's Caddy and low-ports sysctl retired, and the exploration's Tailscale script removed.
+**Needs:** step 7.
+**Done when:** the plan's final review is done and you've committed the result.
 
 ## Deferred
 
