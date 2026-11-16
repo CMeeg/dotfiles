@@ -153,13 +153,13 @@ Two ways to reach a dev server from other devices, by how long the access is nee
 - **One-off sharing** (testing a webhook, letting someone take a look): a [quick tunnel](#one-off-sharing-a-quick-tunnel) straight at the dev server, with no account, admin, Caddy or project change.
 - **Regular access** (a stable name, behind a login): a [named tunnel](#regular-access-a-named-tunnel) for each person, which an admin sets up once ([Admin's guide](#admins-guide-cloudflare-tunnel)), with a route for each app. On your own domain you're the admin: see [Personal domain](#personal-domain).
 
-Both use `cloudflared`. Install it with the 64-bit Windows MSI from Cloudflare's [downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) *(docs only)*. It doesn't update itself on Windows, so install a newer MSI now and then.
+Both use `cloudflared`. Install it with winget, in an ordinary terminal: `winget install --id Cloudflare.cloudflared` *(tested; not in Cloudflare's docs, which link the installer)*. The package installs the 64-bit MSI from Cloudflare's GitHub releases, the one the [downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) links, and winget checks its hash. The MSI installs for all users, into `C:\Program Files (x86)\cloudflared`, so it asks for elevation; a terminal opened afterwards finds it on `PATH`. `cloudflared` doesn't update itself on Windows, so run `winget upgrade --id Cloudflare.cloudflared` now and then.
 
 The Cloudflare pages linked in this guide were checked on 2026-11-15.
 
 ### One-off sharing: a quick tunnel
 
-*Docs only* ([Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)). `--http-host-header` was tested with a quick tunnel through Caddy.
+*Tested* with a Vite dev server, opened from a phone on mobile data, with and without `--allowed-mail` ([Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/)).
 
 - **Command,** in an ordinary terminal, stopped with Ctrl+C:
 
@@ -170,7 +170,7 @@ The Cloudflare pages linked in this guide were checked on 2026-11-15.
 - **What you get:** a random `https://<words>.trycloudflare.com` URL, printed in the output. It needs no account, it stops working when `cloudflared` stops, and a new one comes with every run.
 - **`--http-host-header`** sends each request in with the Host the dev server expects, so its host check passes with no project change ([origin parameters](https://developers.cloudflare.com/tunnel/reference/origin-parameters/#httphostheader)). Links the app builds from the Host come out as `localhost:3000`, which a visitor can't open.
 - **Point it at the dev server:** a quick tunnel has one `--url`, so going through Caddy adds nothing.
-- **A login in front:** `--allowed-mail <email>` makes visitors enter their email address and a one-time PIN first. Repeat it, or give a comma-separated list, for several people; `'*@example.com'` allows a whole domain (quoted, so the shell leaves the `*` alone). It needs an interactive browser, so it doesn't suit webhooks.
+- **A login in front:** `--allowed-mail <email>` makes visitors enter their email address and a one-time PIN first. Repeat it, or give a comma-separated list, for several people; `'*@example.com'` allows a whole domain (quoted, so the shell leaves the `*` alone). It needs an interactive browser, so it doesn't suit webhooks. Refreshing the page asked for the email and PIN again *(observed, Chrome on Android)*, where a named tunnel's Access login lasts through a refresh; the docs don't say how long a quick tunnel's login lasts.
 - **Limits:** no uptime guarantee; up to 200 requests in flight, with more getting `429`; no Server-Sent Events.
 - **Not in official docs:** a `config.yml` in `%USERPROFILE%\.cloudflared` can stop quick tunnels from working ([an article](https://flaviocopes.com/cloudflare-quick-tunnels/)).
 - **Risks:**
@@ -181,16 +181,16 @@ The Cloudflare pages linked in this guide were checked on 2026-11-15.
 
 ### Regular access: a named tunnel
 
-*Tested, except the install.* Each person runs their own tunnel, which an admin creates and hands them the token for ([Admin's guide](#admins-guide-cloudflare-tunnel)). Every route on it points at Caddy's public-name port, `5399`, and Caddy routes each name to its dev server.
+*Tested,* now including the install. Each person runs their own tunnel, which an admin creates and hands them the token for ([Admin's guide](#admins-guide-cloudflare-tunnel)). Every route on it points at Caddy's public-name port, `5399`, and Caddy routes each name to its dev server.
 
 1. **The token file:** keep the token in a file only you can read, e.g. `%USERPROFILE%\.cloudflared\<tunnel>.token`. Paste it into Notepad and save it there (*Save as type*: *All files*); never paste it into a terminal or a chat.
-2. **Run it** in an ordinary terminal, and stop it with Ctrl+C. `--token-file` keeps the token out of shell history and the process list ([run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/#token-file)):
+2. **Run it** in an ordinary terminal, and stop it with Ctrl+C. It runs only while that terminal is open: nothing starts it at login or after a restart. `--token-file` keeps the token out of shell history and the process list ([run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/#token-file)):
 
    ```powershell
    cloudflared tunnel run --token-file "$env:USERPROFILE\.cloudflared\<tunnel>.token"
    ```
 
-3. **The project's public site:** for each app the admin routes to you, add its public name to the project's sites file as a plain-HTTP site on port `5399`, as in [example.caddy](./example.caddy), and reload (step 4):
+3. **The project's public site:** for each app the admin routes to you, add its public name to the project's sites file as a plain-HTTP site on port `5399`, as in [example.caddy](./example.caddy), and reload (step 4), or restart the service with the [hardened set-up](#optional-the-hardened-set-up):
 
    ```
    http://person-myapp.example.com:5399 {
@@ -199,7 +199,7 @@ The Cloudflare pages linked in this guide were checked on 2026-11-15.
    ```
 
 4. **The dev server's host check:** add the public name to [Vite's `server.allowedHosts`](https://vite.dev/config/server-options#server-allowedhosts) or [Next's `allowedDevOrigins`](https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins). Until then, Vite answers `403` and Next blocks hot reload (step 8).
-5. **What arrives at the app:** the public Host unchanged, `X-Forwarded-Proto: https`, the visitor's address in `X-Forwarded-For`, and the request body. The top file's `trusted_proxies` is what keeps the forwarded headers: without it, Caddy replaces the ones `cloudflared` sends, and the app sees `http` and `127.0.0.1` (step 2).
+5. **What arrives at the app:** the public Host unchanged, `X-Forwarded-Proto: https`, the visitor's address in `X-Forwarded-For` (followed by `127.0.0.1`, the hop from `cloudflared` to Caddy), and the request body. The top file's `trusted_proxies` is what keeps the forwarded headers: without it, Caddy replaces the ones `cloudflared` sends, and the app sees `http` and `127.0.0.1` (step 2).
 6. **Error overlays:** a dev server shows error overlays and stack traces to whoever can load the page, so keep Access in front of everything but webhook paths.
 
 To stop using a tunnel, see [Removing](#removing).
@@ -268,13 +268,15 @@ Until the account's admins have tested it, the admin adds every route.
 
 ## Personal domain
 
-On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudflare-tunnel) applies, with one tunnel per machine and one wildcard route in place of a route per app. A new app then needs only its sites-file entry. *Docs only, except where marked.*
+On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudflare-tunnel) applies, with one tunnel per machine and one wildcard route in place of a route per app. A new app then needs only its sites-file entry. *Tested,* except where marked: one machine's tunnel, its `*` route and `*` Access application, with a Vite dev server, from a desktop browser.
 
 - **Names:** `<app>.<personal domain>`, e.g. `myapp.example.net`, one level deep so Cloudflare's free certificate covers them.
 - **The tunnel:** one per machine, named for it, run as in [Regular access](#regular-access-a-named-tunnel).
 - **The wildcard route:** subdomain `*` on the domain → Service URL `http://127.0.0.1:5399`, behind one Access application with subdomain `*`. A `*.example.net` application covers `myapp.example.net`, but not the domain itself or deeper names ([application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/)). Webhook paths get their own Bypass applications, one per hostname.
 - **A new app:** add `http://<app>.<personal domain>:5399` to the project's sites file, and the name to its host check. Nothing changes in Cloudflare.
-- **The dashboard takes the wildcard route** *(tested with a throwaway tunnel)*, though Cloudflare's docs show wildcard hostnames only in a locally-managed tunnel's config file. DNS → Records then shows a proxied `*` record of type *Tunnel*, not a CNAME. Access applications with a partial wildcard (e.g. `*-alpha`) matched as the docs describe, and a Bypass application for one hostname's webhook path took precedence over them *(tested)*; a full `*` Access application wasn't tried.
+- **The dashboard takes the wildcard route,** though Cloudflare's docs show wildcard hostnames only in a locally-managed tunnel's config file. DNS → Records then shows a proxied `*` record of type *Tunnel*, not a CNAME.
+- **What the `*` Access application did** (curl, redirects not followed): `https://<app>.<personal domain>/` returned `302` to the Access login, and so did a name with no site behind it; the bare domain, which has no record, didn't connect; `http://` redirected to `https://` (`301`). After the PIN, the page loaded, a refresh didn't ask again, and hot reload worked. Partial wildcards (e.g. `*-alpha`) matched as the docs describe, and a Bypass application for one hostname's webhook path took precedence over them; a Bypass under the full `*` application wasn't tried.
+- **Names with no site** pass the login, then get Caddy's empty `200`, as no site on `5399` matches them *(Caddy's answer tested directly on `5399`)*.
 - **A second machine:** give it exact routes per app on its own tunnel. An exact DNS record takes precedence over the wildcard ([wildcard DNS records](https://developers.cloudflare.com/dns/manage-dns-records/reference/wildcard-dns-records/#specific-dns-records-take-precedence-over-wildcard-records)).
 - **Tailscale names** (`<app>.<machine>.<personal domain>`) have their own DNS record: see [tailscale/README.md](../tailscale/README.md).
 
@@ -320,7 +322,7 @@ On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudf
 7. **A name for any port:** the same `sites/ports.caddy` as on Windows.
 8. **Dev servers:** the same as on Windows: bind to `127.0.0.1`, and add any public name to the host check.
 9. **Tunnels:** as in [Tunnels](#tunnels), with these differences.
-   - **Install `cloudflared`:** `brew install cloudflared` ([downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/)), updated with `brew upgrade`, unlike Windows, where it's updated by hand.
+   - **Install `cloudflared`:** `brew install cloudflared` ([downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/)), updated with `brew upgrade`, as winget updates it on Windows.
    - **The token file** is `~/.cloudflared/<tunnel>.token`:
 
      ```bash
@@ -464,7 +466,7 @@ Some steps in these guides exist only because of a DNS filter, such as NextDNS. 
    - stop `cloudflared` with Ctrl+C;
    - delete the token file, `%USERPROFILE%\.cloudflared\<tunnel>.token`, and `caddy-root.crt` beside it if you made one for the Host override;
    - remove the public sites from the projects' sites files, and the public names from their host checks;
-   - uninstall `cloudflared` in Settings → Apps → Installed apps, if it's no longer wanted ([uninstall apps](https://support.microsoft.com/en-us/windows/uninstall-or-remove-apps-and-programs-in-windows-4b55f974-2cc6-2d2b-d092-5905080eaf98));
+   - uninstall `cloudflared` with `winget uninstall --id Cloudflare.cloudflared`, if it's no longer wanted ([winget uninstall](https://learn.microsoft.com/en-us/windows/package-manager/winget/uninstall));
    - the admin deletes the tunnel, its routes and its Access applications ([When someone leaves](#admins-guide-cloudflare-tunnel)).
 
 **On macOS** *(docs only)*:

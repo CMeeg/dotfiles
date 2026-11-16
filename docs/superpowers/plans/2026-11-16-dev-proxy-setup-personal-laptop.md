@@ -105,21 +105,21 @@ Read-only: nothing on the machine changes.
 ### Task 4: Tunnels on the personal domain
 
 **Files:**
-- Modify: `dev-proxy/README.md`: [Tunnels](../../../dev-proxy/README.md#tunnels) (installing `cloudflared` with winget rather than the MSI) and [Personal domain](../../../dev-proxy/README.md#personal-domain), where they differ or now worked; the full `*` Access application is still *docs only* there; and Removing's `cloudflared` uninstall.
+- Modify: `dev-proxy/README.md`: [Tunnels](../../../dev-proxy/README.md#tunnels) (installing `cloudflared` with winget rather than the MSI) and [Personal domain](../../../dev-proxy/README.md#personal-domain), where they differ or now worked; the full `*` Access application was still *docs only* there; and Removing's `cloudflared` uninstall.
 - Modify: the design, "Still open" 14, if the full `*` Access application behaves differently from the partial wildcards tested.
 
 **Interfaces:**
 - Consumes: Task 3's service and test project.
 
-- [ ] **Step 1: Install `cloudflared` with winget** (decided in Task 1): change the guide to recommend `winget install --id Cloudflare.cloudflared` (*not in Cloudflare's docs*, which list the MSI winget installs), updated with `winget upgrade --id Cloudflare.cloudflared`, and its Removing step to `winget uninstall --id Cloudflare.cloudflared`. Then the person runs `choco uninstall cloudflared` as administrator and the winget install. Verify: `Get-Command cloudflared -All` lists only the winget-installed copy, and `cloudflared --version` runs.
-- [ ] **Step 2: A quick tunnel** at the test project's dev server, as in [One-off sharing](../../../dev-proxy/README.md#one-off-sharing-a-quick-tunnel), then once more with `--allowed-mail` and the person's email. Verify from the phone on mobile data: the page loads; with `--allowed-mail`, it asks for the PIN first. Stop it.
-- [ ] **Step 3: The machine's tunnel,** as the [Admin's guide](../../../dev-proxy/README.md#admins-guide-cloudflare-tunnel) with the Personal domain differences: the tunnel named for `<machine>`, its token into `%USERPROFILE%\.cloudflared\<tunnel>.token`, one Access application on subdomain `*`, the `*` route to `http://127.0.0.1:5399`, and Always Use HTTPS if it isn't on. Verify the token file's size only.
-- [ ] **Step 4: The public site:** add `http://<app>.<personal domain>:5399` to the test project's sites file, apply it (reload, or restart for the hardened set-up), add the name to the dev server's host check, and run the tunnel. Verify:
+- [x] **Step 1: Install `cloudflared` with winget** (decided in Task 1): change the guide to recommend `winget install --id Cloudflare.cloudflared` (*not in Cloudflare's docs*, which list the MSI winget installs), updated with `winget upgrade --id Cloudflare.cloudflared`, and its Removing step to `winget uninstall --id Cloudflare.cloudflared`. Then the person runs `choco uninstall cloudflared` as administrator and the winget install. Verify: `Get-Command cloudflared -All` lists only the winget-installed copy, and `cloudflared --version` runs.
+- [x] **Step 2: A quick tunnel** at the test project's dev server, as in [One-off sharing](../../../dev-proxy/README.md#one-off-sharing-a-quick-tunnel), then once more with `--allowed-mail` and the person's email. Verify from the phone on mobile data: the page loads; with `--allowed-mail`, it asks for the PIN first. Stop it. (The person ran both tunnels in their own terminal, so their email never went through the agent. Refreshing behind `--allowed-mail` asked for the PIN again, recorded in the guide as observed.)
+- [x] **Step 3: The machine's tunnel,** as the [Admin's guide](../../../dev-proxy/README.md#admins-guide-cloudflare-tunnel) with the Personal domain differences: the tunnel named for `<machine>`, its token into `%USERPROFILE%\.cloudflared\<tunnel>.token`, one Access application on subdomain `*`, the `*` route to `http://127.0.0.1:5399`, and Always Use HTTPS if it isn't on. Verify the token file's size only.
+- [x] **Step 4: The public site:** add `http://<app>.<personal domain>:5399` to the test project's sites file, apply it (reload, or restart for the hardened set-up), add the name to the dev server's host check, and run the tunnel. Verify:
   - with curl and no redirects followed, `https://<app>.<personal domain>/` returns `302` to the Access login, and `https://<personal domain>/` (the bare domain) doesn't reach the dev server;
-  - in a browser, after the PIN, the page loads, hot reload works, and the app sees `X-Forwarded-Proto: https`;
+  - in a browser, after the PIN, the page loads, hot reload works, and a refresh doesn't ask for the PIN again (the comparison with the quick tunnel), and the app sees `X-Forwarded-Proto: https` (here through a scratch Vite middleware that logged the headers);
   - `http://<app>.<personal domain>` redirects to `https://`.
-- [ ] **Step 5: Stop the tunnel** and record in the guide whether anything should keep it running. The guide only runs it in a terminal; a service for `cloudflared` is out of scope, so if the person wants one, record it in the project plan's Deferred list.
-- [ ] **Step 6: Update the guide and the design,** then the checks. **Checkpoint** (suggested: `set up the personal tunnel on the personal laptop`).
+- [x] **Step 5: Stop the tunnel** and record in the guide whether anything should keep it running. The guide only runs it in a terminal; a service for `cloudflared` is out of scope, so if the person wants one, record it in the project plan's Deferred list.
+- [x] **Step 6: Update the guide and the design,** then the checks. **Checkpoint** (suggested: `set up the personal tunnel on the personal laptop`). (Left for the user.)
 
 ### Task 5: Tailscale
 
@@ -217,6 +217,7 @@ Filled in by Task 1.
 | Chocolatey's `caddy` / `cloudflared` | Uninstall both: `caddy` in Task 3, `cloudflared` in Task 4 | Caddy comes from the guide's zip, `cloudflared` from winget, so only one copy of each is on `PATH` |
 | How `cloudflared` is installed | winget (`Cloudflare.cloudflared`), not the MSI | The same MSI from Cloudflare's GitHub releases, hash-checked by winget, and `winget upgrade` keeps it current (it doesn't update itself on Windows). Cloudflare's downloads page lists only the MSI and exe, so the guide marks it "not in Cloudflare's docs". Decided 2026-11-16 |
 | Clone that runs `update.ps1` in WSL | WSL's own `~/.dotfiles` | Already on `feature/dev-proxy` at `c64c7da`, level with `origin`, so it has the retire steps; it's how the machine is normally updated |
+| A Windows service for `cloudflared` | Not wanted (decided 2026-11-16, Task 4); not deferred | The tunnel is for dev servers, which only run while working, so running it in a terminal is enough; persistent local services would go on the tailnet instead |
 | WSL's Caddy retire step | Stays `apt remove`, not `purge` (decided 2026-11-16, Task 2) | Purge deletes `/etc/caddy`, which may hold hand edits; the Linux guide says how to purge |
 | Spike leftovers in dashboards and on the phone | All gone; start clean | The person confirmed every undo in the project plan's step 5–6 lists was done (API token, `*.laptop` record, `meeg-laptop` in Tailscale, NextDNS allowlist, the phone's Tailscale app and setting, the Herdr machine) |
 
@@ -240,6 +241,14 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 3 | Hosts entry `127.0.0.1 devtest.localhost` | Remove the line from `C:\Windows\System32\drivers\etc\hosts`, as administrator |
 | 3 | `choco uninstall caddy -y` | `choco install caddy -y` |
 | 3 | Scratch Vite 8.3.8 app `devtest` in the session's scratchpad (`vite` and `typescript` installed in its folder); its dev server was stopped. The Downloads files (zip, checksums, `caddy-root.crt`) were deleted after use | Delete the scratch folder at the end of the plan |
+| 4 | `choco uninstall cloudflared -y` | `choco install cloudflared -y` |
+| 4 | `cloudflared` 2026.11.0 with winget (`Cloudflare.cloudflared`), in `C:\Program Files (x86)\cloudflared` | `winget uninstall --id Cloudflare.cloudflared` |
+| 4 | Cloudflare: tunnel `laptop` on `meeglocal.net`'s account; its token in `%USERPROFILE%\.cloudflared\laptop.token` (184 bytes, never opened) | Delete the tunnel (can't be undone), after the route below; delete the file |
+| 4 | Cloudflare: Access application `laptop` on subdomain `*` of `meeglocal.net`, with an *Allow* policy for the person's email and the one-time PIN | Delete it, after the route |
+| 4 | Cloudflare: route `*.meeglocal.net` → `http://127.0.0.1:5399` on tunnel `laptop`, and the proxied `*` DNS record of type *Tunnel* it created | Delete the route, then any `*` record left in DNS → Records |
+| 4 | Cloudflare: Always Use HTTPS on `meeglocal.net` | Already on; nothing changed |
+| 4 | `C:\Program Files\Caddy\sites\devtest.caddy` gained `http://devtest.meeglocal.net:5399` → `127.0.0.1:5173` (service restarted) | Remove the block, then restart the service as administrator |
+| 4 | Scratch app: `vite.config.ts` with `server.allowedHosts` and a header-logging middleware; two quick tunnels (gone when stopped) | Goes with the scratch folder |
 
 ## Addenda
 
