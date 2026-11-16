@@ -430,7 +430,7 @@ Then:
   - **Checklist:** the design's "Checklist for a Mac", under `### To check on a Mac`.
   - **Opening line:** it's untested, and the checklist is for whoever first runs it on a Mac.
 - [x] **Step 2: Review as Task 4, Step 4.**
-- [ ] **Step 3: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's macos guide`).
+- [x] **Step 3: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's macos guide`).
 
 ### Task 8: Tailscale on Windows (optional, personal)
 
@@ -452,7 +452,7 @@ Then:
 **Interfaces:**
 - Consumes: `dev-proxy/README.md`'s `#windows-also-windows--wsl` and `#optional-dns-filters` anchors.
 
-- [ ] **Step 1: Rewrite `tailscale/README.md`.** Use the design's "Tailscale runs on Windows only" decision and "Still open" items 2–5 and 12 (all tested). Each current heading is kept, rewritten or dropped as below:
+- [x] **Step 1: Rewrite `tailscale/README.md`.** Use the design's "Tailscale runs on Windows only" decision and "Still open" items 2–5 and 12 (all tested). Each current heading is kept, rewritten or dropped as below:
 
   | Current heading | What happens |
   |---|---|
@@ -499,14 +499,14 @@ Then:
     - the Windows lines kept from the current Removing section: stop sshd, put the firewall rule back, remove the keys, unregister "Keep WSL running";
     - a note that the Let's Encrypt name stays in public certificate logs.
 
-- [ ] **Step 2: Check Caddy parses `tailscale/tailnet.caddy`.**
+- [x] **Step 2: Check Caddy parses `tailscale/tailnet.caddy`.**
   - **With the plugin:** `caddy adapt --config tailscale/tailnet.caddy` exits 0. A Caddy with the plugin can be made by running `caddy add-package` on a scratch copy of a Caddy binary.
   - **Without it:** it fails with "module not registered: dns.providers.cloudflare". That error stops parsing, so the rest of the file goes unchecked.
   - **Record** which was run.
 
-- [ ] **Step 3: Edit `README.md` and `windows/README.md`** as listed.
+- [x] **Step 3: Edit `README.md` and `windows/README.md`** as listed.
 
-- [ ] **Step 4: Review as Task 4, Step 4,** with the personal-values check and the link check on `tailscale` too, adding:
+- [x] **Step 4: Review as Task 4, Step 4,** with the personal-values check and the link check on `tailscale` too, adding:
   - **No script left:** `grep -rn "tailscale\.ps1" --exclude-dir=docs --exclude-dir=.git .` gives no output.
   - **Nothing outdated:** no step *uses* `meeg-laptop-wsl`, Tailscale SSH or `--operator`, though the text may explain why they aren't used.
   - **Anchors:** each one links to a heading in Task 4's table.

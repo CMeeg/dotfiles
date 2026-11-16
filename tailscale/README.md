@@ -1,82 +1,89 @@
 # tailscale
 
-[Tailscale](https://tailscale.com/) puts this laptop, its WSL distro, your phone and your other machines on one private network (a "tailnet"), so they can reach each other by name from anywhere, without opening ports to the internet. Here it's used to reach [herdr-core](https://herdr.dev/core/) from the [Herdr mobile app](https://herdr.dev/mobile/) and from other computers, and to open dev servers remotely.
+[Tailscale](https://tailscale.com/) puts this machine, your phone and your other computers on one private network (a "tailnet"), so they can reach each other from anywhere, without opening ports to the internet. Here it's used to reach [herdr-core](https://herdr.dev/core/) on Windows and in WSL from the [Herdr mobile app](https://herdr.dev/mobile/) and from other computers, and to open dev servers by name through the [dev proxy](../dev-proxy/README.md).
 
-It's opt-in: `install.ps1` doesn't set it up.
+It's optional and for personal machines: `install.ps1` doesn't set it up. Each step is labelled as in the dev proxy guide: *tested* (run on Windows 11 with an Android phone), *observed* or *docs only*.
 
 ## How it fits together
 
-Windows and WSL join the tailnet as two separate devices, mirroring how the Windows Herdr app already treats WSL as its own machine:
+Tailscale runs on Windows only, and Windows is the one device on the tailnet, named `<host>`:
 
-| Device | Name on the tailnet | SSH login (port 22) | herdr-core |
-|---|---|---|---|
-| Windows | `meeg-laptop` | Windows OpenSSH server, key login, tailnet addresses only | the Herdr app's core |
-| WSL (Debian) | `meeg-laptop-wsl` | [Tailscale SSH](https://tailscale.com/kb/1193/tailscale-ssh): Tailscale checks who you are, so no keys | `~/.local/bin/herdr-core` |
+| What | Reached from the tailnet at | Through |
+|---|---|---|
+| The Windows host | `<host>`, port 22 | Windows' OpenSSH server, key login, tailnet addresses only |
+| WSL | `<host>`, port 2222 | Tailscale forwarding to WSL's SSH server on `127.0.0.1:2222` |
+| Dev servers | `https://<app>.<machine>.<personal domain>` | Tailscale forwarding port 443 to the dev proxy |
 
-* The Herdr mobile app talks to herdr-core over SSH, and lists your Tailscale devices to pick from.
-* The Windows Herdr app keeps reaching WSL as it does now, over `127.0.0.1:2222` (see [linux/README.md](../linux/README.md#herdr-app-windows--wsl)). That's localhost traffic: Tailscale doesn't touch it, and it keeps working with Tailscale stopped. Tailscale is only for connecting from other devices. The Windows app can also use it to add other machines on your tailnet, e.g. `hc machine add <user>@<their name>`.
-* SSH uses port 22, so there's no port number to remember: the device name is enough.
-
-> N.B. Tailscale's own docs recommend running Tailscale on [the Windows host only, not inside WSL 2](https://tailscale.com/docs/install/windows/wsl2), because of packet-size (MTU) limits; `tailscaled` raises WSL's MTU to work around it. Running it in both is what gives WSL its own name and Tailscale SSH. If connections to `meeg-laptop-wsl` hang while `tailscale ping meeg-laptop-wsl` works, that's the likely cause.
+- **Why not in WSL too:** all WSL 2 distros share one network, so only one could be its own tailnet device, and Tailscale advises running it [on the Windows host only](https://tailscale.com/docs/install/windows/wsl2). The Herdr mobile app takes an address, user and port, so a forwarded port reaches WSL just as well.
+- **The Windows Herdr app** keeps reaching WSL as it does now, over `127.0.0.1:2222` (see [linux/README.md](../linux/README.md#herdr-app-windows--wsl)). That's localhost traffic: Tailscale doesn't touch it, and it keeps working with Tailscale stopped.
+- **`<machine>`** is the label in the dev servers' names, e.g. `laptop` in `myapp.laptop.example.net`. It marks a name as tailnet-only, and can be the same word as `<host>`.
 
 ## Friendly names
 
-* [MagicDNS](https://tailscale.com/kb/1081/magicdns) (on by default) lets any tailnet device use the short name, e.g. `ssh meeg@meeg-laptop-wsl` or `http://meeg-laptop-wsl:5173`. The full name is `meeg-laptop-wsl.<tailnet>.ts.net`, which HTTPS needs (see [Dev servers](#dev-servers-and-other-services)). Your tailnet's name is under DNS in the admin console, where you can swap the random one for a friendlier [fun name](https://tailscale.com/kb/1217/tailnet-name).
-* A device's name comes from its hostname, which for this laptop is `LAPTOP-LEO2VFVM`. Set a better one with `tailscale set --hostname=<name>` on the device (`tailscale.ps1 -Hostname` does this in WSL), or with Edit machine name in the admin console. Without it, WSL would join as `laptop-leo2vfvm`, since WSL takes its hostname from Windows.
-* Names are unique across the tailnet: a device that asks for a name another device already has gets a number added (e.g. `meeg-laptop-wsl-1`), and keeps it after the other device goes. `tailscale.ps1` warns when that happens.
+- [MagicDNS](https://tailscale.com/docs/features/magicdns) (on by default) lets any tailnet device use the short name, e.g. `ssh <user>@<host>`. The full name is `<host>.<tailnet>.ts.net`.
+- A device's name comes from its hostname, which Windows often sets to something like `LAPTOP-ABC1234`. Set a better one with `tailscale set --hostname=<host>`, or with Edit machine name in the admin console.
+- Names are unique across the tailnet: a device that asks for a name another device already has gets a number added (e.g. `<host>-1`), and keeps it after the other device goes.
 
 ## Tailnet settings (once, in the [admin console](https://login.tailscale.com/admin))
 
-* **DNS**: check MagicDNS is on, and turn on HTTPS Certificates (needed for `tailscale serve` over HTTPS)
-* **Access controls**: the default SSH rule uses `check` mode, which asks you to log in again in a browser every 12 hours, and the Herdr app can't do that for you. For your own devices, switch it to `accept` and leave out `root`:
+- **Machines:** once `<host>` has joined, choose Disable key expiry on it (⋯ menu). Otherwise it drops off the tailnet every 180 days until you log in on it again ([key expiry](https://tailscale.com/docs/features/access-control/key-expiry)).
+- **Nothing else:** this set-up doesn't use Tailscale SSH or `tailscale serve`'s HTTPS, so it needs no SSH rule and no HTTPS Certificates.
 
-  ```json
-  "ssh": [
-    {
-      "action": "accept",
-      "src": ["autogroup:member"],
-      "dst": ["autogroup:self"],
-      "users": ["autogroup:nonroot"]
-    }
-  ]
-  ```
+## Windows (`<host>`)
 
-* **Machines**: once `meeg-laptop` and `meeg-laptop-wsl` have joined, choose Disable key expiry on each (⋯ menu). Otherwise they drop off the tailnet every 180 days until you log in on them again.
+Windows is set up by hand, from PowerShell 7.
 
-## WSL (`meeg-laptop-wsl`)
+### Tailscale
 
-### Automated
+- **Install** ([Install on Windows](https://tailscale.com/docs/install/windows)): `winget install --id Tailscale.Tailscale` *(not in Tailscale's docs, which link the installer)*.
+- **Log in** from the Tailscale icon in the system tray.
+- **Rename the device** (or use Edit machine name in the admin console): `tailscale set --hostname=<host>`.
+- **Optional:** tray icon → Settings → Run unattended, so the machine stays on the tailnet while you're signed out of Windows; locking the screen doesn't need it ([run unattended](https://tailscale.com/docs/how-to/run-unattended)).
 
-```bash
-pwsh ./tailscale.ps1 -Hostname meeg-laptop-wsl -WhatIf   # preview
-pwsh ./tailscale.ps1 -Hostname meeg-laptop-wsl           # log in by opening the link it prints
-```
+### OpenSSH server
 
-[`tailscale.ps1`](../tailscale.ps1) does the manual steps below and is idempotent. Re-run it without `-Hostname` to put the settings back if they've changed, or to reconnect after `tailscale down` or an expired login; with `-Hostname`, it renames the device. The first run needs `-Hostname`: without it, the script stops with an error.
+Windows' own SSH server is how tailnet devices log in to the Windows host, limited to tailnet addresses and to keys *(tested)*. From PowerShell 7 run as administrator ([get started with OpenSSH](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse), [server configuration](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh-server-configuration)):
 
-To log in without a browser (e.g. on a headless machine), create an auth key in the admin console (Settings → Keys; one-off, short expiry), add `export TS_AUTHKEY=tskey-auth-...` to `~/.secrets`, open a new terminal and run the script. The script hands the key to `tailscale` as a temporary file, not on the command line. Remove the line from `~/.secrets` afterwards: the key is only needed to join.
+- **Install the server** (Settings → System → Optional features also has it): `Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0`.
+- **Start it now and at every boot:** `Set-Service sshd -StartupType Automatic; Start-Service sshd`.
+- **Accept SSH only from tailnet addresses** ([tailnet addresses](https://tailscale.com/docs/concepts/tailscale-ip-addresses)); installing the server adds a firewall rule that allows any address:
+  - `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
+  - if that rule is missing: `New-NetFirewallRule -Name OpenSSH-Server-In-TCP -DisplayName 'OpenSSH Server (sshd)' -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
+- **Turn off password logins:** in `C:\ProgramData\ssh\sshd_config` (open it as administrator), change the `#PasswordAuthentication yes` line near the top to `PasswordAuthentication no`, then `Restart-Service sshd`. Don't add it at the end instead: the file ends with a `Match Group administrators` block, and lines after it only apply to that block.
 
-### Manual
+### Keys
 
-* Install Tailscale (adds Tailscale's apt repo, so `sudo apt upgrade`, and so `update.ps1`, keeps it up to date)
-  * `curl -fsSL https://tailscale.com/install.sh | sh`
-* Make sure `tailscaled` runs at boot (needs `systemd=true` in `/etc/wsl.conf`)
-  * `sudo systemctl enable --now tailscaled`
-* Join the tailnet (open the link it prints)
-  * `sudo tailscale up --ssh --operator=$USER --hostname=meeg-laptop-wsl --accept-dns=false`
-  * `--ssh` turns on Tailscale SSH, so tailnet devices log in without keys. It only answers on the tailnet address, so the Windows Herdr app's sshd on `127.0.0.1:2222` is unaffected
-  * `--operator=$USER` lets you run `tailscale serve` and other `tailscale` commands without `sudo`
-  * `--accept-dns=false` leaves DNS to Windows: WSL tunnels DNS through the Windows host (its `/etc/resolv.conf` points at `10.255.255.254`), and the host's Tailscale already resolves tailnet names. Otherwise `tailscaled` would rewrite the `resolv.conf` WSL generates. Leave it out on a Linux machine that isn't WSL
-* Change settings later with `sudo tailscale set ...`, e.g. `sudo tailscale set --hostname=<name>`
+An administrator's keys are read from `C:\ProgramData\ssh\administrators_authorized_keys`, not `~\.ssh\authorized_keys`, and the file must belong to Administrators and SYSTEM only, or the server ignores it ([key management](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement)).
+
+- **The keys:** the phone's public key from the Herdr app, or a computer's `~/.ssh/id_ed25519.pub`. The phone's key goes in WSL's `~/.ssh/authorized_keys` too, for [SSH to WSL](#ssh-to-wsl).
+- **Adding one,** from PowerShell 7 run as administrator:
+  - `Add-Content -Path C:\ProgramData\ssh\administrators_authorized_keys -Value '<public key>'`
+  - `icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F'`
+
+### herdr-core
+
+- The Herdr app installs and updates herdr-core. Keep the app open (or run `hc server start` in an ordinary terminal) when connecting from elsewhere: herdr-core warns that an SSH login as an administrator starting the core could block your desktop session.
 
 ### Check
 
-* `tailscale status` lists this device as `meeg-laptop-wsl`, and your other devices
-* From another tailnet device: `ssh meeg@meeg-laptop-wsl` logs in without a password or key
+- From another tailnet device: `ssh <user>@<host>` logs in without a password.
+
+## SSH to WSL
+
+Tailscale forwards the tailnet's port 2222 to WSL's existing SSH server, which the Windows Herdr app already uses on `127.0.0.1:2222` *(tested)*.
+
+- **The forward,** in an ordinary terminal, no admin rights needed ([tailscale serve](https://tailscale.com/docs/reference/tailscale-cli/serve)):
+
+  ```powershell
+  tailscale serve --bg --tcp=2222 tcp://127.0.0.1:2222
+  ```
+
+  It's a raw TCP forward that reaches WSL through WSL's localhost forwarding, and it comes back by itself after Tailscale reconnects. A full Windows restart wasn't tried. `tailscale serve status` shows it.
+- **Security:** the forward makes WSL's SSH server reachable from every device on your tailnet, and the server sees each connection as coming from `127.0.0.1`. Key login only, as [linux/README.md](../linux/README.md#herdr-app-windows--wsl) sets the server up, is what keeps it safe.
 
 ### Keep WSL running
 
-The phone can only reach `meeg-laptop-wsl` while WSL is running (and the laptop is awake): it can't start WSL. If it shows as offline while a WSL terminal is closed, a logon task on Windows can keep the distro running. In PowerShell:
+The phone can only reach WSL while it's running (and the machine is awake): it can't start WSL. If it can't connect while no WSL terminal is open, a logon task can keep the distro running ([Register-ScheduledTask](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/register-scheduledtask)). In PowerShell:
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless wsl.exe -d Debian --exec sleep infinity'
@@ -85,111 +92,86 @@ $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit 0 -AllowStartIfOnBa
 Register-ScheduledTask -TaskName 'Keep WSL running' -Action $action -Trigger $trigger -Settings $settings
 ```
 
-Remove it with `Unregister-ScheduledTask -TaskName 'Keep WSL running'`.
-
-## Windows (`meeg-laptop`)
-
-Windows is set up by hand. Tailscale SSH has no Windows server, so the phone logs in through Windows' own OpenSSH server, limited to tailnet addresses and to keys.
-
-### Tailscale
-
-* Install Tailscale
-  * `winget install --id Tailscale.Tailscale`
-* Log in from the Tailscale icon in the system tray
-* Rename the device (or use Edit machine name in the admin console)
-  * `tailscale set --hostname=meeg-laptop`
-* Optional: tray icon → Settings → Run unattended, so the laptop stays on the tailnet while you're signed out of Windows (locking the screen doesn't need it)
-
-### OpenSSH server
-
-From PowerShell 7 run as administrator:
-
-* Install the server (Settings → System → Optional features also has it; already installed on this laptop)
-  * `Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0`
-* Start it now and at every boot
-  * `Set-Service sshd -StartupType Automatic; Start-Service sshd`
-* Accept SSH only from tailnet addresses (installing the server adds a firewall rule that allows any address)
-  * `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
-  * If that rule is missing: `New-NetFirewallRule -Name OpenSSH-Server-In-TCP -DisplayName 'OpenSSH Server (sshd)' -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
-* Turn off password logins: in `C:\ProgramData\ssh\sshd_config` (open it as administrator), change the `#PasswordAuthentication yes` line near the top to `PasswordAuthentication no`, then `Restart-Service sshd`. Don't add it at the end instead: the file ends with a `Match Group administrators` block, and lines after it only apply to that block
-
-### Keys
-
-Your Windows account is an administrator, so the server reads its keys from `C:\ProgramData\ssh\administrators_authorized_keys`, not `~\.ssh\authorized_keys`. The file must belong to Administrators and SYSTEM only, or the server ignores it.
-
-* Get the phone's public key from the Herdr app (WSL doesn't need it, because it uses Tailscale SSH), or a computer's `~/.ssh/id_ed25519.pub`
-* From PowerShell 7 run as administrator:
-  * `Add-Content -Path C:\ProgramData\ssh\administrators_authorized_keys -Value '<public key>'`
-  * `icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F'`
-
-### herdr-core
-
-* The Herdr app installs and updates herdr-core. Keep the app open (or run `hc server start` in a normal terminal) when connecting from elsewhere: herdr-core warns that an SSH login as an administrator starting the core could block your desktop session.
-
-### Check
-
-* From another tailnet device: `ssh cpmee@meeg-laptop` logs in without a password
+`conhost.exe --headless` runs `wsl.exe` with no window. *Not in official docs:* no Microsoft page documents `--headless`.
 
 ## Connecting from the phone
 
-* Install the Tailscale app ([Android](https://play.google.com/store/apps/details?id=com.tailscale.ipn), [iOS](https://apps.apple.com/app/tailscale/id1470499037)) and log in with the same account
-* Install the [Herdr app](https://herdr.dev/mobile/) and add a machine from your Tailscale devices:
-  * `meeg-laptop-wsl` as user `meeg` (Tailscale SSH: no key)
-  * `meeg-laptop` as user `cpmee` (needs the phone's key in [Keys](#keys))
-* Once one machine is connected, the app also offers the machines that computer's Herdr already uses. Skip `debian-wsl`: it's the Windows app's `127.0.0.1:2222` link, which only works on the laptop itself. Use `meeg-laptop-wsl` instead
-* Agents and terminals show from both. Spaces only show for `meeg-laptop`, where the Herdr app runs; agents started in the old herdr TUI don't show
+- **Tailscale:** install the Tailscale app ([Android](https://play.google.com/store/apps/details?id=com.tailscale.ipn), [iOS](https://apps.apple.com/app/tailscale/id1470499037)) and log in with the same account.
+- **The Windows host,** in the [Herdr app](https://herdr.dev/mobile/): add `<host>` as `<user>`, port 22. The phone's key must be in [Keys](#keys).
+- **WSL,** in the Herdr app, in this order *(tested)*:
+  1. add a machine with `<host>` (or its `100.x` address, if the phone has "Use Tailscale DNS" off: see [Optional: DNS filters](#optional-dns-filters)), user `<WSL user>` and port `2222`; the app then shows its public key;
+  2. add that key to `~/.ssh/authorized_keys` in WSL, e.g. with the comment `herdr-mobile`, beside the Windows app's key;
+  3. choose **Connect again**.
+- **Skip `debian-wsl`:** once one machine is connected, the app also offers the machines that computer's Herdr already uses. `debian-wsl` is the Windows app's `127.0.0.1:2222` link, which only works on the Windows machine itself.
+- **What shows:** agents and terminals show from both. Spaces only show for the Windows host, where the Herdr app runs; agents started in the old herdr TUI don't show.
 
 ## Connecting from another computer
 
-* Install Tailscale there and log in
-* Plain SSH: `ssh meeg@meeg-laptop-wsl` or `ssh cpmee@meeg-laptop`
-* herdr-core: `hc machine add meeg@meeg-laptop-wsl` (it's named `meeg-laptop-wsl`), then `hc run --on meeg-laptop-wsl ...`, or add it in that computer's Herdr app
-* An entry in `~/.ssh/config` saves typing the user each time:
+- Install Tailscale there and log in.
+- **Plain SSH:** `ssh <user>@<host>` for Windows, `ssh -p 2222 <WSL user>@<host>` for WSL.
+- **herdr-core:** `hc machine add <WSL user>@<host>:2222 --name <host>-wsl`, then `hc run --on <host>-wsl ...`, or add it in that computer's Herdr app. Without `--name`, it's named after the host, the same as the Windows machine *(docs only: from `hc machine add --help`)*.
+- **An entry in `~/.ssh/config`** saves typing the port and user each time:
 
   ```
-  Host meeg-laptop-wsl
-    User meeg
+  Host <host>-wsl
+    HostName <host>
+    Port 2222
+    User <WSL user>
   ```
 
-## Dev servers and other services
+## Dev servers by name on the tailnet
 
-To open a dev server running on the laptop from the phone or another computer:
+Each dev server gets a name like `https://myapp.<machine>.<personal domain>` that only your tailnet devices can reach, with a real certificate. The [dev proxy](../dev-proxy/README.md#windows-also-windows--wsl) serves it, with a Let's Encrypt wildcard certificate it gets through Cloudflare's API *(tested)*. This needs the dev proxy set up first, and the domain on Cloudflare.
 
-### `tailscale serve` (recommended)
+1. **The DNS record** ([create DNS records](https://developers.cloudflare.com/dns/manage-dns-records/how-to/create-dns-records/)): in the domain's DNS → Records → **Add record**: type `A`, name `*.<machine>`, IPv4 address the Windows host's tailnet address (`tailscale ip -4`), proxy status off (*DNS only*). Cloudflare shows it as "DNS only - reserved IP", as it can't proxy a tailnet address.
+2. **The API token** ([create API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/)): My Profile → API Tokens → **Create Token**, from scratch, with a *Zone* policy for the one domain granting Zone → Read and DNS → Edit, and a **Token expiration** date. The secret is shown once, so save it straight away, in the next step.
+3. **The token file:** open Notepad as administrator, paste the token, and save it as `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\cloudflare.token` (*Save as type*: *All files*). Only administrators and the service can read that folder. Never paste the token into a terminal or a chat.
+4. **Caddy's Cloudflare plugin,** as administrator, with the service stopped ([caddy add-package](https://caddyserver.com/docs/command-line#caddy-add-package)):
 
-Publishes a local port to your tailnet over HTTPS, with a real certificate, at the device's full name. The dev server can stay on `localhost`, and only tailnet devices can reach it. In the same environment as the server (WSL or Windows):
+   ```powershell
+   sc.exe stop caddy
+   & 'C:\Program Files\Caddy\caddy.exe' add-package github.com/caddy-dns/cloudflare
+   sc.exe start caddy
+   ```
 
-```bash
-tailscale serve --bg 5173                  # https://meeg-laptop-wsl.<tailnet>.ts.net → http://localhost:5173
-tailscale serve --bg --https=8443 3000     # a second one on https://...:8443
-tailscale serve --bg --set-path=/api 5000  # or under a path of the first
-tailscale serve status                     # what's published
-tailscale serve reset                      # stop publishing all of it
-```
+   - **What it does:** it downloads a build of the latest release with the plugin added from caddyserver.com, and replaces `caddy.exe`. Here it left the old binary beside it as `caddy.exe.tmp` *(observed)*; delete that once the new one works.
+   - **Updates:** use `caddy upgrade`, which keeps the plugins ([caddy upgrade](https://caddyserver.com/docs/command-line#caddy-upgrade)), *docs only*, rather than the dev proxy's zip, which has no plugins. Both commands are marked experimental in Caddy's docs.
+5. **The site:** copy [tailnet.caddy](./tailnet.caddy) into `C:\ProgramData\Caddy\sites\` as administrator, change `laptop.example.net` to `<machine>.<personal domain>`, and add a `handle` for each app. Then restart the service: `sc.exe stop caddy; sc.exe start caddy`.
+   - **The token** is read with Caddy's `{file.…}` placeholder, which keeps it out of the service's environment, which Windows keeps in the registry ([placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders)).
+   - **No `bind`:** a site bound to the tailnet address stops the whole service starting while Tailscale is down, `.localhost` sites included. The site stays on loopback, and Tailscale forwards to it (next step).
+   - **Other names** under `*.<machine>` get `404`.
+6. **The forward,** in an ordinary terminal ([tailscale serve](https://tailscale.com/docs/reference/tailscale-cli/serve)):
 
-* Without `--bg`, it serves until you press Ctrl+C
-* The first request takes a few seconds while Tailscale gets the certificate
-* Dev servers that check the `Host` header reject the new name until allowed, e.g. Vite's `server.allowedHosts: ['.ts.net']`. Apps that build absolute URLs or OAuth callbacks from `localhost` need the same treatment
-* WSL runs it without `sudo` because `tailscale.ps1` made you the operator. On Windows, run it in your own terminal
+   ```powershell
+   tailscale serve --bg --tcp=443 tcp://127.0.0.1:443
+   ```
 
-### Straight to the port
+   - **Raw TCP:** Tailscale passes the TLS connection through, so the phone sees Caddy's Let's Encrypt certificate.
+   - **Tested:** with Tailscale disconnected, Caddy kept serving its local sites and restarted cleanly; after reconnecting, the forward came back by itself. A full Windows restart wasn't tried.
+7. **Check from the phone:** open `https://myapp.<machine>.<personal domain>` with Tailscale connected.
 
-Quicker for a one-off: start the server listening on all addresses (e.g. `vite --host`, `--urls http://0.0.0.0:5000`), then open `http://meeg-laptop-wsl:5173`. It's plain HTTP, and you need the port. A server running on Windows also needs a firewall rule for its port; in WSL, nothing else is needed.
+**Security:** the 443 forward lets any tailnet device reach every site Caddy serves on loopback, if it asks for that name: `.localhost` sites and the port wildcard too, not just the tailnet names.
 
-### Not used here
+## Optional: DNS filters
 
-* [Funnel](https://tailscale.com/kb/1223/funnel) publishes to the public internet: only for sharing with people outside your tailnet
-* [Tailscale Services](https://tailscale.com/kb/1552/tailscale-services) give each service its own name (e.g. `myapp.<tailnet>.ts.net`), but the device hosting them must be tagged, which takes it out of your personal devices (and the SSH rule above)
+Some steps exist only because of a DNS filter, such as NextDNS (see also [the dev proxy's DNS filters section](../dev-proxy/README.md#optional-dns-filters)). Without a filter, none of them is needed *(tested with NextDNS)*.
+
+- **The filter has rebinding protection:** it hides records that point at private addresses, so the tailnet names don't resolve. Exempt the domain in the filter, on every network and device that uses it, e.g. NextDNS's Allowlist ([Tailscale: DNS rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding), [NextDNS](https://help.nextdns.io/t/q6hl0vb/support-whitelist-for-dns-rebinding-protection)).
+- **A filter app blocks direct DNS on port 53** (e.g. the NextDNS Windows app): Caddy can't check that the challenge record has spread, and the log shows "dial tcp 1.0.0.1:53: … forbidden by its access permissions". Uncomment `propagation_delay 30s` and `propagation_timeout -1` in `tailnet.caddy` to leave that check to Let's Encrypt ([tls](https://caddyserver.com/docs/caddyfile/directives/tls)).
+- **An Android phone has a Private DNS hostname** (Settings → Private DNS): it loses all DNS once Tailscale connects ([tailscale#4252](https://github.com/tailscale/tailscale/issues/4252)). Turn off "Use Tailscale DNS" in the phone's Tailscale app (Settings → DNS settings). The phone then uses addresses rather than Tailscale names, while names on your domain still resolve through the filter. Other fixes, not tried: set Private DNS to Automatic, or make NextDNS the tailnet's DNS ([Tailscale: NextDNS](https://tailscale.com/docs/integrations/nextdns)), which changes DNS for every tailnet device.
 
 ## Removing
 
-* WSL:
-  * `sudo tailscale logout && sudo apt remove -y tailscale`
-  * Remove Tailscale's apt repo, so `apt update` stops checking it: `sudo rm /etc/apt/sources.list.d/tailscale.list /usr/share/keyrings/tailscale-archive-keyring.gpg`
-* Windows, from PowerShell 7 run as administrator:
-  * Uninstall Tailscale: `winget uninstall --id Tailscale.Tailscale`
-  * Stop the SSH server: `Stop-Service sshd; Set-Service sshd -StartupType Manual`
-  * Put the firewall rule back to allowing any address: `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress Any`
-  * Remove the keys you added from `C:\ProgramData\ssh\administrators_authorized_keys`
-  * If you added the [Keep WSL running](#keep-wsl-running) task: `Unregister-ScheduledTask -TaskName 'Keep WSL running' -Confirm:$false`
-* Then remove the devices in the admin console
+- **The forwards,** in an ordinary terminal: `tailscale serve reset`.
+- **The tailnet site:** delete `tailnet.caddy` from `C:\ProgramData\Caddy\sites\` as administrator, then `sc.exe stop caddy; sc.exe start caddy`. The plugin build stays until Caddy itself is removed ([the dev proxy's Removing](../dev-proxy/README.md#removing)).
+- **In Cloudflare:** delete the `*.<machine>` DNS record, and the API token (My Profile → API Tokens).
+- **The token file:** delete `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\cloudflare.token` as administrator.
+- **The certificate:** the Let's Encrypt name stays in public certificate logs; that can't be undone.
+- **Tailscale:** `winget uninstall --id Tailscale.Tailscale`, then remove `<host>` in the admin console.
+- **The phone:** delete its key from WSL's `~/.ssh/authorized_keys` and from `C:\ProgramData\ssh\administrators_authorized_keys`, and remove the machines in the Herdr app.
+- **The optional DNS-filter changes:** remove the domain from the filter's allowlist, and turn "Use Tailscale DNS" back on in the phone's Tailscale app.
+- **Windows,** from PowerShell 7 run as administrator:
+  - stop the SSH server: `Stop-Service sshd; Set-Service sshd -StartupType Manual`;
+  - put the firewall rule back to allowing any address: `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress Any`;
+  - remove the other keys you added from `C:\ProgramData\ssh\administrators_authorized_keys`;
+  - if you added the [Keep WSL running](#keep-wsl-running) task: `Unregister-ScheduledTask -TaskName 'Keep WSL running' -Confirm:$false`.

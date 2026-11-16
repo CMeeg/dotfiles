@@ -39,7 +39,7 @@ The [Herdr desktop app](https://herdr.dev/guide/) manages agents locally and in 
     * A copy of Herdr's `main` layout (version 0.1.14) with an invisible block that runs `tab-autoname`: a mod only runs while a layout shows it, and Herdr's own layouts are read-only. The copy doesn't get Herdr's later changes to `main`; to take them, clone `main` again (`herdr-app do layout.clone --name main --as my-main`, after moving the old file aside) and add the root's `floating` entry back.
   * Everything else in that folder is Herdr's own or this machine's state. `keys.json` is left out until a shortcut is changed: Herdr only adds new default shortcuts to a `keys.json` nobody has edited.
   * A file the app rejects is reported in `<name>.error` beside it (e.g. `settings.error`)
-* Create an SSH key just for WSL, with no passphrase (Herdr's background reconnects can't type one; the key only works against the localhost-only sshd in WSL)
+* Create an SSH key just for WSL, with no passphrase (Herdr's background reconnects can't type one; the key only works against the localhost-only sshd in WSL; with Tailscale's port 2222 forward, that sshd is also reachable from your tailnet, see [tailscale/README.md](../tailscale/README.md#ssh-to-wsl))
   * From PowerShell 7: `ssh-keygen -t ed25519 -N '' -C windows-to-wsl-herdr -f $env:USERPROFILE\.ssh\id_ed25519_wsl`
   * Windows PowerShell 5 drops the empty `-N` argument and ssh-keygen waits for a passphrase, so use PowerShell 7 (or run `ssh-keygen.exe` from WSL)
   * Add `id_ed25519_wsl.pub` to WSL's `~/.ssh/authorized_keys` (see the linux steps)
@@ -59,9 +59,13 @@ The [Herdr desktop app](https://herdr.dev/guide/) manages agents locally and in 
 * In the app, add a machine and pick `debian-wsl` from the SSH config list
 * After `wsl --shutdown`, the machine shows as unreachable and reconnects on its own once WSL is running again
 
-### tailscale (optional)
+### dev proxy
 
-To reach herdr-core on this machine and in WSL from your phone or other computers by name, set up Tailscale and Windows' OpenSSH server: see [tailscale/README.md](../tailscale/README.md). The app's own connection to WSL above stays on `127.0.0.1:2222` and doesn't use Tailscale.
+One always-on Caddy service gives each dev server, on Windows or in WSL, a name like `myapp.localhost`, and a public name through a tunnel: see [dev-proxy/README.md](../dev-proxy/README.md). If this machine also runs IIS, the two take turns on ports 80 and 443 ([If you also use IIS](../dev-proxy/README.md#if-you-also-use-iis)).
+
+### tailscale (optional, personal)
+
+To reach this machine, its WSL distro and its dev servers from your phone or other computers, set up Tailscale and Windows' OpenSSH server: see [tailscale/README.md](../tailscale/README.md). The app's own connection to WSL above stays on `127.0.0.1:2222` and doesn't use Tailscale.
 
 ### claude code
 
