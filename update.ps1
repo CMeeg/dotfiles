@@ -190,6 +190,7 @@ if (Test-DryRun) { Write-Host "`e[0;34mDry-run mode — no changes will be made`
 Write-Host ''
 
 try {
+  Assert-Linux
   Start-SudoKeepAlive
 
   if ($SkipRetire) {
