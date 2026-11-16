@@ -81,7 +81,7 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
      ```
 
    - **`--config`** is needed because a service starts in `C:\Windows\System32`.
-   - **`start= demand`** starts it only when asked, so after a restart it waits for `sc.exe start caddy`. That keeps it from competing with IIS at boot ([If you also use IIS](#if-you-also-use-iis)). Without IIS, `start= auto` starts it with Windows *(docs only)*.
+   - **`start= demand`** starts it only when asked, so after a restart it waits for `sc.exe start caddy`. That keeps it from competing with IIS at boot ([If you also use IIS](#if-you-also-use-iis)). Without IIS, use `start= auto` instead, so it starts with Windows: a service created that way runs as with `demand` *(tested, with the hardened set-up)*; starting at boot is *docs only*.
    - **Data:** the service keeps its data, including its certificate authority's private key, in `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy`.
    - **Starting and stopping** (`sc.exe start caddy`, `sc.exe stop caddy`) need administrator rights.
    - **Logs:** a Windows service's output goes nowhere. To see Caddy's log while setting up, add this inside the top file's global options block, restart the service, and remove it afterwards (Caddy rejects it written on one line):
@@ -390,7 +390,7 @@ Per-project `caddy run` leaves things the service doesn't use. Removing them is 
   1. as administrator, find the service root's thumbprint, the `Cert Hash(sha1)` line of `certutil -dump C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy\pki\authorities\local\root.crt`;
   2. in an ordinary terminal, `certutil -user -store Root` lists your roots, each with its `Subject` and `Cert Hash(sha1)`;
   3. for each *Caddy Local Authority* root with a different hash, `certutil -user -delstore Root <thumbprint>` *(tested)*, confirming the Windows dialog.
-- **The per-user Caddy on Windows:** `winget uninstall --id CaddyServer.Caddy` if winget installed it ([winget uninstall](https://learn.microsoft.com/en-us/windows/package-manager/winget/uninstall)), then delete its data folder, `%APPDATA%\Caddy` ([conventions](https://caddyserver.com/docs/conventions#data-directory)).
+- **The per-user Caddy on Windows:** `winget uninstall --id CaddyServer.Caddy` if winget installed it ([winget uninstall](https://learn.microsoft.com/en-us/windows/package-manager/winget/uninstall)), or `choco uninstall caddy -y` as administrator if Chocolatey did *(tested)*, then delete its data folder, `%APPDATA%\Caddy` ([conventions](https://caddyserver.com/docs/conventions#data-directory)). Afterwards `caddy` alone isn't on `PATH`, so run the service's copy by its full path, as this guide does.
 - **Old roots in WSL:** WSL's Caddy put its roots in `/usr/local/share/ca-certificates/Caddy_Local_Authority_-_*.crt`. With Caddy gone from WSL, delete them and rebuild the trust store's links ([update-ca-certificates](https://manpages.debian.org/stable/ca-certificates/update-ca-certificates.8.en.html)):
 
   ```bash
@@ -404,8 +404,21 @@ Per-project `caddy run` leaves things the service doesn't use. Removing them is 
 
 The set-up above runs Caddy as the trial did, and accepts a risk: any local process can reconfigure Caddy through its admin API on `127.0.0.1:2019`, and ordinary users can probably add sites files, as `C:\ProgramData` lets them create files. Whether either is likely to be exploited is unclear. The hardened set-up turns the admin API off and keeps the config where only administrators can write *(tested)*. The cost: every change needs an administrator to restart the service, and trusting the root is done by hand.
 
-1. **The config,** under `C:\Program Files\Caddy\` beside `caddy.exe`: the top `Caddyfile`, with `admin off` added to its global options block ([admin](https://caddyserver.com/docs/caddyfile/options#admin)), and the `sites` folder. For a log, use `output file "C:/Program Files/Caddy/caddy.log"`, quoted because of the space.
-2. **The service,** as administrator. If the default service already exists, remove it first with `sc.exe stop caddy; sc.exe delete caddy` ([sc delete](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete)). The config path is quoted because of the space:
+1. **The config,** under `C:\Program Files\Caddy\` beside `caddy.exe` (installed in [step 1](#windows-also-windows--wsl)), in place of step 2's: the top `Caddyfile`, with `admin off` added to its global options block ([admin](https://caddyserver.com/docs/caddyfile/options#admin)), and the `sites` folder. As administrator:
+
+   ```powershell
+   New-Item -ItemType Directory 'C:\Program Files\Caddy\sites'
+   Copy-Item $env:USERPROFILE\.dotfiles\dev-proxy\Caddyfile 'C:\Program Files\Caddy\'
+   Copy-Item $env:USERPROFILE\.dotfiles\dev-proxy\sites\ports.caddy 'C:\Program Files\Caddy\sites\'
+   $f = 'C:\Program Files\Caddy\Caddyfile'
+   Set-Content $f ((Get-Content $f -Raw) -replace '^\{\r?\n', "{`n`tadmin off`n") -NoNewline
+   Select-String 'admin off' $f
+   ```
+
+   - **The last line** shows `admin off` if it went in; with no output, add it by hand as the first line inside the opening `{`.
+   - **A project's sites file** goes in `C:\Program Files\Caddy\sites\`, written as administrator (e.g. Notepad run as administrator).
+   - **For a log,** use `output file "C:/Program Files/Caddy/caddy.log"` in step 3's logging block, quoted because of the space.
+2. **The service,** as administrator. If the default service already exists, remove it first with `sc.exe stop caddy; sc.exe delete caddy` ([sc delete](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete)). The config path is quoted because of the space, and without IIS `start= auto` replaces `start= demand`, as in step 3:
 
    ```powershell
    sc.exe create caddy start= demand binPath= '"C:\Program Files\Caddy\caddy.exe" run --config "C:\Program Files\Caddy\Caddyfile"'
@@ -428,7 +441,7 @@ The set-up above runs Caddy as the trial did, and accepts a risk: any local proc
    certutil -user -addstore Root $env:USERPROFILE\Downloads\caddy-root.crt
    ```
 
-What the test showed: nothing listens on 2019 and the log says "admin endpoint disabled"; an ordinary user creating a file in `sites` gets "Access … is denied"; and Chrome loads the sites with no warning.
+What the tests showed, the second time on a first install with `start= auto`: nothing listens on 2019 and the log says "admin endpoint disabled"; an ordinary user creating a file in `sites` gets "Access … is denied", as Users can only read it; and Chrome loads the sites with no warning, with hot reload working.
 
 ## Optional: DNS filters
 

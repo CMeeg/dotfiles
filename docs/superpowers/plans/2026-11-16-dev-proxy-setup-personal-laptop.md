@@ -92,15 +92,15 @@ Read-only: nothing on the machine changes.
 - Consumes: [Decisions](#decisions): the set-up, start type and test project.
 - Produces: the running service with the test project's `.localhost` site, which Tasks 4 and 5 add public and tailnet names to.
 
-- [ ] **Step 1: Install and configure** with the guide's [Windows](../../../dev-proxy/README.md#windows-also-windows--wsl) steps 1–3, or for the hardened set-up its [steps 1–2](../../../dev-proxy/README.md#optional-the-hardened-set-up), with the start type from Decisions. Verify: `sc.exe query caddy` shows `RUNNING`; something listens on `127.0.0.1:443` and `127.0.0.1:80`, and on `127.0.0.1:2019` only for the default set-up.
-- [ ] **Step 2: Trust the root:** step 5, or the hardened set-up's step 4. Verify: `certutil -user -store Root` lists the service's root, with the same `Cert Hash(sha1)` as `certutil -dump` of the service's `root.crt` (run by the person as administrator).
-- [ ] **Step 3: The test project's site,** from [example.caddy](../../../dev-proxy/example.caddy) with only the local name for now (step 4), plus its hosts entry (step 6). Start its dev server on `127.0.0.1:<port>`. Verify:
+- [x] **Step 1: Install and configure** with the guide's [Windows](../../../dev-proxy/README.md#windows-also-windows--wsl) steps 1–3, or for the hardened set-up its [steps 1–2](../../../dev-proxy/README.md#optional-the-hardened-set-up), with the start type from Decisions. Verify: `sc.exe query caddy` shows `RUNNING`; something listens on `127.0.0.1:443` and `127.0.0.1:80`, and on `127.0.0.1:2019` only for the default set-up. (Done here in one administrator session, from a temporary script in the scratchpad, with Step 3's site file and hosts entry and the guide's logging block, to save a second session and a restart.)
+- [x] **Step 2: Trust the root:** step 5, or the hardened set-up's step 4. Verify: `certutil -user -store Root` lists the service's root, with the same `Cert Hash(sha1)` as `certutil -dump` of the service's `root.crt` (here, of the copy the person made as administrator in the hardened set-up's step 4, which the user can read).
+- [x] **Step 3: The test project's site,** from [example.caddy](../../../dev-proxy/example.caddy) with only the local name for now (step 4), plus its hosts entry (step 6). Start its dev server on `127.0.0.1:<port>`. Verify:
   - `curl.exe --ssl-no-revoke -s -o NUL -w "%{http_code}" https://<app>.localhost` prints `200`;
   - in Chrome, the page loads with no certificate warning, and an edit shows up through hot reload;
   - `https://5173.port.localhost` reaches a server on 5173 if one runs, and `https://2019.port.localhost` returns `403` (step 7).
-- [ ] **Step 4: Old Caddy clean-up,** as decided in Task 1: the guide's [old roots on Windows](../../../dev-proxy/README.md#optional-clean-up-the-old-caddy) (keeping the service's root), Chocolatey's `caddy` with `choco uninstall caddy` if chosen, and its `%APPDATA%\Caddy`. If the guide has no step for Chocolatey's Caddy, add one beside winget's.
-- [ ] **Step 5: Update the guide** with every difference found, and the labels of what now worked, then run the checks in the Global Constraints.
-- [ ] **Step 6: Checkpoint.** Leave the dev server stopped. (Suggested: `set up the dev proxy on the personal laptop`.)
+- [x] **Step 4: Old Caddy clean-up,** as decided in Task 1: the guide's [old roots on Windows](../../../dev-proxy/README.md#optional-clean-up-the-old-caddy) (keeping the service's root), Chocolatey's `caddy` with `choco uninstall caddy` if chosen, and its `%APPDATA%\Caddy`. If the guide has no step for Chocolatey's Caddy, add one beside winget's.
+- [x] **Step 5: Update the guide** with every difference found, and the labels of what now worked, then run the checks in the Global Constraints.
+- [x] **Step 6: Checkpoint.** Leave the dev server stopped. (Suggested: `set up the dev proxy on the personal laptop`.) (Left for the user.)
 
 ### Task 4: Tunnels on the personal domain
 
@@ -232,6 +232,14 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 1 | Already present: WSL's SSH server on `127.0.0.1:2222` with one key (the Windows Herdr app's) | — |
 | 2 | WSL: `update.ps1` retired Caddy: `apt remove caddy`, its apt source and keyring deleted, `/etc/sysctl.d/50-unprivileged-ports.conf` deleted and `ip_unprivileged_port_start` back to `1024`. The same run did the routine updates (apt upgrade, tools, pull, sync) | Re-add Caddy's apt source and keyring per [Caddy's Debian install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian), then `sudo apt install caddy`; `echo 'net.ipv4.ip_unprivileged_port_start=80' \| sudo tee /etc/sysctl.d/50-unprivileged-ports.conf && sudo sysctl --system` |
 | 2 | WSL: `sudo apt purge -y caddy`: the `caddy` user and group, `/etc/caddy` (the pre-dev-proxy `Caddyfile`), `/var/lib/caddy` (the old WSL Caddy's local authority, trusted nowhere) and `/var/log/caddy` deleted | None needed; the install above recreates the user and folders |
+| 3 | Caddy 2.11.9 (official zip, SHA-512 checked) in `C:\Program Files\Caddy\` (`caddy.exe`, `LICENSE`, `README.md`) | As administrator, after the service is deleted: `Remove-Item -Recurse 'C:\Program Files\Caddy'` |
+| 3 | `C:\Program Files\Caddy\Caddyfile` (the repo's, with `admin off` and a temporary logging block to `C:/Program Files/Caddy/caddy.log`), `sites\ports.caddy`, `sites\devtest.caddy` (`devtest.localhost` → `127.0.0.1:5173`) | Go with `C:\Program Files\Caddy`. The logging block is to come out once Tasks 5 and 6 no longer need it |
+| 3 | Service `caddy`, `start= auto`, LocalSystem | As administrator: `sc.exe stop caddy; sc.exe delete caddy` |
+| 3 | The service's data and local authority, `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy` | As administrator: `Remove-Item -Recurse` that folder |
+| 3 | Root *Caddy Local Authority - 2026 ECC Root* in the user's Trusted Root store, thumbprint `1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` | `certutil -user -delstore Root 1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` |
+| 3 | Hosts entry `127.0.0.1 devtest.localhost` | Remove the line from `C:\Windows\System32\drivers\etc\hosts`, as administrator |
+| 3 | `choco uninstall caddy -y` | `choco install caddy -y` |
+| 3 | Scratch Vite 8.3.8 app `devtest` in the session's scratchpad (`vite` and `typescript` installed in its folder); its dev server was stopped. The Downloads files (zip, checksums, `caddy-root.crt`) were deleted after use | Delete the scratch folder at the end of the plan |
 
 ## Addenda
 
