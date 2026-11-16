@@ -25,16 +25,16 @@ The files this guide copies are beside it: [Caddyfile](./Caddyfile) (the top fil
 
 The order to set a machine up in, what to check and decide first, and the one check that shows each part worked. Each part's steps are in its own section. This order was followed on a personal Windows 11 machine with WSL *(tested)*; the work and Mac rows below are *docs only*.
 
-Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are made by the person whose machine or account it is, unless they hand some to an agent helping them, one approved change at a time. An agent prepares them and checks the result, and never handles a token.
+Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are always made by the person whose machine or account it is. An agent helping them can prepare a script or command for them to run, after explaining what it does and its risks, never for a step that can't be undone; it checks the result, and never handles a token.
 
 ### Before you start
 
-Check what's already on the machine, without changing anything:
+Check what's already on the machine, read-only apart from a `git fetch`:
 
 - [ ] **Caddy on Windows:** a `caddy` service (`sc.exe query caddy`); `C:\Program Files\Caddy` and `C:\ProgramData\Caddy`; a per-user Caddy from winget or Chocolatey (`winget list --id CaddyServer.Caddy`, `choco list caddy`) and its `%APPDATA%\Caddy`; *Caddy Local Authority* roots in your store (`certutil -user -store Root`).
 - [ ] **Ports:** what listens on 80, 443, 2019 and 5399 (`Get-NetTCPConnection -State Listen`), and whether IIS is installed (`Get-Service W3SVC`).
 - [ ] **WSL:** an apt-installed Caddy (`dpkg -l caddy`), the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`), old roots in `/usr/local/share/ca-certificates/`, and whether WSL's clone of this repo is up to date (`git -C ~/.dotfiles status -sb` after a `git fetch`).
-- [ ] **Projects that ran their own Caddy:** Caddyfiles and scripts that run `caddy run` in your project folders. They keep working until moved, but compete for ports 80 and 443 with the service ([Moving a project onto the service](#moving-a-project-onto-the-service)).
+- [ ] **Projects that ran their own Caddy:** Caddyfiles and scripts that run `caddy run` in your project folders. They keep working until moved, but compete for ports 80 and 443 with the service, and step 3 of the order below stops them working ([Moving a project onto the service](#moving-a-project-onto-the-service)).
 - [ ] **`cloudflared`:** every copy on `PATH` (`Get-Command cloudflared -All`), and what's in `%USERPROFILE%\.cloudflared`: a `config.yml` there can stop quick tunnels working.
 - [ ] **Personal machines:** whether Tailscale is installed (`tailscale status`, `tailscale serve status`), the SSH server (`Get-Service sshd`) and its firewall rule's addresses, and whether a DNS filter such as NextDNS runs on the machine or the phone ([DNS filters](../tailscale/README.md#optional-dns-filters)).
 - [ ] **Old cloud set-up,** if the machine was set up before: tunnels, Access applications, DNS records and API tokens for it in Cloudflare, and the device in Tailscale's admin console.
@@ -60,10 +60,10 @@ Keep a list of each change you make with how to undo it; [Removing](#removing) c
 
 1. **Retire Caddy in WSL** (machines with WSL): pull WSL's clone first (`git -C ~/.dotfiles pull`), as `update.ps1` runs its retire steps before it pulls; then run `pwsh ./update.ps1` in WSL, whose retire steps remove an apt-installed Caddy and the low-ports sysctl ([linux/README.md](../linux/README.md#caddy)). *Check:* `pwsh ./update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`.
 2. **The dev proxy:** [Windows](#windows-also-windows--wsl) steps 1–8, with the [hardened set-up](#optional-the-hardened-set-up) in place of steps 2–3 and 5 if chosen. *Check:* `https://<app>.localhost` loads in a browser with no certificate warning, and hot reload works.
-3. **Clean up the old Caddy:** [old roots, the per-user Caddy and WSL's roots](#optional-clean-up-the-old-caddy). *Check:* `certutil -user -store Root` shows one *Caddy Local Authority* root, the service's.
+3. **Clean up the old Caddy:** [old roots, the per-user Caddy and WSL's roots](#optional-clean-up-the-old-caddy), once no project runs its own Caddy any more. Removing the per-user Caddy and its data folder stops any `caddy run` set-up still in a project, so do it earlier only if you accept that. *Check:* `certutil -user -store Root` shows one *Caddy Local Authority* root, the service's.
 4. **Tunnels:** install `cloudflared` ([Tunnels](#tunnels)), then the personal domain's tunnel or the person's work tunnel. *Check:* `curl.exe -s -o NUL -w "%{http_code}" https://<public name>/` prints `302` (the Access login), and after the login the page loads.
 5. **Tailscale** (personal machines): [tailscale/README.md](../tailscale/README.md), from Windows to the tailnet names. *Check:* the phone opens `https://<app>.<machine>.<personal domain>` with Tailscale connected, and not with it disconnected.
-6. **Restart Windows.** *Check:* with `start= auto`, the `caddy` service is running without being started by hand and `https://<app>.localhost` answers; `tailscale serve status` lists the forwards; the tunnel runs again with the same command (nothing starts it by itself); the phone reaches WSL once WSL is running ([Keep WSL running](../tailscale/README.md#keep-wsl-running)).
+6. **Restart Windows,** and with `start= demand`, start the service (`sc.exe start caddy`, as administrator). *Check:* with `start= auto`, the `caddy` service is running without being started by hand and `https://<app>.localhost` answers; `tailscale serve status` lists the forwards; the tunnel runs again with the same command (nothing starts it by itself); the phone reaches WSL once WSL is running ([Keep WSL running](../tailscale/README.md#keep-wsl-running)).
 
 ### When something differs from the guide
 
@@ -122,11 +122,15 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
      sc.exe start caddy
      ```
 
+     Without IIS, use `start= auto` in place of `start= demand` (below).
+
    - **Other shells:** only PowerShell 7 was tested. Windows PowerShell 5.1 is expected to mangle the inner quotes. In Command Prompt the line would be (*not tested*):
 
      ```bat
      sc.exe create caddy start= demand binPath= "\"C:\Program Files\Caddy\caddy.exe\" run --config C:\ProgramData\Caddy\Caddyfile"
      ```
+
+     The same `start= auto` change applies here.
 
    - **`--config`** is needed because a service starts in `C:\Windows\System32`.
    - **`start= demand`** starts it only when asked, so after a restart it waits for `sc.exe start caddy`. That keeps it from competing with IIS at boot ([If you also use IIS](#if-you-also-use-iis)). Without IIS, use `start= auto` instead, so it starts with Windows: after a Windows restart it was running by the time of login, with nothing started by hand, and its local, tunnel and tailnet names worked *(tested, with the hardened set-up)*.
@@ -165,14 +169,14 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
 5. **Trust Caddy's certificate authority** *(tested)*.
    - **Command:** with the service running, as administrator: `& 'C:\Program Files\Caddy\caddy.exe' trust` ([caddy trust](https://caddyserver.com/docs/command-line#caddy-trust)).
    - **What it does:** it fetches the root from the admin API and installs it into the **current user's** Trusted Root Certification Authorities, even when run as administrator, after a Windows security dialog. Chrome then accepts the certificates (Edge and Firefox weren't tried).
-   - **Run it as the account you browse with:** elevating with a separate administrator account would put the root in that account's store. Whether it works without elevation wasn't tested. Where administrator rights come from a separate account, trust it as the [hardened set-up](#optional-the-hardened-set-up) does (step 4): copy `root.crt` out with the administrator account, then add it with `certutil -user` as yourself *(tested, with one account)*.
+   - **Run it as the account you browse with:** elevating with a separate administrator account would put the root in that account's store. Whether it works without elevation wasn't tested. Where administrator rights come from a separate account, trust it as the [hardened set-up](#optional-the-hardened-set-up) does (step 4): copy `root.crt` out with the administrator account, then add it with `certutil -user` as yourself *(the copy and import tested with one account; a separate administrator account not tested)*.
    - **To remove it:** see [Removing](#removing).
 6. **Make `.localhost` names resolve for tools other than browsers** *(tested)*.
    - **Browsers** resolve any `*.localhost` name to the local machine themselves; Windows' own resolver doesn't.
    - **The hosts file:** as administrator, add each name to `C:\Windows\System32\drivers\etc\hosts`, e.g. `127.0.0.1 myapp.localhost`.
    - **Windows' own `curl.exe`** resolves `.localhost` names itself, with no hosts entry, but rejects Caddy's certificates (`CRYPT_E_NO_REVOCATION_CHECK`), as it checks for revocation and Caddy's local authority can't answer that. Use `curl.exe --ssl-no-revoke https://myapp.localhost`.
 7. **A name for any port** *(tested, optional)*.
-   - **The site:** [sites/ports.caddy](./sites/ports.caddy), copied in step 2, lets `5173.port.localhost` reach `127.0.0.1:5173`, for ports on an allowed list only. Delete it from `sites` and reload if you don't want it.
+   - **The site:** [sites/ports.caddy](./sites/ports.caddy), copied in step 2, lets `5173.port.localhost` reach `127.0.0.1:5173`, for ports on an allowed list only. Delete it from `sites` and reload (restart, with the [hardened set-up](#optional-the-hardened-set-up)) if you don't want it.
    - **`{labels.2}`** is the third label counting from the right, starting at 0 ([caddyhttp package docs](https://pkg.go.dev/github.com/caddyserver/caddy/v2/modules/caddyhttp); [reverse_proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy), "Upstream addresses").
    - **What it returns:** an allowed port with a server returns its page; an allowed port with nothing on it returns `502`; a port not on the list returns `403`. Chrome accepts the wildcard certificate.
    - **The allowed list:** keep it to ports any `*.port.localhost` page may reach, and never add `2019`, the admin API.
@@ -274,7 +278,7 @@ To stop using a tunnel, see [Removing](#removing).
 
 For whoever manages the Cloudflare account that holds the domain: setting up each person's tunnel and the login in front of it, and cleaning up when someone leaves. *Tested* in Cloudflare's dashboard on 2026-11-12. Where the docs have changed since, the step follows the docs and is marked *changed in the docs*.
 
-- **Check each step first:** the dashboard changes often, so check every step against current docs before following it, with context7 (`/cloudflare/cloudflare-docs`) or the page's `index.md` (its URL with `index.md` added). This goes for agents too. Where Cloudflare's plugin is installed, agents use it read-only: changes are made by the person, or by an agent with that person's approval for each change.
+- **Check each step first:** the dashboard changes often, so check every step against current docs before following it, with context7 (`/cloudflare/cloudflare-docs`) or the page's `index.md` (its URL with `index.md` added). This goes for agents too. Where Cloudflare's plugin is installed, agents use it read-only: changes are always made by the person ([Setting up a machine](#setting-up-a-machine)).
 - **A dedicated account:** a domain used this way lives in a Cloudflare account of its own, so the people and tunnels set up for it can't reach other domains and resources. Tunnels, the Access organisation and its login domain, and anyone invited as an admin are all account-wide. For the work domain this is still to be confirmed.
 
 **Setting up a person:**
@@ -465,6 +469,7 @@ The set-up above runs Caddy as the trial did, and accepts a risk: any local proc
    Select-String 'admin off' $f
    ```
 
+   - **For a clone elsewhere,** change `$env:USERPROFILE\.dotfiles` to its folder. Where administrator rights come from a separate account, `$env:USERPROFILE` is that account's profile, so use the full path to your own clone, e.g. `C:\Users\<user>\.dotfiles`.
    - **The last line** shows `admin off` if it went in; with no output, add it by hand as the first line inside the opening `{`.
    - **A project's sites file** goes in `C:\Program Files\Caddy\sites\`, written as administrator (e.g. Notepad run as administrator).
    - **For a log,** use `output file "C:/Program Files/Caddy/caddy.log"` in step 3's logging block, quoted because of the space.
@@ -475,11 +480,15 @@ The set-up above runs Caddy as the trial did, and accepts a risk: any local proc
    sc.exe start caddy
    ```
 
+   Without IIS, use `start= auto` in place of `start= demand`.
+
    Only PowerShell 7 was tested. In Command Prompt the line would be (*not tested*):
 
    ```bat
    sc.exe create caddy start= demand binPath= "\"C:\Program Files\Caddy\caddy.exe\" run --config \"C:\Program Files\Caddy\Caddyfile\""
    ```
+
+   The same `start= auto` change applies here.
 
 3. **Changes** apply after `sc.exe stop caddy; sc.exe start caddy` as administrator. `caddy reload` fails with "connection refused", as nothing listens on 2019.
 4. **Trusting it:** `caddy trust` needs the admin API, and the root certificate is only readable by administrators. So copy it out as administrator, then add it in an ordinary terminal, confirming the Windows dialog ([certutil](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil)):

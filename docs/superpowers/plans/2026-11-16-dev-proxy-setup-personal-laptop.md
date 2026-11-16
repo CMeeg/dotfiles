@@ -98,7 +98,7 @@ Read-only: nothing on the machine changes.
   - `curl.exe --ssl-no-revoke -s -o NUL -w "%{http_code}" https://<app>.localhost` prints `200`;
   - in Chrome, the page loads with no certificate warning, and an edit shows up through hot reload;
   - `https://5173.port.localhost` reaches a server on 5173 if one runs, and `https://2019.port.localhost` returns `403` (step 7).
-- [x] **Step 4: Old Caddy clean-up,** as decided in Task 1: the guide's [old roots on Windows](../../../dev-proxy/README.md#optional-clean-up-the-old-caddy) (keeping the service's root), Chocolatey's `caddy` with `choco uninstall caddy` if chosen, and its `%APPDATA%\Caddy`. If the guide has no step for Chocolatey's Caddy, add one beside winget's.
+- [x] **Step 4: Old Caddy clean-up,** as decided in Task 1: the guide's [old roots on Windows](../../../dev-proxy/README.md#optional-clean-up-the-old-caddy) (keeping the service's root), Chocolatey's `caddy` with `choco uninstall caddy` if chosen, and its `%APPDATA%\Caddy`. If the guide has no step for Chocolatey's Caddy, add one beside winget's. (Here only Chocolatey's `caddy` was to remove: Task 1 found no *Caddy Local Authority* roots in either store, no `%APPDATA%\Caddy`, and nothing listening on 80, 443, 2019 or 5399, apart from WSL's SSH on 2222.)
 - [x] **Step 5: Update the guide** with every difference found, and the labels of what now worked, then run the checks in the Global Constraints.
 - [x] **Step 6: Checkpoint.** Leave the dev server stopped. (Suggested: `set up the dev proxy on the personal laptop`.) (Left for the user.)
 
@@ -187,8 +187,8 @@ A skill, so an agent on another machine follows the same way of working: take st
   - **Recording:** where reality differs, fix the guide; keep a list of the machine's changes with undos for the person (in a plan, if one is being followed);
   - **Machine types:** personal, work and Mac, pointing at the guide's table, with the work machine's differences (the token comes from the account's admin; nothing in the work account is changed by the person unless they're its admin).
 - [x] **Step 3: Test it** the same way as the baseline, with the skill loaded. Expected: the subagent's described approach follows the rules the baseline broke. Close each gap in the skill and re-test, as `writing-skills` says. (Three rounds: the gaps that were about the set-up itself went into the guide's Setting up a machine section and the Tailscale guide; the ones about working with the person went into the skill. The last round checked the work-admin wording on its own.)
-- [ ] **Step 4: Check it loads:** in a new Claude Code session, the skill is listed as `dev-proxy:setting-up-a-machine`; opencode lists it too after a sync (`pwsh ./sync.ps1 -NoPull`, run by the person if it needs to prompt).
-- [ ] **Step 5: Checkpoint** (suggested: `add a skill for setting up the dev proxy on a machine`).
+- [x] **Step 4: Check it loads:** in a new Claude Code session, the skill is listed as `dev-proxy:setting-up-a-machine`; opencode lists it too after a sync (`pwsh ./sync.ps1 -NoPull`, run by the person if it needs to prompt). (Claude Code listed it in this session; opencode listed it after the person committed, pulled and synced in WSL, as sync runs only in WSL and WSL's clone had to have the commit. Its live config points at WSL's clone.)
+- [x] **Step 5: Checkpoint** (suggested: `add a skill for setting up the dev proxy on a machine`). (Committed by the user.)
 
 ### Task 9: Finish
 
@@ -196,10 +196,10 @@ A skill, so an agent on another machine follows the same way of working: take st
 - Modify: the project plan: a step 9, "Set up the personal laptop", ticked, linking to this plan, with this plan's [Changes on this machine](#changes-on-this-machine) as its change list.
 - Modify: the design's "Where things stand": the personal laptop is set up, and the guide and skill exist for other machines.
 
-- [ ] **Step 1: Update the project plan and the design** as listed.
-- [ ] **Step 2: A fresh-eyes review** by a subagent that hasn't seen the conversation, of everything this plan changed, briefed with this plan, the guardrails (no secrets, no git changes, no live systems: read-only) and the Global Constraints. Check each finding, report those that hold with fixes, and fix them once the user agrees.
-- [ ] **Step 3: List what was raised and deferred** during the plan, for the user to decide on.
-- [ ] **Step 4: Checkpoint** (suggested: `record the personal laptop set-up`).
+- [x] **Step 1: Update the project plan and the design** as listed.
+- [x] **Step 2: A fresh-eyes review** by a subagent that hasn't seen the conversation, of everything this plan changed, briefed with this plan, the guardrails (no secrets, no git changes, no live systems: read-only) and the Global Constraints. Check each finding, report those that hold with fixes, and fix them once the user agrees. (Nine findings, all checked and holding, all fixed with the user's agreement. The first became a decision: admin and dashboard steps are always the person's. The skill was re-tested after that change.)
+- [x] **Step 3: List what was raised and deferred** during the plan, for the user to decide on. (Nothing was left deferred: each item was decided as it came up, in Decisions or the change list.)
+- [x] **Step 4: Checkpoint** (suggested: `record the personal laptop set-up`). (Left for the user.)
 
 ---
 
@@ -218,6 +218,7 @@ Filled in by Task 1.
 | Chocolatey's `caddy` / `cloudflared` | Uninstall both: `caddy` in Task 3, `cloudflared` in Task 4 | Caddy comes from the guide's zip, `cloudflared` from winget, so only one copy of each is on `PATH` |
 | How `cloudflared` is installed | winget (`Cloudflare.cloudflared`), not the MSI | The same MSI from Cloudflare's GitHub releases, hash-checked by winget, and `winget upgrade` keeps it current (it doesn't update itself on Windows). Cloudflare's downloads page lists only the MSI and exe, so the guide marks it "not in Cloudflare's docs". Decided 2026-11-16 |
 | Clone that runs `update.ps1` in WSL | WSL's own `~/.dotfiles` | Already on `feature/dev-proxy` at `c64c7da`, level with `origin`, so it has the retire steps; it's how the machine is normally updated |
+| Admin commands and dashboard changes on any machine | Always made by the person, even if they offer to hand them to an agent. An agent may prepare a script or CLI/API command for them (asked for or offered), after explaining what it does and its risks, and never for a step that can't be undone (decided 2026-11-16, Task 9) | Keeps the Global Constraints' "who does what" for every machine. Supersedes the skill's first draft, which let the person hand these steps to the agent, and the Admin's guide's "or by an agent with that person's approval for each change" |
 | A Windows service for `cloudflared` | Not wanted (decided 2026-11-16, Task 4); not deferred | The tunnel is for dev servers, which only run while working, so running it in a terminal is enough; persistent local services would go on the tailnet instead |
 | WSL's Caddy retire step | Stays `apt remove`, not `purge` (decided 2026-11-16, Task 2) | Purge deletes `/etc/caddy`, which may hold hand edits; the Linux guide says how to purge |
 | Spike leftovers in dashboards and on the phone | All gone; start clean | The person confirmed every undo in the project plan's step 5–6 lists was done (API token, `*.laptop` record, `meeg-laptop` in Tailscale, NextDNS allowlist, the phone's Tailscale app and setting, the Herdr machine) |
@@ -241,7 +242,7 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 3 | Root *Caddy Local Authority - 2026 ECC Root* in the user's Trusted Root store, thumbprint `1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` | `certutil -user -delstore Root 1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` |
 | 3 | Hosts entry `127.0.0.1 devtest.localhost` | Remove the line from `C:\Windows\System32\drivers\etc\hosts`, as administrator |
 | 3 | `choco uninstall caddy -y` | `choco install caddy -y` |
-| 3 | Scratch Vite 8.3.8 app `devtest` in the session's scratchpad (`vite` and `typescript` installed in its folder); its dev server was stopped. The Downloads files (zip, checksums, `caddy-root.crt`) were deleted after use | Delete the scratch folder at the end of the plan |
+| 3 | Scratch Vite 8.3.8 app `devtest` in the session's scratchpad (`vite` and `typescript` installed in its folder); its dev server was stopped. The Downloads files (zip, checksums, `caddy-root.crt`) were deleted after use | The scratch folder was deleted at the end of the plan (Task 9) |
 | 4 | `choco uninstall cloudflared -y` | `choco install cloudflared -y` |
 | 4 | `cloudflared` 2026.11.0 with winget (`Cloudflare.cloudflared`), in `C:\Program Files (x86)\cloudflared` | `winget uninstall --id Cloudflare.cloudflared` |
 | 4 | Cloudflare: tunnel `laptop` on `meeglocal.net`'s account; its token in `%USERPROFILE%\.cloudflared\laptop.token` (184 bytes, never opened) | Delete the tunnel (can't be undone), after the route below; delete the file |

@@ -1,6 +1,6 @@
 # Dev proxy: design (draft)
 
-**Status:** built as reference docs (2026-11-16): see [Where things stand](#where-things-stand). The items under [Still open](#still-open) that aren't marked decided or tested remain. Names marked *provisional* may still change. The work is tracked in the [project plan](../plans/2026-11-14-dev-proxy-project.md).
+**Status:** built as reference docs, and set up on the personal laptop (2026-11-16): see [Where things stand](#where-things-stand). The items under [Still open](#still-open) that aren't marked decided or tested remain. Names marked *provisional* may still change. The work is tracked in the [project plan](../plans/2026-11-14-dev-proxy-project.md).
 
 **Started:** 2026-11-11 as "service names on your own domain". **Updated:** 2026-11-14: portless dropped after the work-machine Caddy trial; first pass of decisions; named "dev proxy". 2026-11-16: built, per the [implementation plan](../plans/2026-11-14-dev-proxy-implementation.md).
 
@@ -14,6 +14,17 @@ The [implementation plan](../plans/2026-11-14-dev-proxy-implementation.md) is do
 - **[tailscale/README.md](../../../tailscale/README.md):** Tailscale on Windows only, SSH to WSL through a forwarded port, and dev servers by name on the tailnet, with `tailscale/tailnet.caddy`.
 - **WSL:** `install.ps1` no longer installs Caddy or sets the low-ports sysctl, and retire steps remove both.
 - **The exploration's script** (`tailscale.ps1`, its module and tests) is gone.
+
+### The personal laptop set up (2026-11-16)
+
+The [personal laptop plan](../plans/2026-11-16-dev-proxy-setup-personal-laptop.md) is done: the laptop runs the hardened set-up (service `start= auto`), its own tunnel `laptop` with a `*` route and `*` Access application on the personal domain, and Tailscale with SSH to Windows and WSL and the `*.laptop` tailnet names, all checked after a restart. The plan lists every change made on the machine, with its undo.
+
+For other machines:
+
+- **The guide's [Setting up a machine](../../../dev-proxy/README.md#setting-up-a-machine):** what to check and decide first, which parts apply to a personal, work, second personal or Mac machine, and the order, with one check per part.
+- **The skill `dev-proxy:setting-up-a-machine`** (`claude/.claude/local-plugins/dev-proxy/`, loaded by Claude Code and opencode): how an agent works through the guide with the machine's owner. It was tested against agents without it.
+
+The work laptop is next; the work and second-machine rows of the guide are still *docs only*.
 
 The sections below record how things stood before that.
 
@@ -302,7 +313,7 @@ Versions: Caddy 2.11.9, Vite 8.3.8, Next 16.4.6, Chrome.
      - Vite answers `403 Blocked request. This host is not allowed` until the name is in `server.allowedHosts` (a new config file needs a restart);
      - Next serves the page but blocks hot reload until the name is in `allowedDevOrigins`.
 9. **Run a tunnel** *(tested, except the install; the install, with winget, tested since on 2026-11-16)*. *Cloudflare's docs since (checked 2026-11-15; [dev-proxy/README.md](../../../dev-proxy/README.md#tunnels) follows them):* the run-parameters page no longer says `--token` or `TUNNEL_TOKEN` take precedence over `--token-file`; and the [quick tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) page now documents `--allowed-mail`, the 200-request limit and the lack of Server-Sent Events.
-   - **Install `cloudflared`** with the Windows installer from [Cloudflare's downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) *(docs only)*.
+   - **Install `cloudflared`** with the Windows installer from [Cloudflare's downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/) *(docs only)*. Since: with winget, which installs the same MSI, *tested* 2026-11-16 ([dev-proxy/README.md](../../../dev-proxy/README.md#tunnels)).
    - **Keep the token in a file only you can read,** e.g. `%USERPROFILE%\.cloudflared\<tunnel>.token`. Paste it into Notepad and save it there; never paste it into a terminal or a chat.
    - **Run it** in an ordinary terminal, and stop it with Ctrl+C. `--token-file` keeps the token out of shell history and the process list; a `--token` option or `TUNNEL_TOKEN` variable would take precedence over it ([run parameters](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/cloudflared-parameters/run-parameters/)):
 

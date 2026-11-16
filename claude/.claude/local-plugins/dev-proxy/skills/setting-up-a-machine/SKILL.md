@@ -15,9 +15,10 @@ The steps live in the dotfiles repo's guides, and this skill is how to carry the
 
 ## Who does what
 
-- **The person** runs every command that needs administrator rights or `sudo`, including installs that raise a UAC prompt (winget's), and makes every change in Cloudflare's, Tailscale's and a DNS filter's dashboards and on their phone.
-- **You** run read-only checks, and commands without admin rights that the approved change list names. For anything of theirs, give one instruction, wait for "done", then check the result. More than a line or two goes in a script in your scratch folder, which you check parses before handing over.
-- **If the person hands some of these to you** ("your terminal is elevated, just do it", or a dashboard change through Cloudflare's plugin): do them one approved change list at a time. UAC prompts, Windows security dialogs and `sudo` passwords stay with them, and anything that belongs to the person's own account runs as the account they browse with: trusting the root (`certutil -user`), the token file and the tunnel, which live under their `%USERPROFILE%`. On a work machine the elevated terminal may be a separate admin account, with its own profile.
+- **The person, always:** every command that needs administrator rights or `sudo`, including installs that raise a UAC prompt (winget's), and every change in Cloudflare's, Tailscale's and a DNS filter's dashboards and on their phone. This holds even when they offer to hand it over ("your terminal is elevated, just do it"): say that these steps are theirs, and offer to prepare them.
+- **You** run read-only checks, and commands without admin rights that the approved change list names. For anything of theirs, give one instruction, wait for "done", then check the result.
+- **Scripts and commands you prepare** for them (asked for, or offered): a script in your scratch folder, checked to parse, or the exact CLI or API command. Before handing one over, explain what it does, step by step, and its risks. Never prepare one for a step that can't be undone (deleting a tunnel, a certificate entering public logs, anything else the guide says can't be undone): point them at the guide's step, and say it can't be undone.
+- **Their own account:** what belongs to it runs as the account they browse with: trusting the root (`certutil -user`), the token file and the tunnel, which live under their `%USERPROFILE%`. On a work machine the elevated terminal may be a separate admin account, with its own profile.
 
 ## Before each step
 
@@ -37,7 +38,7 @@ For each step of the guide's order, show the exact changes, each with its undo, 
 
 ## Machine types
 
-The guide's table says which parts apply. On a **work machine**, the tunnel's token, routes, Access applications and zone settings (e.g. Always Use HTTPS) belong to the work account's admins. If the person is one of them, they make the change as the guide's Admin's guide says; otherwise it's a request to an admin, not something to do with whatever access the person has. Check with the person that the employer allows a root certificate, a system service and `cloudflared` on a managed machine.
+The guide's table says which parts apply. On a **work machine**, the tunnel's token, routes, Access applications and zone settings (e.g. Always Use HTTPS) belong to the work account's admins. If the person is one of them, they make the change themselves, as the guide's Admin's guide says; otherwise it's a request to an admin, not something to do with whatever access the person has. Check with the person that the employer allows a root certificate, a system service and `cloudflared` on a managed machine.
 
 ## Finishing
 

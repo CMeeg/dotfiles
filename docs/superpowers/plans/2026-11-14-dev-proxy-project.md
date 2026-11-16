@@ -230,6 +230,15 @@ Afterwards the test names didn't resolve through `1.1.1.1` and requests to them 
 **Needs:** step 7.
 **Done when:** the plan's final review is done and you've committed the result.
 
+### 9. Set up the personal laptop
+
+- [x] Carried out [2026-11-16-dev-proxy-setup-personal-laptop.md](./2026-11-16-dev-proxy-setup-personal-laptop.md) with `/implement-plan`, one reviewed task at a time (2026-11-16): the hardened dev proxy, the machine's tunnel on the personal domain, Tailscale with SSH and the tailnet names, and a restart check, with the guides corrected wherever reality differed. Its [Changes on this machine](./2026-11-16-dev-proxy-setup-personal-laptop.md#changes-on-this-machine) is the change list for this step, each change with its undo.
+- [x] Captured for other machines: the guide's [Setting up a machine](../../../dev-proxy/README.md#setting-up-a-machine) and the skill `dev-proxy:setting-up-a-machine`.
+
+**Produces:** the personal laptop set up for real; the guide's set-up section and the skill.
+**Needs:** step 8.
+**Done when:** the plan's final review is done and you've committed the result.
+
 ## Deferred
 
 Record anything deferred here when it's deferred.
