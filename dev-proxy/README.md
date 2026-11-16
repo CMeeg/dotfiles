@@ -11,7 +11,7 @@ One project's names, side by side:
 | `<app>.<personal domain>` | anywhere, through the machine's tunnel, behind a login | `myapp.example.net` |
 | `<app>.<machine>.<personal domain>` | your own devices, through Tailscale | `myapp.laptop.example.net` |
 
-The local name needs only the Windows steps below, or the [macOS](#macos) ones, which are untested. The tunnel names are covered in [Tunnels](#tunnels), and the Tailscale name, an optional extra for personal machines, in [tailscale/README.md](../tailscale/README.md).
+The local name needs only the Windows steps below, or the [macOS](#macos) ones, which are untested. The tunnel names are covered in [Tunnels](#tunnels), and the Tailscale name, an optional extra for personal machines, in [tailscale/README.md](../tailscale/README.md). To set up a whole machine, start at [Setting up a machine](#setting-up-a-machine).
 
 Each step is labelled:
 
@@ -20,6 +20,52 @@ Each step is labelled:
 - *docs only*: follows the linked official docs, but hasn't been run here.
 
 The files this guide copies are beside it: [Caddyfile](./Caddyfile) (the top file), [sites/ports.caddy](./sites/ports.caddy) (a name for any port) and [example.caddy](./example.caddy) (the template for a project's sites file).
+
+## Setting up a machine
+
+The order to set a machine up in, what to check and decide first, and the one check that shows each part worked. Each part's steps are in its own section. This order was followed on a personal Windows 11 machine with WSL *(tested)*; the work and Mac rows below are *docs only*.
+
+Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are made by the person whose machine or account it is. An agent helping can prepare them and check the result, but never handles a token.
+
+### Before you start
+
+Check what's already on the machine, without changing anything:
+
+- [ ] **Caddy on Windows:** a `caddy` service (`sc.exe query caddy`); `C:\Program Files\Caddy` and `C:\ProgramData\Caddy`; a per-user Caddy from winget or Chocolatey (`winget list --id CaddyServer.Caddy`, `choco list caddy`) and its `%APPDATA%\Caddy`; *Caddy Local Authority* roots in your store (`certutil -user -store Root`).
+- [ ] **Ports:** what listens on 80, 443, 2019 and 5399 (`Get-NetTCPConnection -State Listen`), and whether IIS is installed (`Get-Service W3SVC`).
+- [ ] **WSL:** an apt-installed Caddy (`dpkg -l caddy`), the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`), and old roots in `/usr/local/share/ca-certificates/`.
+- [ ] **`cloudflared`:** every copy on `PATH` (`Get-Command cloudflared -All`), and what's in `%USERPROFILE%\.cloudflared`: a `config.yml` there can stop quick tunnels working.
+- [ ] **Personal machines:** whether Tailscale is installed (`tailscale status`, `tailscale serve status`), the SSH server (`Get-Service sshd`) and its firewall rule's addresses, and whether a DNS filter such as NextDNS runs on the machine or the phone ([DNS filters](../tailscale/README.md#optional-dns-filters)).
+- [ ] **Old cloud set-up,** if the machine was set up before: tunnels, Access applications, DNS records and API tokens for it in Cloudflare, and the device in Tailscale's admin console.
+
+Then decide:
+
+- **Which parts apply,** from the table below.
+- **Default or [hardened](#optional-the-hardened-set-up) set-up:** hardened on a machine that will hold the Cloudflare API token for Tailscale names; the default is simpler anywhere else.
+- **Start type:** `start= auto` without IIS, so the names come back after a restart; `start= demand` with IIS ([If you also use IIS](#if-you-also-use-iis)).
+- **Duplicates:** uninstall other copies of Caddy (winget's, Chocolatey's) and of `cloudflared`, so the one the guide installs is the one that runs.
+- **What to reset:** anything old from the checklist that won't be reused.
+
+Keep a list of each change you make with how to undo it; [Removing](#removing) covers the whole set-up.
+
+| Machine | Parts |
+|---|---|
+| Personal Windows machine | Everything: the dev proxy, a tunnel for the machine on the [personal domain](#personal-domain), and [Tailscale](../tailscale/README.md) for SSH, WSL and the tailnet names |
+| Work Windows machine | The dev proxy and the person's own tunnel on the work domain, run with the token the work account's admin hands over ([Regular access](#regular-access-a-named-tunnel)); nothing in the work account is changed except by its admins. No Tailscale |
+| Mac | The [macOS](#macos) steps, which are untested: work through [To check on a Mac](#to-check-on-a-mac) and correct the guide from what happens |
+
+### The order
+
+1. **Retire Caddy in WSL** (machines with WSL): run `pwsh ./update.ps1` in WSL, whose retire steps remove an apt-installed Caddy and the low-ports sysctl ([linux/README.md](../linux/README.md#caddy)). *Check:* `pwsh ./update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`.
+2. **The dev proxy:** [Windows](#windows-also-windows--wsl) steps 1–8, with the [hardened set-up](#optional-the-hardened-set-up) in place of steps 2–3 and 5 if chosen. *Check:* `https://<app>.localhost` loads in a browser with no certificate warning, and hot reload works.
+3. **Clean up the old Caddy:** [old roots, the per-user Caddy and WSL's roots](#optional-clean-up-the-old-caddy). *Check:* `certutil -user -store Root` shows one *Caddy Local Authority* root, the service's.
+4. **Tunnels:** install `cloudflared` ([Tunnels](#tunnels)), then the personal domain's tunnel or the person's work tunnel. *Check:* `curl.exe -s -o NUL -w "%{http_code}" https://<public name>/` prints `302` (the Access login), and after the login the page loads.
+5. **Tailscale** (personal machines): [tailscale/README.md](../tailscale/README.md), from Windows to the tailnet names. *Check:* the phone opens `https://<app>.<machine>.<personal domain>` with Tailscale connected, and not with it disconnected.
+6. **Restart Windows.** *Check:* with `start= auto`, the `caddy` service is running without being started by hand and `https://<app>.localhost` answers; `tailscale serve status` lists the forwards; the phone reaches WSL once WSL is running ([Keep WSL running](../tailscale/README.md#keep-wsl-running)).
+
+### When something differs from the guide
+
+The guide is the record, so fix it as you go: rewrite a step that didn't work as written, and relabel a *docs only* step that now worked as *tested*, saying what it was tested on if that differs from the labels at the top.
 
 ## Windows (also Windows + WSL)
 

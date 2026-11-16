@@ -159,13 +159,13 @@ Read-only: nothing on the machine changes.
 **Interfaces:**
 - Produces: the `#setting-up-a-machine` anchor, which Task 8's skill follows.
 
-- [ ] **Step 1: Write the section,** from what Tasks 1–6 actually did. It's for the person (or an agent helping them) setting up any machine:
+- [x] **Step 1: Write the section,** from what Tasks 1–6 actually did. It's for the person (or an agent helping them) setting up any machine:
   - **Before you start:** what to check is already there (the Task 1 inventory, as a checklist), and the choices to make: default or hardened, start type (IIS or not), and which parts apply.
   - **Which parts apply:** a table of machine types: a personal Windows machine (everything, Tailscale included), a work Windows machine (the local names and the person's tunnel, with the token from the work account's admin; no Tailscale), and a Mac (the macOS guide, with its checklist).
   - **The order:** retire WSL's Caddy (for WSL machines), the dev proxy, old-Caddy clean-up, tunnels, Tailscale, then a restart check, each linking to its section, with the one check that shows it worked.
   - **When something differs from the guide:** fix the guide, as the repo's docs are the record.
-- [ ] **Step 2: Review** as Task 4, Step 4 of the implementation plan: the personal-values and link checks; every link and anchor resolves; nothing in it is specific to this laptop.
-- [ ] **Step 3: Checkpoint** (suggested: `add setting up a machine to the dev proxy guide`).
+- [x] **Step 2: Review** as Task 4, Step 4 of the implementation plan: the personal-values and link checks; every link and anchor resolves; nothing in it is specific to this laptop. (Anchors checked with a scratch script that computes GitHub's heading slugs, across `dev-proxy`, `tailscale` and `linux` READMEs.)
+- [x] **Step 3: Checkpoint** (suggested: `add setting up a machine to the dev proxy guide`). (Left for the user.)
 
 ### Task 8: Setting up a machine: the skill
 
