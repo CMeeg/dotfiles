@@ -70,6 +70,13 @@ function Test-Wsl {
   [IO.File]::Exists('/proc/sys/fs/binfmt_misc/WSLInterop')
 }
 
+# Whether systemd is the init system, by the same test sd_booted() uses.
+function Test-Systemd {
+  [OutputType([bool])]
+  param()
+  [IO.Directory]::Exists('/run/systemd/system')
+}
+
 # The installer only adds an 'hc' link when no other 'hc' is on PATH, so steps use this path instead.
 function Get-HerdrCorePath {
   [OutputType([string])]
@@ -86,5 +93,5 @@ function Get-ToolBinDirectories {
   "$homeDir/.local/bin", "$homeDir/.local/share/fnm", "$homeDir/.opencode/bin", "$homeDir/.aspire/bin"
 }
 
-Export-ModuleMember -Function Get-ToolBinDirectories, Test-Wsl, Get-HerdrCorePath, Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
+Export-ModuleMember -Function Get-ToolBinDirectories, Test-Wsl, Test-Systemd, Get-HerdrCorePath, Test-AptInstalled, Get-GitKrakenVersionFromUrl, Get-GitKrakenLatestVersion,
   Test-GitKrakenNeedsUpdate, Get-LatestNodeLts, Get-FnmDefault -Variable GitKrakenDebUrl

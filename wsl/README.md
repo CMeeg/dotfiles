@@ -14,7 +14,8 @@ These setup instructions are for wsl2.
 * Set default distro
   * `wsl --status` - check operating status and default distro
   * `wsl --set-default <DistroName>` - set default Distro
-* Copy `wsl/.wslconfig` to your Windows home directory
+* Copy [`wsl/.wslconfig`](./.wslconfig) to your Windows home directory (`%USERPROFILE%\.wslconfig`), then run `wsl --shutdown` for it to take effect
+  * `instanceIdleTimeout=-1` stops WSL shutting a distro down once its last `wsl.exe` terminal closes, so agents and sshd keep running for SSH clients such as the Herdr app. The distro then runs until `wsl --shutdown` or a reboot; remove the line to go back to WSL's default (15 seconds idle)
 * Add wsl distro as a Windows Terminal profile
   * N.B. If it doesn't show up automatically you may have to
     * Close WT

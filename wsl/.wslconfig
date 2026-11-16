@@ -1,2 +1,7 @@
+[general]
+# Keeps distros running with no wsl.exe terminal open, so agents and sshd stay up while only SSH clients
+# (e.g. the Herdr app) are connected. A distro then runs until 'wsl --shutdown' or a reboot.
+instanceIdleTimeout=-1
+
 [wsl2]
 localhostForwarding=true
