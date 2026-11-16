@@ -413,7 +413,7 @@ Then:
 
 - [x] **Step 5: Review as Task 4, Step 4**, adding: every dashboard step names the docs page it was checked against, and each anchor link matches Task 4's table.
 
-- [ ] **Step 6: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's tunnel guides`).
+- [x] **Step 6: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's tunnel guides`).
 
 ### Task 7: macOS guide
 
@@ -424,12 +424,12 @@ Then:
 - Consumes: Task 4's Windows steps, which the macOS steps follow one for one.
 - Produces: the `#macos` anchor.
 
-- [ ] **Step 1: Write `## macOS`** from the design's macOS section:
+- [x] **Step 1: Write `## macOS`** from the design's macOS section:
   - **Steps:** the eleven steps, each with its reason for differing from Windows, labelled *docs only*.
   - **The service:** the user service (`brew services start caddy`), with `sudo brew services` only as the fallback the design's decision allows.
   - **Checklist:** the design's "Checklist for a Mac", under `### To check on a Mac`.
   - **Opening line:** it's untested, and the checklist is for whoever first runs it on a Mac.
-- [ ] **Step 2: Review as Task 4, Step 4.**
+- [x] **Step 2: Review as Task 4, Step 4.**
 - [ ] **Step 3: Checkpoint.** The user reviews and commits (suggested: `add the dev proxy's macos guide`).
 
 ### Task 8: Tailscale on Windows (optional, personal)

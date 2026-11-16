@@ -11,7 +11,7 @@ One project's names, side by side:
 | `<app>.<personal domain>` | anywhere, through the machine's tunnel, behind a login | `myapp.example.net` |
 | `<app>.<machine>.<personal domain>` | your own devices, through Tailscale | `myapp.laptop.example.net` |
 
-The local name needs only the Windows steps below. The tunnel names are covered in [Tunnels](#tunnels), and the Tailscale name, an optional extra for personal machines, in [tailscale/README.md](../tailscale/README.md).
+The local name needs only the Windows steps below, or the [macOS](#macos) ones, which are untested. The tunnel names are covered in [Tunnels](#tunnels), and the Tailscale name, an optional extra for personal machines, in [tailscale/README.md](../tailscale/README.md).
 
 Each step is labelled:
 
@@ -269,6 +269,76 @@ On your own domain you're the admin, so the [Admin's guide](#admins-guide-cloudf
 - **A second machine:** give it exact routes per app on its own tunnel. An exact DNS record takes precedence over the wildcard ([wildcard DNS records](https://developers.cloudflare.com/dns/manage-dns-records/reference/wildcard-dns-records/#specific-dns-records-take-precedence-over-wildcard-records)).
 - **Tailscale names** (`<app>.<machine>.<personal domain>`) have their own DNS record: see [tailscale/README.md](../tailscale/README.md).
 
+## macOS
+
+**Untested: nothing here has been run on a Mac.** The steps follow the [Windows steps](#windows-also-windows--wsl) one for one, and each difference says why. Whoever first runs them on a Mac works through [To check on a Mac](#to-check-on-a-mac) and reports back, so the steps can be corrected and scripted from what actually happens. Every step is *docs only*.
+
+`$(brew --prefix)` is `/opt/homebrew` on Apple silicon and `/usr/local` on Intel Macs.
+
+1. **Install Caddy with Homebrew:** `brew install caddy`, updated with `brew upgrade caddy`.
+   - **Differs from Windows,** which installs Caddy's official release by hand: Homebrew's formula is what provides the service (step 3).
+   - **Status:** Caddy lists Homebrew as a community-maintained install method ([Install](https://caddyserver.com/docs/install)). The formula builds the same release with Caddy's own build tool, `xcaddy` ([formula](https://github.com/Homebrew/homebrew-core/blob/main/Formula/c/caddy.rb)).
+   - **The official alternative:** the macOS build on [Caddy's GitHub releases](https://github.com/caddyserver/caddy/releases) (`caddy_<version>_mac_arm64.tar.gz` or `_mac_amd64`), which would need a launchd service written by hand; Caddy's docs don't cover one ([Running Caddy](https://caddyserver.com/docs/running)).
+2. **Create the configuration:** copy the top [Caddyfile](./Caddyfile) to `$(brew --prefix)/etc/Caddyfile`, with a `sites` folder beside it holding [sites/ports.caddy](./sites/ports.caddy), so `import sites/*.caddy` works unchanged:
+
+   ```bash
+   mkdir -p "$(brew --prefix)/etc/sites"
+   cp <dotfiles>/dev-proxy/Caddyfile "$(brew --prefix)/etc/"
+   cp <dotfiles>/dev-proxy/sites/ports.caddy "$(brew --prefix)/etc/sites/"
+   ```
+
+   - **The path is fixed:** the formula's service always reads `$(brew --prefix)/etc/Caddyfile`.
+   - **No admin rights needed,** unlike Windows: Homebrew's prefix belongs to the user.
+3. **Start the service:** `brew services start caddy` ([brew services](https://docs.brew.sh/Manpage)).
+   - **What it does:** it starts Caddy now and at every login, as a launchd agent running as the user, with `caddy run --config $(brew --prefix)/etc/Caddyfile`.
+   - **Data,** including the certificate authority's private key, goes in `$(brew --prefix)/var/lib/caddy`, as the formula sets the service's `XDG_DATA_HOME` and `HOME` to `$(brew --prefix)/var/lib`.
+   - **The log** is `$(brew --prefix)/var/log/caddy.log`, so no logging block is needed, unlike on Windows.
+   - **Starting and stopping:** `brew services stop caddy` and `brew services start caddy`, with no admin rights.
+   - **Differs from Windows,** which runs Caddy as a system service: running as the user is the closest equivalent that needs no root, and anything that can reach the admin API can then only do what the user already can.
+   - **The fallback, only if the check fails:** if Caddy running as the user can't bind ports 80 and 443 on `127.0.0.1` ([check 1](#to-check-on-a-mac)), use `sudo brew services start caddy` instead. That runs Caddy as root from boot, like Windows, with the admin-API risk that comes with it. Homebrew warns: "Only use `sudo` if you trust the prefix owner and the service software."
+4. **Add a project's sites:** the same files as on Windows, in `$(brew --prefix)/etc/sites`, then reload from any terminal, through the admin API as on Windows ([caddy reload](https://caddyserver.com/docs/command-line#caddy-reload)):
+
+   ```bash
+   caddy reload --config "$(brew --prefix)/etc/Caddyfile"
+   ```
+
+5. **Trust Caddy's certificate authority:** with the service running, `caddy trust`, or `sudo caddy trust` if that fails ([caddy trust](https://caddyserver.com/docs/command-line#caddy-trust); the docs say it "may need" `sudo` on Unix systems).
+   - **How:** as on Windows, it fetches the root from the admin API, so it doesn't matter where the service keeps its data.
+   - **Where it goes:** Caddy's docs don't say which macOS store; the System keychain, with a password prompt, is expected (check 3).
+6. **Make `.localhost` names resolve for tools other than browsers:** add each name to `/etc/hosts`, e.g. `127.0.0.1 myapp.localhost`, editing it with `sudo`. Whether macOS's own resolver handles `.localhost` without an entry isn't documented (check 4), and Safari is reported to rely on it.
+7. **A name for any port:** the same `sites/ports.caddy` as on Windows.
+8. **Dev servers:** the same as on Windows: bind to `127.0.0.1`, and add any public name to the host check.
+9. **Tunnels:** as in [Tunnels](#tunnels), with these differences.
+   - **Install `cloudflared`:** `brew install cloudflared` ([downloads page](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/)), updated with `brew upgrade`, unlike Windows, where it's updated by hand.
+   - **The token file** is `~/.cloudflared/<tunnel>.token`:
+
+     ```bash
+     cloudflared tunnel run --token-file ~/.cloudflared/<tunnel>.token
+     ```
+
+   - **Who can read it:** a Windows user's profile is private to them. Whether other accounts on the same Mac can read `~/.cloudflared` depends on the home folder's permissions, which isn't confirmed (check 6).
+   - **The Host override's CA pool** can point straight at `$(brew --prefix)/var/lib/caddy/pki/authorities/local/root.crt`, as the service's data belongs to the user. With the `sudo` fallback, it belongs to root instead.
+10. **IIS:** not applicable.
+11. **Optional clean-up** after moving from per-project `caddy run`:
+    - **What's left:** old *Caddy Local Authority* roots in the keychain. Remove them in Keychain Access, or with `caddy untrust --cert <old root.crt>` while the old file still exists.
+    - **Where the old files are:** per-user `caddy run` keeps its data in `~/Library/Application Support/Caddy` ([conventions](https://caddyserver.com/docs/conventions#data-directory)).
+
+### To check on a Mac
+
+Run through the steps above, then report on each:
+
+1. **Ports:** with `brew services start caddy` (not `sudo`), does Caddy bind `127.0.0.1:443` and `127.0.0.1:80` with `default_bind 127.0.0.1 [::1]`?
+   - **Check:** `brew services list`, the log, and `lsof -nP -iTCP -sTCP:LISTEN | grep caddy`.
+   - **Why it's open:** Apple engineers say macOS stopped requiring root for ports below 1024 in Mojave; later forum replies say binding one specific address still needs root ([Apple Developer Forums](https://developer.apple.com/forums/thread/674179)). If it fails, try the `sudo` fallback in step 3 and say what changed.
+2. **Firewall prompt:** does macOS's application firewall prompt when the service starts?
+3. **`caddy trust`:** which keychain does it use, does it need `sudo`, and do Safari, Chrome and Firefox then accept `https://myapp.localhost` without a warning?
+4. **Names without a hosts entry:** does `curl https://myapp.localhost` work, and does Node's `dns.lookup` resolve the name? Does Safari need a hosts entry?
+5. **Dev servers:** a Vite and a Next dev server behind Caddy. Do hot reload and the port wildcard work?
+6. **The token file:** who can read `~/.cloudflared`? Check with `ls -la ~/.cloudflared`.
+7. **Tunnels:** a quick tunnel and, if the admin sets one up, the person's named tunnel through Caddy.
+8. **After a restart:** does Caddy come back at login (or at boot with the `sudo` fallback)?
+9. **Removing:** follow [Removing](#removing) for macOS, then say whether anything was left behind.
+
 ## If you also use IIS
 
 IIS holds ports 80 and 443 on every address, so IIS and Caddy take turns *(tested)*. As administrator:
@@ -354,10 +424,12 @@ What the test showed: nothing listens on 2019 and the log says "admin endpoint d
 Some steps in these guides exist only because of a DNS filter, such as NextDNS. Each is labelled *optional* and says when it applies; without a filter, none of them is needed.
 
 - **The Windows dev proxy on its own:** nothing applies. `.localhost` names never leave the machine.
+- **macOS:** the same as Windows: nothing applies.
+- **Tunnels:** nothing applies either, as tunnel names point at Cloudflare's public addresses.
 
 ## Removing
 
-As administrator, unless marked *(docs only, except where marked)*:
+**On Windows,** as administrator, unless marked *(docs only, except where marked)*:
 
 1. **The service:** `sc.exe stop caddy; sc.exe delete caddy` ([sc delete](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sc-delete)).
 2. **Caddy and its config:** delete `C:\Program Files\Caddy`, and `C:\ProgramData\Caddy` unless you used the hardened set-up.
@@ -370,3 +442,12 @@ As administrator, unless marked *(docs only, except where marked)*:
    - remove the public sites from the projects' sites files, and the public names from their host checks;
    - uninstall `cloudflared` in Settings → Apps → Installed apps, if it's no longer wanted ([uninstall apps](https://support.microsoft.com/en-us/windows/uninstall-or-remove-apps-and-programs-in-windows-4b55f974-2cc6-2d2b-d092-5905080eaf98));
    - the admin deletes the tunnel, its routes and its Access applications ([When someone leaves](#admins-guide-cloudflare-tunnel)).
+
+**On macOS** *(docs only)*:
+
+1. **The root,** while the service still runs, as `caddy untrust` uses the admin API: `caddy untrust`, or `sudo caddy untrust` if trusting needed `sudo` ([caddy untrust](https://caddyserver.com/docs/command-line#caddy-untrust)).
+2. **The service:** `brew services stop caddy` (with `sudo` if it was started with `sudo`).
+3. **Caddy's config and data:** delete `$(brew --prefix)/etc/Caddyfile`, the `sites` folder beside it, and `$(brew --prefix)/var/lib/caddy`, which holds the certificate authority's private key.
+4. **Hosts entries:** remove the names added to `/etc/hosts` in step 6, with `sudo`.
+5. **A tunnel:** stop `cloudflared`, delete `~/.cloudflared/<tunnel>.token`, and remove the public sites and host-check names, as on Windows; the admin deletes the tunnel.
+6. **The tools:** `brew uninstall caddy cloudflared`.
