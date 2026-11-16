@@ -35,7 +35,7 @@ Windows is set up by hand, from PowerShell 7.
 
 ### Tailscale
 
-- **Install** ([Install on Windows](https://tailscale.com/docs/install/windows)): `winget install --id Tailscale.Tailscale` *(not in Tailscale's docs, which link the installer)*.
+- **Install** ([Install on Windows](https://tailscale.com/docs/install/windows)): `winget install --id Tailscale.Tailscale` *(tested; not in Tailscale's docs, which link the installer)*. It installs for all users, so it asks for elevation.
 - **Log in** from the Tailscale icon in the system tray.
 - **Rename the device** (or use Edit machine name in the admin console): `tailscale set --hostname=<host>`.
 - **Optional:** tray icon → Settings → Run unattended, so the machine stays on the tailnet while you're signed out of Windows; locking the screen doesn't need it ([run unattended](https://tailscale.com/docs/how-to/run-unattended)).
@@ -50,7 +50,7 @@ Windows' own SSH server is how tailnet devices log in to the Windows host, limit
   - `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
   - if that rule is missing: `New-NetFirewallRule -Name OpenSSH-Server-In-TCP -DisplayName 'OpenSSH Server (sshd)' -Direction Inbound -Protocol TCP -LocalPort 22 -Action Allow -RemoteAddress 100.64.0.0/10, fd7a:115c:a1e0::/48`
   - **Not quite tailnet-only:** `100.64.0.0/10` is the shared address range that some ISPs, mobile and hotel networks also use, so a device on such a local network could reach the port too. Key login still keeps it out. Adding `-InterfaceAlias Tailscale` to the rule would limit it to Tailscale's network adapter *(docs only, not tested)* ([Set-NetFirewallRule](https://learn.microsoft.com/en-us/powershell/module/netsecurity/set-netfirewallrule)).
-- **Turn off password logins:** in `C:\ProgramData\ssh\sshd_config` (open it as administrator), change the `#PasswordAuthentication yes` line near the top to `PasswordAuthentication no`, then `Restart-Service sshd`. Don't add it at the end instead: the file ends with a `Match Group administrators` block, and lines after it only apply to that block.
+- **Turn off password logins:** in `C:\ProgramData\ssh\sshd_config` (open it as administrator), change the `#PasswordAuthentication yes` line near the top to `PasswordAuthentication no`, then `Restart-Service sshd`. Don't add it at the end instead: the file ends with a `Match Group administrators` block, and lines after it only apply to that block. `sshd_config` only exists once the server has started once. Afterwards the server still lists `keyboard-interactive` as a method, but answers it with a failure and no password prompt *(tested)*.
 
 ### Keys
 
@@ -103,6 +103,9 @@ Register-ScheduledTask -TaskName 'Keep WSL running' -Action $action -Trigger $tr
   1. add a machine with `<host>` (or its `100.x` address, if the phone has "Use Tailscale DNS" off: see [Optional: DNS filters](#optional-dns-filters)), user `<WSL user>` and port `2222`; the app then shows its public key;
   2. add that key to `~/.ssh/authorized_keys` in WSL, e.g. with the comment `herdr-mobile`, beside the Windows app's key;
   3. choose **Connect again**.
+
+  The app uses one key for every machine, so once that key is in WSL's `authorized_keys` (or was added for the Windows host first), it connects straight away without showing it *(tested)*.
+- **Names in the app:** it names each machine after the address you enter, so rename them, e.g. `<host>` and `<host>-wsl`.
 - **Skip `debian-wsl`:** once one machine is connected, the app also offers the machines that computer's Herdr already uses. `debian-wsl` is the Windows app's `127.0.0.1:2222` link, which only works on the Windows machine itself.
 - **What shows:** agents and terminals show from both. Spaces only show for the Windows host, where the Herdr app runs; agents started in the old herdr TUI don't show.
 
@@ -136,9 +139,12 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
    sc.exe start caddy
    ```
 
-   - **What it does:** it downloads a build of the latest release with the plugin added from caddyserver.com, and replaces `caddy.exe`. Here it left the old binary beside it as `caddy.exe.tmp` *(observed)*; delete that once the new one works.
+   - **What it does:** it downloads a build of the latest release with the plugin added from caddyserver.com, and replaces `caddy.exe`. Here it left the old binary beside it as `caddy.exe.tmp` *(observed, twice)*; delete that once the new one works (`list-modules` below).
+   - **Check:** `& 'C:\Program Files\Caddy\caddy.exe' list-modules` lists `dns.providers.cloudflare`.
    - **Updates:** use `caddy upgrade`, which keeps the plugins ([caddy upgrade](https://caddyserver.com/docs/command-line#caddy-upgrade)), *docs only*, rather than the dev proxy's zip, which has no plugins. Both commands are marked experimental in Caddy's docs.
-5. **The site:** copy [tailnet.caddy](./tailnet.caddy) into the `sites` folder (`C:\ProgramData\Caddy\sites\`, or `C:\Program Files\Caddy\sites\` with the hardened set-up) as administrator, change `laptop.example.net` to `<machine>.<personal domain>`, and add a `handle` for each app. Then restart the service: `sc.exe stop caddy; sc.exe start caddy`.
+5. **The site:** copy [tailnet.caddy](./tailnet.caddy) into the `sites` folder (`C:\ProgramData\Caddy\sites\`, or `C:\Program Files\Caddy\sites\` with the hardened set-up) as administrator, change `laptop.example.net` to `<machine>.<personal domain>`, and add a `handle` for each app. Then restart the service: `sc.exe stop caddy; sc.exe start caddy`. *Tested* with the hardened set-up, where a restart is the only way to apply it.
+   - **The certificate:** the log (the dev proxy's logging block) shows `certificate obtained successfully` for `*.<machine>.<personal domain>` from Let's Encrypt within a minute of the restart. Windows' `curl.exe` accepts it without `--ssl-no-revoke`, unlike Caddy's local certificates.
+   - **The dev server's host check:** add each tailnet name to it, as for a tunnel name ([the dev proxy's step 8](../dev-proxy/README.md#windows-also-windows--wsl)). Until then, Vite answers `403`.
    - **The token** is read with Caddy's `{file.…}` placeholder, which keeps it out of the service's environment, which Windows keeps in the registry ([placeholders](https://caddyserver.com/docs/caddyfile/concepts#placeholders)). It doesn't keep it from Caddy's config (step 3).
    - **No `bind`:** a site bound to the tailnet address stops the whole service starting while Tailscale is down, `.localhost` sites included. The site stays on loopback, and Tailscale forwards to it (next step).
    - **Other names** under `*.<machine>` get `404`.
@@ -150,7 +156,7 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
 
    - **Raw TCP:** Tailscale passes the TLS connection through, so the phone sees Caddy's Let's Encrypt certificate.
    - **Tested:** with Tailscale disconnected, Caddy kept serving its local sites and restarted cleanly; after reconnecting, the forward came back by itself. A full Windows restart wasn't tried.
-7. **Check from the phone:** open `https://myapp.<machine>.<personal domain>` with Tailscale connected.
+7. **Check from the phone:** open `https://myapp.<machine>.<personal domain>` with Tailscale connected. With Tailscale disconnected, the name still resolves but the page fails with `ERR_ADDRESS_UNREACHABLE` (Chrome on Android) *(tested)*.
 
 **Security:** the 443 forward lets any tailnet device reach every site Caddy serves on loopback, if it asks for that name: `.localhost` sites and the port wildcard too, not just the tailnet names.
 
@@ -159,7 +165,7 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
 Some steps exist only because of a DNS filter, such as NextDNS (see also [the dev proxy's DNS filters section](../dev-proxy/README.md#optional-dns-filters)). Without a filter, none of them is needed *(tested with NextDNS)*.
 
 - **The filter has rebinding protection:** it hides records that point at private addresses, so the tailnet names don't resolve. Exempt the domain in the filter, on every network and device that uses it, e.g. NextDNS's Allowlist ([Tailscale: DNS rebinding](https://tailscale.com/docs/reference/faq/dns-rebinding), [NextDNS](https://help.nextdns.io/t/q6hl0vb/support-whitelist-for-dns-rebinding-protection)).
-- **A filter app blocks direct DNS on port 53** (e.g. the NextDNS Windows app): Caddy can't check that the challenge record has spread, and the log shows "dial tcp 1.0.0.1:53: … forbidden by its access permissions". Uncomment `propagation_delay 30s` and `propagation_timeout -1` in `tailnet.caddy` to leave that check to Let's Encrypt ([tls](https://caddyserver.com/docs/caddyfile/directives/tls)).
+- **A filter app blocks direct DNS on port 53** (e.g. the NextDNS Windows app): Caddy can't check that the challenge record has spread, and the log shows "dial tcp 1.0.0.1:53: … forbidden by its access permissions". Uncomment `propagation_delay 30s` and `propagation_timeout -1` in `tailnet.caddy` to leave that check to Let's Encrypt ([tls](https://caddyserver.com/docs/caddyfile/directives/tls)). Check the log before adding them: on a later set-up with the NextDNS app running, direct DNS worked and the certificate came without them *(observed)*.
 - **An Android phone has a Private DNS hostname** (Settings → Private DNS): it loses all DNS once Tailscale connects ([tailscale#4252](https://github.com/tailscale/tailscale/issues/4252)). Turn off "Use Tailscale DNS" in the phone's Tailscale app (Settings → DNS settings). The phone then uses addresses rather than Tailscale names, while names on your domain still resolve through the filter. Other fixes, not tried: set Private DNS to Automatic, or make NextDNS the tailnet's DNS ([Tailscale: NextDNS](https://tailscale.com/docs/integrations/nextdns)), which changes DNS for every tailnet device.
 
 ## Removing

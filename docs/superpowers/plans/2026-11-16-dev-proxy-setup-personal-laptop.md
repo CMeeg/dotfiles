@@ -129,14 +129,14 @@ Read-only: nothing on the machine changes.
 **Interfaces:**
 - Consumes: [Decisions](#decisions) (`<host>`, `<machine>`, the leftovers to reuse); Task 3's service.
 
-- [ ] **Step 1: Tailscale and SSH to Windows,** per the guide's [Windows](../../../tailscale/README.md#windows-host) sections, reusing what Task 1 found in place. Verify from the phone (Herdr app) or another tailnet device: `ssh <user>@<host>` logs in with a key, and a password login is refused.
-- [ ] **Step 2: SSH to WSL** and the phone, per [SSH to WSL](../../../tailscale/README.md#ssh-to-wsl) and [Connecting from the phone](../../../tailscale/README.md#connecting-from-the-phone). Verify: the Herdr app shows WSL's terminals through port 2222.
-- [ ] **Step 3: Dev servers by name,** per the guide's [seven steps](../../../tailscale/README.md#dev-servers-by-name-on-the-tailnet), with the optional DNS-filter steps for NextDNS where they apply. Verify:
+- [x] **Step 1: Tailscale and SSH to Windows,** per the guide's [Windows](../../../tailscale/README.md#windows-host) sections, reusing what Task 1 found in place. Verify from the phone (Herdr app) or another tailnet device: `ssh <user>@<host>` logs in with a key, and a password login is refused. (Here: the Herdr app logged in to the Windows host with its key, at the tailnet address, as the phone has "Use Tailscale DNS" off for its Private DNS; a password-only `ssh` from this machine to its own tailnet address was refused without a prompt. "Run unattended" left off, as decided.)
+- [x] **Step 2: SSH to WSL** and the phone, per [SSH to WSL](../../../tailscale/README.md#ssh-to-wsl) and [Connecting from the phone](../../../tailscale/README.md#connecting-from-the-phone). Verify: the Herdr app shows WSL's terminals through port 2222.
+- [x] **Step 3: Dev servers by name,** per the guide's [seven steps](../../../tailscale/README.md#dev-servers-by-name-on-the-tailnet), with the optional DNS-filter steps for NextDNS where they apply (here the Allowlist entry; the propagation lines weren't needed, as the log showed no port-53 error). The test project's tailnet name also goes in its host check. Verify:
   - `& 'C:\Program Files\Caddy\caddy.exe' list-modules` includes `dns.providers.cloudflare`;
   - the service starts, and the log (the person adds the logging block while setting up) shows the wildcard certificate obtained;
   - from the phone with Tailscale on, `https://<app>.<machine>.<personal domain>` loads with a valid certificate; with Tailscale off, it doesn't resolve or doesn't connect;
   - the `.localhost` site from Task 3 still works.
-- [ ] **Step 4: Update the guide** (and `tailnet.caddy`'s comments if needed), then the checks. **Checkpoint** (suggested: `set up tailscale on the personal laptop`).
+- [x] **Step 4: Update the guide** (and `tailnet.caddy`'s comments if needed), then the checks. **Checkpoint** (suggested: `set up tailscale on the personal laptop`). (Left for the user.) `tailnet.caddy` needed no change.
 
 ### Task 6: Restart and check
 
@@ -249,6 +249,20 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 4 | Cloudflare: Always Use HTTPS on `meeglocal.net` | Already on; nothing changed |
 | 4 | `C:\Program Files\Caddy\sites\devtest.caddy` gained `http://devtest.meeglocal.net:5399` → `127.0.0.1:5173` (service restarted) | Remove the block, then restart the service as administrator |
 | 4 | Scratch app: `vite.config.ts` with `server.allowedHosts` and a header-logging middleware; two quick tunnels (gone when stopped) | Goes with the scratch folder |
+| 5 | Tailscale 1.104.7 with winget; logged in as `meeg-laptop` (`100.66.231.9`, the same name and address as in the spikes); key expiry disabled in the admin console; "Run unattended" off | `winget uninstall --id Tailscale.Tailscale`; remove `meeg-laptop` in the admin console |
+| 5 | The Tailscale app on the phone, with "Use Tailscale DNS" off (Android's Private DNS is NextDNS) | Uninstall it, or turn the setting back on |
+| 5 | `sshd` Automatic and running (its first start created `sshd_config` and host keys); firewall rule `OpenSSH-Server-In-TCP` limited to `100.64.0.0/10, fd7a:115c:a1e0::/48`; `PasswordAuthentication no` (line 51, before the `Match` block) | As administrator: `Stop-Service sshd; Set-Service sshd -StartupType Manual`; `Set-NetFirewallRule -Name OpenSSH-Server-In-TCP -RemoteAddress Any`; set the line back to `#PasswordAuthentication yes` |
+| 5 | `C:\ProgramData\ssh\administrators_authorized_keys` with the phone's `herdr-mobile` key, Administrators and SYSTEM only | Delete the file, as administrator |
+| 5 | WSL: the `herdr-mobile` key appended to `~/.ssh/authorized_keys` (now 2 lines) | Delete that line |
+| 5 | Herdr app: machines `meeg-laptop` (`100.66.231.9`, `cpmee`, 22) and `meeg-laptop-wsl` (`100.66.231.9`, `meeg`, 2222), renamed by the person | Remove them in the app |
+| 5 | Tailscale forwards `2222` and `443` to `127.0.0.1` (`tailscale serve --bg --tcp=…`) | `tailscale serve reset` |
+| 5 | Cloudflare: DNS record `*.laptop.meeglocal.net` A `100.66.231.9`, DNS only | Delete it in DNS → Records |
+| 5 | Cloudflare: API token `caddy dns meeglocal.net` (Zone Read, DNS Edit, `meeglocal.net` only), **expires 2027-11-16**: make a new one before then, or the certificate stops renewing | Delete it in My Profile → API Tokens |
+| 5 | NextDNS: `meeglocal.net` on the Allowlist | Remove the entry |
+| 5 | `cloudflare.token` in the service's data folder (never opened) | Delete it, as administrator |
+| 5 | Caddy rebuilt with `dns.providers.cloudflare` (`caddy add-package`); the old binary, `caddy.exe.tmp`, deleted | `caddy remove-package github.com/caddy-dns/cloudflare`, or re-expand the 2.11.9 zip |
+| 5 | `C:\Program Files\Caddy\sites\tailnet.caddy` (`*.laptop.meeglocal.net`, `devtest` → `127.0.0.1:5173`), and the Let's Encrypt wildcard certificate for it in the service's data folder | Delete the file and restart; the certificate can't be withdrawn from public logs and expires by itself |
+| 5 | Scratch app: `devtest.laptop.meeglocal.net` added to `allowedHosts` | Goes with the scratch folder |
 
 ## Addenda
 
