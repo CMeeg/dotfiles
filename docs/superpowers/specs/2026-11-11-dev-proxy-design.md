@@ -540,7 +540,7 @@ Provisional:
      - with Tailscale disconnected, Caddy kept serving its local sites;
      - Caddy restarted cleanly with Tailscale disconnected;
      - after reconnecting, `tailscale serve status` showed the forward back by itself, and the tailnet name loaded again.
-   - **Not tested:** a full Windows restart.
+   - **A full Windows restart** (*tested* 2026-11-16 on the personal laptop, hardened set-up, service `start= auto`): Caddy was running by the time of login and the 443 forward was back, so the tailnet name answered with nothing started by hand.
    - **Other ways round it,** not used: restarting the service on failure (`sc.exe failure`), which leaves every name down until Tailscale connects; and a dependency on the Tailscale service, which orders start-up but doesn't wait for the connection.
 6. **Tunnel wildcard hostnames (checked 2026-11-14):**
    - **Shared work domain: ruled out.** A tunnel's ingress rules accept `*.example.com` but not a wildcard inside a hostname ([configuration file](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/configuration-file/)), so there's no wildcard per person under `<person>-<app>.<work domain>`.
@@ -583,7 +583,8 @@ Provisional:
       1. add the machine first; the app then shows its public key;
       2. add that key to `~/.ssh/authorized_keys` in WSL (e.g. `herdr-mobile`, beside the Windows app's key);
       3. choose **Connect again**.
-    - **The forward survives Tailscale reconnecting,** as `443` did (item 5). A full Windows restart wasn't tried.
+    - **The forward survives Tailscale reconnecting,** as `443` did (item 5), **and a full Windows restart** (*tested* 2026-11-16). After the restart the phone reached WSL soon after login because Docker Desktop, starting with Windows and integrated with the default distro, started Debian; without something like it, the guide's "Keep WSL running" task is what brings WSL up. The Windows host's SSH server was back too, but the Herdr app needed herdr-core, which only runs once the Windows Herdr app is opened.
+    - **Since the 2026-11-16 set-up:** once the phone's key is already in `authorized_keys`, the Herdr app connects straight away rather than showing its key first.
 13. **The work domain's Cloudflare account, to confirm with the team:**
     - **Where it is now:** which account the spare domain is in.
     - **If it shares an account with other domains:** whether to move it to a dedicated account, and how. Cloudflare's process for moving a domain between accounts hasn't been checked.

@@ -64,6 +64,7 @@ An administrator's keys are read from `C:\ProgramData\ssh\administrators_authori
 ### herdr-core
 
 - The Herdr app installs and updates herdr-core. Keep the app open (or run `hc server start` in an ordinary terminal) when connecting from elsewhere: herdr-core warns that an SSH login as an administrator starting the core could block your desktop session.
+- **After a restart,** the SSH server starts with Windows, but the phone's Herdr app can't use the Windows host until herdr-core runs, i.e. until you open the Herdr app *(tested)*.
 
 ### Check
 
@@ -79,12 +80,12 @@ Tailscale forwards the tailnet's port 2222 to WSL's existing SSH server, which t
   tailscale serve --bg --tcp=2222 tcp://127.0.0.1:2222
   ```
 
-  It's a raw TCP forward that reaches WSL through WSL's localhost forwarding, and it comes back by itself after Tailscale reconnects. A full Windows restart wasn't tried. `tailscale serve status` shows it.
+  It's a raw TCP forward that reaches WSL through WSL's localhost forwarding, and it comes back by itself after Tailscale reconnects and after a Windows restart *(tested)*. `tailscale serve status` shows it.
 - **Security:** the forward makes WSL's SSH server reachable from every device on your tailnet, and the server sees each connection as coming from `127.0.0.1`. Key login only, as [linux/README.md](../linux/README.md#herdr-app-windows--wsl) sets the server up, is what keeps it safe.
 
 ### Keep WSL running
 
-The phone can only reach WSL while it's running (and the machine is awake): it can't start WSL. If it can't connect while no WSL terminal is open, a logon task can keep the distro running ([Register-ScheduledTask](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/register-scheduledtask)). In PowerShell:
+The phone can only reach WSL while it's running (and the machine is awake): it can't start WSL. Something else may start it at login: Docker Desktop, set to start with Windows and integrated with the default distro, started it within seconds, and WSL's SSH server with it *(observed after a restart)*. If the phone can't connect while no WSL terminal is open, a logon task can keep the distro running ([Register-ScheduledTask](https://learn.microsoft.com/en-us/powershell/module/scheduledtasks/register-scheduledtask)). In PowerShell:
 
 ```powershell
 $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument '--headless wsl.exe -d Debian --exec sleep infinity'
@@ -155,7 +156,7 @@ Each dev server gets a name like `https://myapp.<machine>.<personal domain>` tha
    ```
 
    - **Raw TCP:** Tailscale passes the TLS connection through, so the phone sees Caddy's Let's Encrypt certificate.
-   - **Tested:** with Tailscale disconnected, Caddy kept serving its local sites and restarted cleanly; after reconnecting, the forward came back by itself. A full Windows restart wasn't tried.
+   - **Tested:** with Tailscale disconnected, Caddy kept serving its local sites and restarted cleanly; after reconnecting, the forward came back by itself. After a Windows restart, with the dev proxy's service on `start= auto`, the tailnet names worked again without anything being started by hand.
 7. **Check from the phone:** open `https://myapp.<machine>.<personal domain>` with Tailscale connected. With Tailscale disconnected, the name still resolves but the page fails with `ERR_ADDRESS_UNREACHABLE` (Chrome on Android) *(tested)*.
 
 **Security:** the 443 forward lets any tailnet device reach every site Caddy serves on loopback, if it asks for that name: `.localhost` sites and the port wildcard too, not just the tailnet names.

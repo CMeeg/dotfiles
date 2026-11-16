@@ -81,7 +81,7 @@ Commands marked "as administrator" run in PowerShell 7 (`pwsh`) opened with *Run
      ```
 
    - **`--config`** is needed because a service starts in `C:\Windows\System32`.
-   - **`start= demand`** starts it only when asked, so after a restart it waits for `sc.exe start caddy`. That keeps it from competing with IIS at boot ([If you also use IIS](#if-you-also-use-iis)). Without IIS, use `start= auto` instead, so it starts with Windows: a service created that way runs as with `demand` *(tested, with the hardened set-up)*; starting at boot is *docs only*.
+   - **`start= demand`** starts it only when asked, so after a restart it waits for `sc.exe start caddy`. That keeps it from competing with IIS at boot ([If you also use IIS](#if-you-also-use-iis)). Without IIS, use `start= auto` instead, so it starts with Windows: after a Windows restart it was running by the time of login, with nothing started by hand, and its local, tunnel and tailnet names worked *(tested, with the hardened set-up)*.
    - **Data:** the service keeps its data, including its certificate authority's private key, in `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy`.
    - **Starting and stopping** (`sc.exe start caddy`, `sc.exe stop caddy`) need administrator rights.
    - **Logs:** a Windows service's output goes nowhere. To see Caddy's log while setting up, add this inside the top file's global options block, restart the service, and remove it afterwards (Caddy rejects it written on one line):

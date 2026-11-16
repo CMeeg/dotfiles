@@ -143,13 +143,13 @@ Read-only: nothing on the machine changes.
 **Files:**
 - Modify: whichever guide's claims the restart contradicts; the design's "Still open" 5 and 12, which say a full restart wasn't tried.
 
-- [ ] **Step 1: Restart Windows,** then log in. With `start= demand`, the person starts the service first, as the guide says.
-- [ ] **Step 2: Check each:**
+- [x] **Step 1: Restart Windows,** then log in. With `start= demand`, the person starts the service first, as the guide says. (Here the person checked the phone first, before opening a WSL terminal or the agent, then resumed the session with `claude --continue`.)
+- [x] **Step 2: Check each:**
   - the `caddy` service is running (by itself with `start= auto`), and `https://<app>.localhost` loads once the dev server runs;
   - `tailscale serve status` shows both forwards, and the phone reaches WSL on 2222 and `https://<app>.<machine>.<personal domain>`;
-  - WSL's SSH server is back once WSL starts (and the "Keep WSL running" task, if it was added);
+  - WSL's SSH server is back once WSL starts (and the "Keep WSL running" task, if it was added; here it wasn't: Docker Desktop, starting with Windows and integrated with the default distro, started Debian five seconds after it started);
   - the tunnel runs again with the same command.
-- [ ] **Step 3: Record** the results in the guides (replace "A full Windows restart wasn't tried") and the design. **Checkpoint** (suggested: `check the dev proxy after a restart`).
+- [x] **Step 3: Record** the results in the guides (replace "A full Windows restart wasn't tried") and the design. **Checkpoint** (suggested: `check the dev proxy after a restart`). (Left for the user.)
 
 ### Task 7: Setting up a machine: the guide
 
@@ -234,7 +234,7 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 2 | WSL: `update.ps1` retired Caddy: `apt remove caddy`, its apt source and keyring deleted, `/etc/sysctl.d/50-unprivileged-ports.conf` deleted and `ip_unprivileged_port_start` back to `1024`. The same run did the routine updates (apt upgrade, tools, pull, sync) | Re-add Caddy's apt source and keyring per [Caddy's Debian install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian), then `sudo apt install caddy`; `echo 'net.ipv4.ip_unprivileged_port_start=80' \| sudo tee /etc/sysctl.d/50-unprivileged-ports.conf && sudo sysctl --system` |
 | 2 | WSL: `sudo apt purge -y caddy`: the `caddy` user and group, `/etc/caddy` (the pre-dev-proxy `Caddyfile`), `/var/lib/caddy` (the old WSL Caddy's local authority, trusted nowhere) and `/var/log/caddy` deleted | None needed; the install above recreates the user and folders |
 | 3 | Caddy 2.11.9 (official zip, SHA-512 checked) in `C:\Program Files\Caddy\` (`caddy.exe`, `LICENSE`, `README.md`) | As administrator, after the service is deleted: `Remove-Item -Recurse 'C:\Program Files\Caddy'` |
-| 3 | `C:\Program Files\Caddy\Caddyfile` (the repo's, with `admin off` and a temporary logging block to `C:/Program Files/Caddy/caddy.log`), `sites\ports.caddy`, `sites\devtest.caddy` (`devtest.localhost` → `127.0.0.1:5173`) | Go with `C:\Program Files\Caddy`. The logging block is to come out once Tasks 5 and 6 no longer need it |
+| 3 | `C:\Program Files\Caddy\Caddyfile` (the repo's, with `admin off` and a temporary logging block to `C:/Program Files/Caddy/caddy.log`), `sites\ports.caddy`, `sites\devtest.caddy` (`devtest.localhost` → `127.0.0.1:5173`) | Go with `C:\Program Files\Caddy`. The logging block and `caddy.log` were removed at the end of Task 6 |
 | 3 | Service `caddy`, `start= auto`, LocalSystem | As administrator: `sc.exe stop caddy; sc.exe delete caddy` |
 | 3 | The service's data and local authority, `C:\Windows\System32\config\systemprofile\AppData\Roaming\Caddy` | As administrator: `Remove-Item -Recurse` that folder |
 | 3 | Root *Caddy Local Authority - 2026 ECC Root* in the user's Trusted Root store, thumbprint `1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` | `certutil -user -delstore Root 1908EB2DB64F99F9C9E791CE68E9E68FB7CD51CF` |
