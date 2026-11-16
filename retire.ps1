@@ -19,6 +19,7 @@ $WhatIfPreference = $false
 if (Test-DryRun) { Write-Host "`e[0;34mDry-run mode — no changes will be made`e[0m" }
 
 try {
+  Assert-Linux
   Invoke-RetireSteps
 } catch {
   Write-StopReason $_

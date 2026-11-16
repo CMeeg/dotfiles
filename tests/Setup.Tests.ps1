@@ -241,3 +241,70 @@ Describe 'sshd for the Herdr app' {
     $out | Should -Match '  ~ sudo systemctl restart ssh'
   }
 }
+
+Describe 'lingering for herdr-core' {
+  BeforeEach {
+    $saved = @{ HOME = $env:HOME; PATH = $env:PATH }
+    $tmp = Join-Path ([IO.Path]::GetTempPath()) "setup-test-$([guid]::NewGuid())"
+    $h = "$tmp/home"
+    $bin = "$tmp/bin"
+    $log = "$tmp/calls.log"
+    $lingerDir = "$tmp/linger"
+    New-Item -ItemType Directory -Path $h, $bin, $lingerDir | Out-Null
+    Write-FixtureFile "$h/.local/bin/herdr-core" ''
+    $env:HOME = $h
+    $env:PATH = "${bin}:/usr/bin:/bin"
+    $user = [Environment]::UserName
+    # sudo logs what it was asked to run and fails when $tmp/fail exists.
+    New-FakeCommand 'sudo' "echo `"`$*`" >>'$log'; if [ -e '$tmp/fail' ]; then exit 1; fi"
+    Mock Test-Systemd -ModuleName Setup { $true }
+    Set-DryRun $false
+  }
+
+  AfterEach {
+    foreach ($name in $saved.Keys) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
+    Set-DryRun $false
+    Remove-Item -Recurse -Force $tmp
+  }
+
+  It 'linger: skips when herdr-core is missing' {
+    Remove-Item "$h/.local/bin/herdr-core"
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    Get-Calls | Should -BeNullOrEmpty
+    $out | Should -Match '  - herdr-core is not installed'
+  }
+
+  It "linger: skips when systemd isn't running" {
+    Mock Test-Systemd -ModuleName Setup { $false }
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    Get-Calls | Should -BeNullOrEmpty
+    $out | Should -Match "  - systemd isn't running"
+  }
+
+  It 'linger: skips when already enabled' {
+    Write-FixtureFile "$lingerDir/$user" ''
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    Get-Calls | Should -BeNullOrEmpty
+    $out | Should -Match "  - Lingering is already enabled for $([regex]::Escape($user))"
+  }
+
+  It 'linger: enables lingering for the current user' {
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    @(Get-Calls) | Should -Be @("loginctl enable-linger -- $user")
+    $out | Should -Match "  ✓ Lingering enabled for $([regex]::Escape($user))"
+  }
+
+  It "linger: a failure warns and doesn't throw" {
+    Write-FixtureFile "$tmp/fail" ''
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    $out | Should -Match "  ! Couldn't enable lingering for $([regex]::Escape($user))"
+    $out | Should -Not -Match '✓'
+  }
+
+  It 'linger: -WhatIf changes nothing' {
+    Set-DryRun $true
+    $out = Invoke-Captured { Invoke-UserLinger -LingerDir $lingerDir }
+    Get-Calls | Should -BeNullOrEmpty
+    $out | Should -Match "  ~ sudo loginctl enable-linger -- '$([regex]::Escape($user))'"
+  }
+}

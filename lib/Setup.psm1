@@ -136,11 +136,39 @@ function Invoke-WslSshd {
   }
 }
 
+# herdr-core runs its server and agents as systemd user services, which systemd stops when the user's last
+# session ends (e.g. the Herdr app disconnects). Lingering keeps the user's service manager running without
+# a session. A failure warns instead of throwing, as herdr still works while connected.
+function Invoke-UserLinger {
+  param([string]$LingerDir = '/var/lib/systemd/linger')
+  if (-not [IO.File]::Exists((Get-HerdrCorePath))) {
+    Write-Skip 'herdr-core is not installed — skipping lingering for its agents'
+    return
+  }
+  if (-not (Test-Systemd)) {
+    Write-Skip "systemd isn't running — skipping lingering for herdr-core's agents"
+    return
+  }
+  $user = [Environment]::UserName
+  if ([IO.File]::Exists("$LingerDir/$user")) {
+    Write-Skip "Lingering is already enabled for $user"
+    return
+  }
+  try {
+    Invoke-Step "sudo loginctl enable-linger -- $(ConvertTo-ShellArgument $user)"
+  } catch {
+    Write-Warn "Couldn't enable lingering for $user — herdr-core's agents will stop when its last session ends"
+    return
+  }
+  Write-Ok "Lingering enabled for $user, so herdr-core's agents keep running after disconnecting"
+}
+
 function Invoke-SetupActions {
   Write-Status 'Running setup actions...'
   Invoke-HerdrIntegration claude
   Invoke-HerdrIntegration opencode
   Invoke-WslSshd
+  Invoke-UserLinger
 }
 
-Export-ModuleMember -Function Invoke-HerdrIntegration, Invoke-WslSshd, Invoke-SetupActions
+Export-ModuleMember -Function Invoke-HerdrIntegration, Invoke-WslSshd, Invoke-UserLinger, Invoke-SetupActions

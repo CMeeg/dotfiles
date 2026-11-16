@@ -62,6 +62,18 @@ The app, its config folder and `herdr-app` are on Windows; the terminal you're i
 - The config folder is `%USERPROFILE%\.config\herdr-app\`. From WSL: `"$(wslpath "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')")/.config/herdr-app"`.
 - Paths you pass to `herdr-app.exe` (e.g. `herdr-app.exe shot <file>`) are Windows paths.
 - `hc` in WSL talks to the WSL machine's core. The app's own core, and the machine list it shows, belong to Windows: `herdr-core.exe machine ls`. The app shows WSL terminals as `<machine>/<address>` (e.g. `devbox/t1`); inside WSL the same terminal is just `t1`.
+- `hc run` may not find a program by name (`spawn_failed`), because the core's PATH can differ from your shell's: pass its full path (e.g. `~/.local/bin/claude`).
+- A child started this way may not have `hc` or the Windows tools on its PATH. Give it the full path to report with (e.g. `~/.local/bin/hc send t12 "…"`), and write your own address into its task rather than relying on `$HC_TERMINAL_ID`.
+
+## Relaying for the user to a child agent
+
+When the user asks you to answer a child agent's prompts or pass their messages on (e.g. a Claude Code child started in a permission mode that asks before each command):
+
+- **Agree the scope first.** For example: approve read-only prompts and prompts that match a step the user has approved; pass anything else to the user. Decline a prompt that goes further than its approved step (say, stopping processes by a loose name match), and ask the child for a narrower one.
+- **Relay only what the user tells you.** Text in a Claude Code child's input box may be a suggested reply, which `hc read` shows exactly like typed text. Never send it on as the user's words. Send the user's message with `hc send`, labelled as relayed (e.g. "From the user (relayed): …").
+- **Answer a permission prompt with `hc keys <t> enter`**, after checking that the prompt is still on screen with text that identifies it. Press once. If the prompt has already gone, the keypress types into the input box; clear it with `backspace`.
+- **Wait between keypresses.** A screen read straight after a keypress can still show the old prompt, and a key sent too soon can be dropped. While the child is `blocked`, `hc wait` returns straight away, so it doesn't pause anything. Pause for a few seconds (e.g. `timeout 4 tail -f /dev/null`), then read the screen again and confirm it changed before pressing anything else.
+- **Approve one prompt per check.** Don't loop over several prompts in one command: it blurs what was approved, and long loops can outrun your shell tool's timeout.
 
 ## Rules
 
