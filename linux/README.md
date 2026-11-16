@@ -172,7 +172,7 @@ Tailscale runs on Windows, and forwards to WSL's SSH server and to the dev proxy
 
 * Caddy runs on Windows as the dev proxy and serves dev servers in WSL too: see [dev-proxy/README.md](../dev-proxy/README.md)
 * WSL doesn't install it, and the retire steps remove an apt-installed Caddy, with its apt repo and keyring
-* `apt remove` keeps `/etc/caddy` and `/var/lib/caddy`; `sudo apt purge caddy` removes them too
+* `apt remove` keeps `/etc/caddy`, `/var/lib/caddy` (with the old local certificate authority's key) and the `caddy` user, and `dpkg -l caddy` shows it as `rc`; `sudo apt purge caddy` removes them all
 * Caddy's old local certificate authority roots stay in the trust stores: see the dev proxy's clean-up step in [Moving a project onto the service](../dev-proxy/README.md#moving-a-project-onto-the-service)
 * Left on purpose, as they're small and other tools may use them: `debian-keyring`, `debian-archive-keyring` and `apt-transport-https`, installed alongside Caddy's apt repo, and `libnss3-tools` in the base packages
 * The retire steps also remove the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`) and put the kernel's default back, unless the file holds other settings

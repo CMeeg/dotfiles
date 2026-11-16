@@ -77,11 +77,11 @@ Read-only: nothing on the machine changes.
 **Files:**
 - Modify, only if something differs: `linux/README.md` (`### Caddy`), `dev-proxy/README.md` (Optional: clean up the old Caddy, "Old roots in WSL").
 
-- [ ] **Step 1: Preview.** The agent runs `pwsh ./update.ps1 -WhatIf` in WSL from the clone recorded in [Decisions](#decisions) (e.g. `wsl.exe -d Debian --cd <clone> -- pwsh ./update.ps1 -WhatIf`). Expected: exit 0, and under "Retiring removed tools..." the `~ sudo apt remove -y caddy`, `~ sudo rm -f …` and `~ sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024` lines.
-- [ ] **Step 2: Run it.** The person runs `pwsh ./update.ps1` in a WSL terminal, in the same clone, answering `sudo` and sync's prompts.
-- [ ] **Step 3: Verify.** `dpkg-query -W caddy` reports no package; the apt source, keyring and sysctl file are gone; `sysctl net.ipv4.ip_unprivileged_port_start` prints `1024`; a second `update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`.
-- [ ] **Step 4: Old roots in WSL,** if Task 1 found any: the person runs the two commands in the guide's "Old roots in WSL". Verify none are left in `/usr/local/share/ca-certificates/`, and that `curl -sI https://example.com` in WSL still works.
-- [ ] **Step 5: Checkpoint** (suggested: `retire caddy in wsl on the personal laptop`).
+- [x] **Step 1: Preview.** The agent runs `pwsh ./update.ps1 -WhatIf` in WSL from the clone recorded in [Decisions](#decisions) (e.g. `wsl.exe -d Debian --cd <clone> -- pwsh ./update.ps1 -WhatIf`). Expected: exit 0, and under "Retiring removed tools..." the `~ sudo apt remove -y caddy`, `~ sudo rm -f …` and `~ sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024` lines.
+- [x] **Step 2: Run it.** The person runs `pwsh ./update.ps1` in a WSL terminal, in the same clone, answering `sudo` and sync's prompts.
+- [x] **Step 3: Verify.** `dpkg -l caddy` shows `rc` (removed, config kept: `apt remove` keeps `/etc/caddy`, `/var/lib/caddy` and the `caddy` user, as [linux/README.md](../../../linux/README.md#caddy) says); the apt source, keyring and sysctl file are gone; `sysctl net.ipv4.ip_unprivileged_port_start` prints `1024`; a second `update.ps1 -WhatIf` prints `- Caddy is not installed` and `- The low-ports sysctl is not set`. Then, optionally, the person runs `sudo apt purge -y caddy`, after which `dpkg-query -W caddy` finds no package and the user, group and folders are gone (done here).
+- [x] **Step 4: Old roots in WSL,** if Task 1 found any: the person runs the two commands in the guide's "Old roots in WSL". Verify none are left in `/usr/local/share/ca-certificates/`, and that `curl -sI https://example.com` in WSL still works. (Not needed here: Task 1 found the folder empty. It's still empty, and `curl` returns `HTTP/2 200`.)
+- [x] **Step 5: Checkpoint** (left for the user) (suggested: `retire caddy in wsl on the personal laptop`).
 
 ### Task 3: The dev proxy on Windows
 
@@ -217,6 +217,7 @@ Filled in by Task 1.
 | Chocolatey's `caddy` / `cloudflared` | Uninstall both: `caddy` in Task 3, `cloudflared` in Task 4 | Caddy comes from the guide's zip, `cloudflared` from winget, so only one copy of each is on `PATH` |
 | How `cloudflared` is installed | winget (`Cloudflare.cloudflared`), not the MSI | The same MSI from Cloudflare's GitHub releases, hash-checked by winget, and `winget upgrade` keeps it current (it doesn't update itself on Windows). Cloudflare's downloads page lists only the MSI and exe, so the guide marks it "not in Cloudflare's docs". Decided 2026-11-16 |
 | Clone that runs `update.ps1` in WSL | WSL's own `~/.dotfiles` | Already on `feature/dev-proxy` at `c64c7da`, level with `origin`, so it has the retire steps; it's how the machine is normally updated |
+| WSL's Caddy retire step | Stays `apt remove`, not `purge` (decided 2026-11-16, Task 2) | Purge deletes `/etc/caddy`, which may hold hand edits; the Linux guide says how to purge |
 | Spike leftovers in dashboards and on the phone | All gone; start clean | The person confirmed every undo in the project plan's step 5–6 lists was done (API token, `*.laptop` record, `meeg-laptop` in Tailscale, NextDNS allowlist, the phone's Tailscale app and setting, the Herdr machine) |
 
 ## Changes on this machine
@@ -229,6 +230,8 @@ Every change made while following this plan, with its undo. Leftovers that Task 
 | 1 | Already present: WSL's `caddy` 2.11.9 package (service disabled, inactive), its apt source and keyring, and `/etc/sysctl.d/50-unprivileged-ports.conf` (`ip_unprivileged_port_start = 80`), to be retired in Task 2 | — |
 | 1 | Already present: Windows' OpenSSH server installed, `sshd` stopped and Manual, no `sshd_config` or `administrators_authorized_keys` yet; firewall rule `OpenSSH-Server-In-TCP` allowing any address (set up in Task 5) | — |
 | 1 | Already present: WSL's SSH server on `127.0.0.1:2222` with one key (the Windows Herdr app's) | — |
+| 2 | WSL: `update.ps1` retired Caddy: `apt remove caddy`, its apt source and keyring deleted, `/etc/sysctl.d/50-unprivileged-ports.conf` deleted and `ip_unprivileged_port_start` back to `1024`. The same run did the routine updates (apt upgrade, tools, pull, sync) | Re-add Caddy's apt source and keyring per [Caddy's Debian install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian), then `sudo apt install caddy`; `echo 'net.ipv4.ip_unprivileged_port_start=80' \| sudo tee /etc/sysctl.d/50-unprivileged-ports.conf && sudo sysctl --system` |
+| 2 | WSL: `sudo apt purge -y caddy`: the `caddy` user and group, `/etc/caddy` (the pre-dev-proxy `Caddyfile`), `/var/lib/caddy` (the old WSL Caddy's local authority, trusted nowhere) and `/var/log/caddy` deleted | None needed; the install above recreates the user and folders |
 
 ## Addenda
 
