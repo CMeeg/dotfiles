@@ -25,7 +25,7 @@ The files this guide copies are beside it: [Caddyfile](./Caddyfile) (the top fil
 
 The order to set a machine up in, what to check and decide first, and the one check that shows each part worked. Each part's steps are in its own section. This order was followed on a personal Windows 11 machine with WSL *(tested)*; the work and Mac rows below are *docs only*.
 
-Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are always made by the person whose machine or account it is. An agent helping them can prepare a script or command for them to run, after explaining what it does and its risks, never for a step that can't be undone; it checks the result, and never handles a token.
+Commands that need administrator rights, and changes in Cloudflare's, Tailscale's or a DNS filter's dashboard, are always made by the person whose machine or account it is. An agent helping them can prepare instructions, a script or a command for them to run, documented in full (what it does, its risks, its undo); for a step that's destructive or can't be undone (nothing would restore the earlier state, e.g. deleting a tunnel), only when they ask. It checks the result, runs nothing against the machine without their approval, read-only checks included, and never handles a token.
 
 ### Before you start
 

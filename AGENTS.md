@@ -2,6 +2,8 @@
 
 This repository contains dotfiles, setup scripts, and reference configs for setting up **Windows 11**, **WSL 2**, and **Linux (Debian on WSL)**.
 
+It's a personal dotfiles repo: write its docs for its owner, even the parts others may try. The owner's name, usernames and machines belong only in records of what was done (e.g. `docs/superpowers/plans/`) and author metadata; everything else uses placeholders such as `<user>` and `<host>`.
+
 ## Conventions
 
 - **Shell**: Bash (`.bashrc` is primary config)
