@@ -5,6 +5,8 @@ dotfiles and setup instructions and scripts for:
 * [windows](./windows/README.md)
   * [wsl](./wsl/README.md)
 * [linux](./linux/README.md)
+* [dev proxy](./dev-proxy/README.md): names for dev servers on Windows and WSL, locally and from other devices
+* [tailscale](./tailscale/README.md) (optional, personal): reach this machine, its WSL distro and its dev servers from your phone or other computers
 
 ## How the dotfiles are managed
 

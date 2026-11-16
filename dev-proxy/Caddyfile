@@ -1,0 +1,13 @@
+{
+	# Bind sites to loopback only, so dev servers aren't exposed to the network
+	default_bind 127.0.0.1 [::1]
+	# Trusting the certificate authority is its own step in README.md (step 5)
+	skip_install_trust
+	# Trust X-Forwarded-* headers only from loopback, where cloudflared connects from,
+	# so apps behind Caddy see the public scheme (https) and the real client address
+	servers {
+		trusted_proxies static 127.0.0.1/32 ::1/128
+	}
+}
+
+import sites/*.caddy

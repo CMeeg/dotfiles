@@ -150,55 +150,6 @@ function Install-Chrome {
   Write-Ok 'Google Chrome installed'
 }
 
-function Test-SystemdUnit {
-  param([string]$Check, [string]$Unit)
-  $PSNativeCommandUseErrorActionPreference = $false
-  systemctl $Check --quiet $Unit 2>$null
-  $LASTEXITCODE -eq 0
-}
-
-function Install-Caddy {
-  Write-Status 'Installing Caddy...'
-  $justInstalled = $false
-  if (Test-AptInstalled caddy) {
-    Write-Skip 'Caddy is already installed'
-  } else {
-    # Adds Caddy's apt repo so 'apt upgrade' keeps it updated
-    Invoke-Step 'sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl'
-    Invoke-Step "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
-    Invoke-Step "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null"
-    Invoke-Step 'sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list'
-    Invoke-Step 'sudo apt update'
-    Invoke-Step 'sudo apt install -y caddy'
-    Write-Ok 'Caddy installed'
-    $justInstalled = $true
-  }
-
-  # The package starts a 'caddy' systemd service serving a default page on :80,
-  # which blocks projects running 'caddy run' themselves. Upgrades keep it disabled.
-  if ($justInstalled -or (Test-SystemdUnit is-enabled caddy) -or (Test-SystemdUnit is-active caddy)) {
-    Invoke-Step 'sudo systemctl disable --now caddy'
-    Write-Ok 'Caddy systemd service disabled'
-  } else {
-    Write-Skip 'Caddy systemd service is already disabled'
-  }
-}
-
-function Enable-UnprivilegedLowPorts {
-  Write-Status 'Allowing unprivileged processes to bind ports 80 and above...'
-  # Lets 'caddy run' (or any dev server) bind 80/443 without root. Unlike setcap,
-  # this survives binary upgrades. Fine for a dev machine.
-  $conf = '/etc/sysctl.d/50-unprivileged-ports.conf'
-  $setting = 'net.ipv4.ip_unprivileged_port_start=80'
-  if ([IO.File]::Exists($conf) -and ([IO.File]::ReadAllLines($conf) -ccontains $setting)) {
-    Write-Skip 'Unprivileged port start is already set to 80'
-    return
-  }
-  Invoke-Step "echo '$setting' | sudo tee $conf >/dev/null"
-  Invoke-Step 'sudo sysctl --system >/dev/null'
-  Write-Ok 'Unprivileged port start set to 80'
-}
-
 function Install-Aspire {
   Write-Status 'Installing Aspire CLI...'
   # Only the install script's location counts, so every machine installs Aspire the same way
@@ -291,8 +242,6 @@ try {
   Install-GitKraken
   Install-Node
   Install-Chrome
-  Install-Caddy
-  Enable-UnprivilegedLowPorts
   Install-Aspire
   Install-Opencode
   Install-ClaudeCode

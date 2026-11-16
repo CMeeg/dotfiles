@@ -118,6 +118,10 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
   * `mkdir -p ~/.ssh && chmod 700 ~/.ssh`
   * `cat /mnt/c/Users/<windows user>/.ssh/id_ed25519_wsl.pub >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys`
 
+### Tailscale (optional)
+
+Tailscale runs on Windows, and forwards to WSL's SSH server and to the dev proxy: see [tailscale/README.md](../tailscale/README.md).
+
 ### Dotfiles (base)
 
 * Clone the repo
@@ -166,20 +170,12 @@ The [Herdr desktop app](https://herdr.dev/guide/) on Windows can manage agents i
 
 ### Caddy
 
-* [Install Caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)
-  * `sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl`
-  * `curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg`
-  * `curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list`
-  * `sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg /etc/apt/sources.list.d/caddy-stable.list`
-  * `sudo apt update && sudo apt install -y caddy`
-* Disable the bundled systemd service — it serves a default page on port 80, which blocks projects that run `caddy run` themselves
-  * `sudo systemctl disable --now caddy`
-* Allow unprivileged processes to bind ports 80 and above, so `caddy run` can listen on 80/443 as your own user
-  * `echo 'net.ipv4.ip_unprivileged_port_start=80' | sudo tee /etc/sysctl.d/50-unprivileged-ports.conf`
-  * `sudo sysctl --system`
-* Updates come through `sudo apt upgrade`
-
-> N.B. The sysctl is used instead of `sudo setcap cap_net_bind_service=+ep $(which caddy)` because `setcap` is stored on the binary and lost whenever an upgrade replaces it. The sysctl applies machine-wide, which is fine for a dev machine.
+* Caddy runs on Windows as the dev proxy and serves dev servers in WSL too: see [dev-proxy/README.md](../dev-proxy/README.md)
+* WSL doesn't install it, and the retire steps remove an apt-installed Caddy, with its apt repo and keyring
+* `apt remove` keeps `/etc/caddy`, `/var/lib/caddy` (with the old local certificate authority's key) and the `caddy` user, and `dpkg -l caddy` shows it as `rc`; `sudo apt purge caddy` removes them all
+* Caddy's old local certificate authority roots stay in the trust stores: see the dev proxy's clean-up step in [Moving a project onto the service](../dev-proxy/README.md#moving-a-project-onto-the-service)
+* Left on purpose, as they're small and other tools may use them: `debian-keyring`, `debian-archive-keyring` and `apt-transport-https`, installed alongside Caddy's apt repo, and `libnss3-tools` in the base packages
+* The retire steps also remove the low-ports sysctl (`/etc/sysctl.d/50-unprivileged-ports.conf`) and put the kernel's default back, unless the file holds other settings
 
 ### Aspire CLI
 

@@ -1,0 +1,11 @@
+# A name for any port on the allowed list: 5173.port.localhost reaches 127.0.0.1:5173.
+# Keep the list to ports any *.port.localhost page may reach, and never add 2019 (the admin API).
+*.port.localhost {
+	@allowed host 5173.port.localhost 8080.port.localhost
+	handle @allowed {
+		reverse_proxy 127.0.0.1:{labels.2}
+	}
+	handle {
+		respond 403
+	}
+}

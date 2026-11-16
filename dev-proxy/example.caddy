@@ -1,0 +1,12 @@
+# A template for a project's sites file: copy it into sites/ as <project>.caddy, then change
+# the names and the upstream port.
+
+myapp.localhost {
+	reverse_proxy 127.0.0.1:3000
+}
+
+# The public name, reached through the person's tunnel. Plain HTTP on its own port, as the tunnel
+# brings HTTPS and Caddy needs no public certificate for it.
+http://person-myapp.example.com:5399 {
+	reverse_proxy 127.0.0.1:3000
+}

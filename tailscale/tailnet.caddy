@@ -1,0 +1,26 @@
+# The machine's tailnet names, <app>.<machine>.<personal domain>, reached from your own devices
+# through Tailscale. Copy it into sites/, then change the domain and add a handle for each app.
+#
+# No `bind`: the site sits on loopback through default_bind, and Tailscale forwards the tailnet's
+# port 443 to it. A site bound to the tailnet address stops Caddy starting while Tailscale is down.
+*.laptop.example.net {
+	tls {
+		# The Cloudflare API token, read from a file in the service's data folder, which only
+		# administrators and the service can read, so it stays out of the service's environment
+		dns cloudflare {file.C:/Windows/System32/config/systemprofile/AppData/Roaming/Caddy/cloudflare.token}
+
+		# Optional: only when a DNS filter blocks direct DNS on port 53, so Caddy can't check that
+		# the challenge record has spread and leaves that check to Let's Encrypt
+		# propagation_delay 30s
+		# propagation_timeout -1
+	}
+
+	@myapp host myapp.laptop.example.net
+	handle @myapp {
+		reverse_proxy 127.0.0.1:3000
+	}
+
+	handle {
+		respond 404
+	}
+}

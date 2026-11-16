@@ -153,6 +153,8 @@ Describe 'retire steps' {
       New-RepoLink "$h/.plainrc" 'plainrc'
       New-RepoLink "$h/.agents/skills/x/SKILL.md" 'agents/.agents/skills/x/SKILL.md'
       New-Item -ItemType Directory -Path "$h/.bun", "$h/.opendesign" | Out-Null
+      Mock Invoke-RetireCaddy -ModuleName Retire {}
+      Mock Invoke-RetireUnprivilegedLowPorts -ModuleName Retire {}
       Invoke-Captured { Invoke-RetireSteps } | Out-Null
       $out = Invoke-Captured { Invoke-RetireSteps }
       $out | Should -Match '  - '
@@ -268,6 +270,97 @@ echo '[]'
       $out = Invoke-Captured { Invoke-RetireStatuslinesMods }
       Get-Content $log | Where-Object { $_ -match 'uninstall|remove' } | Should -BeNullOrEmpty
       $out | Should -Match '  - The statuslines mods are not installed'
+    }
+
+    It 'Caddy: removes the package, its apt source and keyring' {
+      New-FakeCommand 'dpkg-query' 'echo "install ok installed"'
+      Write-FixtureFile "$tmp/caddy-stable.list" "deb x`n"
+      Write-FixtureFile "$tmp/caddy.gpg" 'k'
+      $out = Invoke-Captured { Invoke-RetireCaddy -AptSource "$tmp/caddy-stable.list" -Keyring "$tmp/caddy.gpg" }
+      $calls = Get-Content $log
+      $calls | Should -Contain 'sudo apt remove -y caddy'
+      $calls | Should -Contain "sudo rm -f $tmp/caddy-stable.list $tmp/caddy.gpg"
+      $out | Should -Match '✓ Caddy removed'
+    }
+
+    It 'Caddy: removes a leftover apt source and keyring when the package is gone' {
+      Write-FixtureFile "$tmp/caddy-stable.list" "deb x`n"
+      Invoke-Captured { Invoke-RetireCaddy -AptSource "$tmp/caddy-stable.list" -Keyring "$tmp/caddy.gpg" } | Out-Null
+      $calls = @(Get-Content $log)
+      $calls | Should -Not -Contain 'sudo apt remove -y caddy'
+      $calls | Should -Contain "sudo rm -f $tmp/caddy-stable.list"
+    }
+
+    It 'Caddy: skips when not installed' {
+      $out = Invoke-Captured { Invoke-RetireCaddy -AptSource "$tmp/none.list" -Keyring "$tmp/none.gpg" }
+      "$log" | Should -Not -Exist
+      $out | Should -Match '  - Caddy is not installed'
+    }
+
+    It 'Caddy: dry-run changes nothing' {
+      New-FakeCommand 'dpkg-query' 'echo "install ok installed"'
+      Write-FixtureFile "$tmp/caddy-stable.list" "deb x`n"
+      Set-DryRun $true
+      $out = Invoke-Captured { Invoke-RetireCaddy -AptSource "$tmp/caddy-stable.list" -Keyring "$tmp/caddy.gpg" }
+      "$log" | Should -Not -Exist
+      "$tmp/caddy-stable.list" | Should -Exist
+      $out | Should -Match '~ sudo apt remove -y caddy'
+    }
+
+    It 'Invoke-RetireSteps runs the Caddy step' {
+      Mock Invoke-RetireCaddy -ModuleName Retire {}
+      Mock Invoke-RetireUnprivilegedLowPorts -ModuleName Retire {}
+      Invoke-Captured { Invoke-RetireSteps } | Out-Null
+      Should -Invoke Invoke-RetireCaddy -ModuleName Retire -Times 1 -Exactly
+    }
+
+    It 'low ports: removes the file and restores the default now' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start=80`n"
+      $out = Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" }
+      $calls = Get-Content $log
+      $calls | Should -Contain "sudo rm -f $tmp/50-unprivileged-ports.conf"
+      $calls | Should -Contain 'sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024'
+      $out | Should -Match '✓ Low-ports sysctl removed'
+    }
+
+    It 'low ports: removes a file with comments and blank lines around the setting' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "# ports`n`n  net.ipv4.ip_unprivileged_port_start=80  `n"
+      Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" } | Out-Null
+      Get-Content $log | Should -Contain "sudo rm -f $tmp/50-unprivileged-ports.conf"
+    }
+
+    It 'low ports: removes a file with spaces around the equals sign' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start = 80`n"
+      Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" } | Out-Null
+      Get-Content $log | Should -Contain "sudo rm -f $tmp/50-unprivileged-ports.conf"
+    }
+
+    It 'low ports: leaves a file with other settings' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start=80`nvm.swappiness=10`n"
+      $out = Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" }
+      "$log" | Should -Not -Exist
+      $out | Should -Match '  ! .*50-unprivileged-ports\.conf has other settings — left in place'
+    }
+
+    It 'low ports: skips when not set' {
+      $out = Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/none.conf" }
+      "$log" | Should -Not -Exist
+      $out | Should -Match '  - The low-ports sysctl is not set'
+    }
+
+    It 'low ports: dry-run changes nothing' {
+      Write-FixtureFile "$tmp/50-unprivileged-ports.conf" "net.ipv4.ip_unprivileged_port_start=80`n"
+      Set-DryRun $true
+      $out = Invoke-Captured { Invoke-RetireUnprivilegedLowPorts -ConfPath "$tmp/50-unprivileged-ports.conf" }
+      "$log" | Should -Not -Exist
+      $out | Should -Match '~ sudo rm -f'
+    }
+
+    It 'Invoke-RetireSteps runs the low-ports step' {
+      Mock Invoke-RetireCaddy -ModuleName Retire {}
+      Mock Invoke-RetireUnprivilegedLowPorts -ModuleName Retire {}
+      Invoke-Captured { Invoke-RetireSteps } | Out-Null
+      Should -Invoke Invoke-RetireUnprivilegedLowPorts -ModuleName Retire -Times 1 -Exactly
     }
   }
 }

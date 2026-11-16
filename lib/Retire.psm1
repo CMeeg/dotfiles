@@ -195,6 +195,45 @@ function Invoke-RetireStatuslinesMods {
   Write-Ok 'statuslines mods and marketplace removed — the session-status local plugin replaces them'
 }
 
+# Caddy runs as a Windows service for the dev proxy, so the apt package goes, with its apt repo and keyring.
+function Invoke-RetireCaddy {
+  param(
+    [string]$AptSource = '/etc/apt/sources.list.d/caddy-stable.list',
+    [string]$Keyring = '/usr/share/keyrings/caddy-stable-archive-keyring.gpg'
+  )
+  $installed = Test-AptInstalled 'caddy'
+  $leftovers = @($AptSource, $Keyring | Where-Object { [IO.File]::Exists($_) })
+  if (-not $installed -and -not $leftovers.Count) {
+    Write-Skip 'Caddy is not installed'
+    return
+  }
+  if ($installed) { Invoke-Step 'sudo apt remove -y caddy' }
+  if ($leftovers.Count) {
+    Invoke-Step "sudo rm -f $(($leftovers | ForEach-Object { ConvertTo-ShellArgument $_ }) -join ' ')"
+  }
+  Write-Ok 'Caddy removed — the dev proxy runs it on Windows (see dev-proxy/README.md)'
+}
+
+# Nothing in WSL binds ports 80 or 443, as Caddy runs on Windows.
+function Invoke-RetireUnprivilegedLowPorts {
+  param([string]$ConfPath = '/etc/sysctl.d/50-unprivileged-ports.conf')
+  if (-not [IO.File]::Exists($ConfPath)) {
+    Write-Skip 'The low-ports sysctl is not set'
+    return
+  }
+  # sysctl.d allows spaces around the equals sign
+  $settings = @([IO.File]::ReadAllLines($ConfPath) | ForEach-Object { $_.Trim() -replace '\s*=\s*', '=' } |
+      Where-Object { $_ -and -not $_.StartsWith('#') })
+  if ($settings.Count -ne 1 -or $settings[0] -cne 'net.ipv4.ip_unprivileged_port_start=80') {
+    Write-Warn "$ConfPath has other settings — left in place"
+    return
+  }
+  Invoke-Step "sudo rm -f $(ConvertTo-ShellArgument $ConfPath)"
+  # 1024 is the kernel's default
+  Invoke-Step 'sudo sysctl -w net.ipv4.ip_unprivileged_port_start=1024'
+  Write-Ok 'Low-ports sysctl removed: ports below 1024 need root again'
+}
+
 function Invoke-RetireSteps {
   Write-Status 'Retiring removed tools...'
   Invoke-RetireStow
@@ -203,7 +242,10 @@ function Invoke-RetireSteps {
   Invoke-RetireSuperpowersClone
   Invoke-RetireAspireDotnetTool
   Invoke-RetireStatuslinesMods
+  Invoke-RetireCaddy
+  Invoke-RetireUnprivilegedLowPorts
 }
 
 Export-ModuleMember -Function Invoke-RetireStow, Invoke-RetireOpenDesign, Invoke-RetireBun, Invoke-RetireSuperpowersClone,
-  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireSteps, Test-StowLinksPresent
+  Invoke-RetireAspireDotnetTool, Invoke-RetireStatuslinesMods, Invoke-RetireCaddy, Invoke-RetireUnprivilegedLowPorts,
+  Invoke-RetireSteps, Test-StowLinksPresent
